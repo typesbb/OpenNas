@@ -1,0 +1,488 @@
+﻿  姝ｅ湪纭畾瑕佽繕鍘熺殑椤圭洰鈥?
+  鎵€鏈夐」鐩潎鏄渶鏂扮殑锛屾棤娉曡繕鍘熴€?
+  NSynology -> C:\Users\types\source\repos\OpenNas\NSynology\bin\Debug\net8.0\NSynology.dll
+  NSynology.Tests -> C:\Users\types\source\repos\OpenNas\NSynology.Tests\bin\Debug\net8.0\NSynology.Tests.dll
+C:\Users\types\source\repos\OpenNas\NSynology.Tests\bin\Debug\net8.0\NSynology.Tests.dll (.NETCoreApp,Version=v8.0)鐨勬祴璇曡繍琛?
+VSTest 鐗堟湰 17.13.0 (x64)
+
+姝ｅ湪鍚姩娴嬭瘯鎵ц锛岃绋嶅€?..
+鎬诲叡 1 涓祴璇曟枃浠朵笌鎸囧畾妯″紡鐩稿尮閰嶃€?
+C:\Users\types\source\repos\OpenNas\NSynology.Tests\bin\Debug\net8.0\NSynology.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.15)
+[xUnit.net 00:00:00.08]   Discovering: NSynology.Tests
+[xUnit.net 00:00:00.11]   Discovered:  NSynology.Tests
+[xUnit.net 00:00:00.11]   Starting:    NSynology.Tests
+[xUnit.net 00:00:01.92]   Finished:    NSynology.Tests
+  宸查€氳繃 NSynology.Tests.OfficialAppSessionProbeTests.Probe_official_post_vs_get_after_login [1 s]
+  鏍囧噯杈撳嚭娑堟伅:
+ [NSynology #1] >>> POST https://192.168.0.2:5001/webapi/query.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 50
+Request-Body:
+ api=SYNO.API.Info&method=query&version=1&query=all
+ [NSynology #1] <<< 200 OK (147ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"SYNO.AI.Activation":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.App.String":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Completion":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Config":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Deid.Matcher":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Deid.Recognizer":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Deid.Recognizer.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Deid.Regex":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Deid.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Metrics":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Permission":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Policy.Application":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Presidio":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Presidio.Memory.Info":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Presidio.Setting":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Presidio.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Proxy.Provider":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Proxy.Provider.Azure.Deployment":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Proxy.Provider.Bedrock.Model":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Proxy.Provider.OpenAICompat.Model":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Resource.Config":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Admin.Log":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Admin.Log.User":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.APIIntegration":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.Action":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.Count":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.Image":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.RetentionRate":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.Setting":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.Tokens":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Statistics.Request.Log.User":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Thread":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AI.Welcome.Wizard":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AME.Config":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AME.License":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AME.Pack":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AME.Payment":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Auth":{"maxVersion":7,"minVersion":1,"path":"entry.cgi"},"SYNO.API.Auth.Key":{"maxVersion":7,"minVersion":7,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Auth.Key.Code":{"maxVersion":7,"minVersion":7,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Auth.RedirectURI":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Auth.Type":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Auth.UIConfig":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Encryption":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.Info":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.API.OTP":{"maxVersion":1,"minVersion":1,"path":"otp.cgi"},"SYNO.ActiveInsight.CompleteCollection":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.ActiveInsight.FileActivity":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.ActiveInsight.License":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.ActiveInsight.Package":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.ActiveInsight.RelationManager":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.ActiveInsight.Setting":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AudioPlayer":{"maxVersion":2,"minVersion":2,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.AudioPlayer.Stream":{"maxVersion":2,"minVersion":2,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Auth.ForgotPwd":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Auth.RescueEmail":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.App":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.App.Backup":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.App.Restore":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.Config.AutoBackup":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.Config.Backup":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.Config.Restore":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Backup.Service.NetworkBackup":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Account":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Bucket":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Conf":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.File":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Share":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Share.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Transform":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.C2FS.Utils":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.ACL":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.ActionPriv":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.ActionPriv.Role":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppNotify":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPortal":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPortal.AccessControl":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPortal.Config":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPortal.ReverseProxy":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPriv":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPriv.App":{"maxVersion":3,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.AppPriv.Rule":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.BackgroundTask":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Backup.ED":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.BandwidthControl":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.BandwidthControl.Protocol":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.BandwidthControl.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Cache":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Identity":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Info":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Policy":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.ServerInfo":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Task":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CMS.Token":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.CRT":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.CSR":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.LetsEncrypt":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.LetsEncrypt.Account":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.Service":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Certificate.Tencent":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.CurrentConnection":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.Ethernet":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.ExtIP":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.Provider":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.Record":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.Synology":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DDNS.TWNIC":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DSMNotify":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DSMNotify.MailContent":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DSMNotify.Strings":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DataCollect":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DataCollect.Application":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.Defs":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.Initdata":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.JSUIString":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.PersonalUpdater":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.SessionData":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.Timeout":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.UIString":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Desktop.Upgrade":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.Azure.SSO":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.Domain":{"maxVersion":3,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.Domain.Conf":{"maxVersion":3,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.Domain.Schedule":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.Domain.Trust":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP.BaseDN":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP.Login.Notify":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP.Profile":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP.Refresh":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.LDAP.User":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.OIDC.SSO":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.CAS":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.IWA":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.Profile":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.SAML":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.SAML.Metadata":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.SAML.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.Setting":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.Status":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.SSO.utils":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.Directory.WebSphere.SSO":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.Common":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.Debug":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.Domain":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.DomainJoin":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.DomainService":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.DomainValidation":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.LDAP":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DirectoryServiceCheck.Progress":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.DisableAdmin":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.EW.Info":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.EventScheduler":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.EventScheduler.Root":{"maxVersion":1,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.ExternalDevice.Bluetooth":{"maxVersion":2,"minVersion":1,"path":"entry.cgi","requestFormat":"JSON"},"SYNO.Core.ExternalDevice.Bluetooth.Device":{"maxVersion":1,"minVersion":1,"path":... (truncated, total 98518 chars)
+ [NSynology #2] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 48
+Request-Body:
+ api=SYNO.API.Encryption&method=getinfo&version=1
+ [NSynology #2] <<< 200 OK (11ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"cipherkey":"__cIpHeRtExT","ciphertoken":"__cIpHeRtOkEn","public_key":"MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA6YVaz6tdIX+whGH/yd1S36jos9IOZi/BBg4gW8TgUoNj2klPo6SID1O5lxqWIA/nCszZ6mnWeKYOUXL765fLtOTRR/OomhqlTK9RoOT475x/OnaBLHTeXaRda99NUWqNCRZLwm9VNpo3ngdQ2EtpbUiG2UEwWpOmV1zyjOaSbGAs+Act8GTwwTMRFsqWlMwmWwqQrrr+2ipr0THBYZY9JxizR2BBR5mcZ9GlK/lrvbWznCeZscaB9p+j3wGbupvmix//Cc+ZL3y3P3fZg5SEdrq3ToicJ7DY9eqWREnH94GfNOxcCWppbK2T8PpCz7por00r/srfXui+WOzMjFt/Oylxdu8G+f3nos/8o1BEkl78wK50RcRZXIaYMdfQafFMtohSWCWxiW3ORfKE/QN0x7kXAqxU2/Cb9nimQeralo73Ye4TFoYp11RaQQLNWfTM6pY2TOHR0QCHE2uhzDY3nTW2Y9Er/C/XwtMJLf1prLcTlDmeuAZgkULAMSEMwhJ5NC1ogWNP/cNvPRlJfP9ujMwNh+3cE0V1i8RZcHRyUqqvfYqSI7FzFvwQmnuVpGHRb0u/Z9tb2MgU+rQiPQ4ryZtv6PbCuxLNzoWsUMvFr1vrWwYBK/Rq5GktFj1byLwdKkKEDkBJlLXwB5qutDLuK6IqgWw0AyoO88fggmZlD3sCAwEAAQ==","server_time":1780814743},"success":true}
+ [NSynology #3] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 1136
+Request-Body:
+ __cIpHeRtExT=%7B%22rsa%22%3A%22Y2H%2F3BWf6pe%2FdfYeoVFrZf5CgCSKSzCuBh3XoyNuZVMqDk8A2SIG4Lqmqnbyk8Ns%2F1nVqGvsOPwh2I41MpBydvBNLJa%5Cu002B4HndyZLEPNK2HQRWEVQjnwOet9B1hVUfVfwILwzLMLZocPNgd55TtYMByjQHfj66r30VdidNZ0lhoWS7cTSwNvveNW%5Cu002Ba7ZjcuUJrlEEo6Vp%2F1Fqm%2FfjczC1%5Cu002BnR0GiGsH5%2FBNKYfTrCammqSmtQkVFO7Y7xN7wIabTBpPDNJdBx5sSj1%2FWRIjCUXrvVyi%2Fdy4JJ%2FLM1jxLipoBQsDlmAcQ7bCkiRBi0Z2VbfOa2C5XmQ7dno8nHWKQqMKgexNzv0A9sKQc5JCVyDfo1FHCyPNqm6sIN3WZ1ibRNk4cyDFj8ErVIZ%2F%5Cu002BsY8eMaj02GOPvDEWTB%2FyRfjbJJiUZ9lxsXxnu8BV5gbWbCzpJanJnX4CKhFlapMfiPgrOgf2qp7fXKl6r7vr3IhCv%2FWMY6PmLDGbX5DWOmxicsbLOJekHA779IF%5Cu002B05CyizbUjwcVn6Fj1HB5K1XOtG9pphAtbbxDQUS2CH2Iv990RMnbiyVq9E0QOfazAlkmEGyjvKWgTbsldm68sBJ%2FOabwoLFtYGxWmVhMXdpSR9Moin2sQ0iY8bpri0CiU29cLq7eO5CWsWXhQNSSKoYIAkw10w6VDI%3D%22%2C%22aes%22%3A%22U2FsdGVkX19mzRmvwONEH6UqMca%2Fn7HjRiHp9kgK9tN8MG9zPrX%5Cu002BZYXyVSO9z3CUEDyH61VYdp2NWfH7F%2FR3BDFuW%2F44XXMC7kGeFa%5Cu002BTc8K%5Cu002BuBYSqnRY2TeUz%5Cu002BkMR%5Cu002BSkU7%2FHAHOitfiUIR1T942Wu3LBUY5eWBbZMw7uRLiWhAN37HM%5Cu002Bip7%2FyShbJzS0IV7zZq5SxRwQGVnbDYlaLXi3P7x8AKj4vFhuw1m8IImKOUmNFOM9GyYiMnAAGbHESXxF%22%7D&client_time=1780814743
+ [NSynology #3] <<< 200 OK (569ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   P3P: CP="IDC DSP COR ADM DEVi TAIi PSA PSD IVAi IVDi CONi HIS OUR IND CNT"
+   X-Content-Type-Options: nosniff
+   X-Content-Type-Options: nosniff
+   X-SYNO-TOKEN: NfRSozCpQcRpE
+   X-XSS-Protection: 1; mode=block
+   X-XSS-Protection: 1; mode=block
+   Set-Cookie: id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg;expires=Sun, 14-Jun-2026 06:45:43 GMT;max-age=604800;path=/;HttpOnly
+   Set-Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw;expires=Mon, 07-Jun-2027 06:45:43 GMT;max-age=31536000;path=/;HttpOnly
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"account":"yue","device_id":"NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw","ik_message":"","is_portal_port":false,"sid":"***","synotoken":"***"},"success":true}
+ [NSynology #4] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 62
+Request-Body:
+ api=SYNO.Foto.Setting.MobileCompatibility&method=get&version=1
+ [NSynology #4] <<< 200 OK (6ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ [NSynology #5] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 467
+Request-Body:
+ api=SYNO.Entry.Request&method=request&version=1&compound=%5B%7B%22api%22%3A%22SYNO.Foto.Setting.User%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%2C%7B%22api%22%3A%22SYNO.Foto.Setting.TeamSpace%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%2C%7B%22api%22%3A%22SYNO.Foto.UserInfo%22%2C%22method%22%3A%22me%22%2C%22version%22%3A1%7D%2C%7B%22api%22%3A%22SYNO.Foto.Setting.Admin%22%2C%22method%22%3A%22get%22%2C%22version%22%3A1%7D%5D&stop_when_error=false
+ [NSynology #5] <<< 200 OK (12ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"has_fail":true,"result":[{"api":"SYNO.Foto.Setting.User","error":{"code":119},"method":"get","success":false,"version":1},{"api":"SYNO.Foto.Setting.TeamSpace","error":{"code":119},"method":"get","success":false,"version":1},{"api":"SYNO.Foto.UserInfo","error":{"code":119},"method":"me","success":false,"version":1},{"api":"SYNO.Foto.Setting.Admin","error":{"code":119},"method":"get","success":false,"version":1}]},"success":true}
+ [NSynology #6] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 49
+Request-Body:
+ api=SYNO.Foto.Setting.Wizard&method=get&version=1
+ [NSynology #6] <<< 200 OK (5ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ [NSynology #7] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 54
+Request-Body:
+ api=SYNO.Foto.Browse.Diff&method=get_version&version=5
+ [NSynology #7] <<< 200 OK (6ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ [NSynology #8] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 50
+Request-Body:
+ api=SYNO.Foto.Browse.Category&method=get&version=1
+ [NSynology #8] <<< 200 OK (3ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ [NSynology #9] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 210
+Request-Body:
+ api=SYNO.Foto.Browse.Album&method=list&version=4&offset=0&limit=1000&category=%22all%22&additional=%5B%22thumbnail%22%2C%22sharing_info%22%2C%22access_permission%22%2C%22provider_count%22%5D&accept_language=chs
+ [NSynology #9] <<< 200 OK (9ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:43 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ encrypted-login=True
+ [NSynology #10] >>> GET https://192.168.0.2:5001/webapi/entry.cgi?api=SYNO.API.Auth&version=6&method=login&account=yue&passwd=***&enable_syno_token=yes&format=cookie&stay_login=yes
+ Request-Headers:
+   (none)
+ Request-Body:
+ (none)
+ [NSynology #10] <<< 200 OK (550ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   P3P: CP="IDC DSP COR ADM DEVi TAIi PSA PSD IVAi IVDi CONi HIS OUR IND CNT"
+   X-Content-Type-Options: nosniff
+   X-Content-Type-Options: nosniff
+   X-SYNO-TOKEN: Oeedif1YXEnvA
+   X-XSS-Protection: 1; mode=block
+   X-XSS-Protection: 1; mode=block
+   Set-Cookie: id=XMhe-6q0DV8xLfghuZ0gyFv8TuywuZLFlcq8oIzLAewL5C0Asb4HWv_xZUTlxUVkMkLrSrb5NM1L4x-qcjWIJM;expires=Sun, 14-Jun-2026 06:45:44 GMT;max-age=604800;path=/;HttpOnly
+   Set-Cookie: did=_20LvPDfUxy6HMnl-4OjPTqQoKSIl3Y-WelGf4ewxX5yNlsLK7O8odZ0SaxLw6wrICgVnhy01OOhb_rOOfryXw;expires=Mon, 07-Jun-2027 06:45:44 GMT;max-age=31536000;path=/;HttpOnly
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"did":"_20LvPDfUxy6HMnl-4OjPTqQoKSIl3Y-WelGf4ewxX5yNlsLK7O8odZ0SaxLw6wrICgVnhy01OOhb_rOOfryXw","is_portal_port":false,"sid":"***","synotoken":"***"},"success":true}
+ [NSynology #11] >>> GET https://192.168.0.2:5001/webapi/entry.cgi?api=SYNO.API.Auth&version=6&method=token&_sid=***&SynoToken=***
+ Request-Headers:
+   (none)
+ Request-Body:
+ (none)
+ [NSynology #11] <<< 200 OK (127ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":400},"success":false}
+ [NSynology #12] >>> GET https://192.168.0.2:5001/webapi/entry.cgi?api=SYNO.API.Auth&version=6&method=token&_sid=***&SynoToken=***
+ Request-Headers:
+   (none)
+ Request-Body:
+ (none)
+ [NSynology #12] <<< 200 OK (124ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":400},"success":false}
+ plain-dsm-login=True
+ [NSynology #13] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=_20LvPDfUxy6HMnl-4OjPTqQoKSIl3Y-WelGf4ewxX5yNlsLK7O8odZ0SaxLw6wrICgVnhy01OOhb_rOOfryXw; id=XMhe-6q0DV8xLfghuZ0gyFv8TuywuZLFlcq8oIzLAewL5C0Asb4HWv_xZUTlxUVkMkLrSrb5NM1L4x-qcjWIJM
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 207
+Request-Body:
+ api=SYNO.Foto.Browse.Album&method=list&version=4&offset=0&limit=5&category=%22all%22&additional=%5B%22thumbnail%22%2C%22sharing_info%22%2C%22access_permission%22%2C%22provider_count%22%5D&accept_language=chs
+ [NSynology #13] <<< 200 OK (8ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ plain-login POST Browse: {"error":{"code":119},"success":false}
+ cookie-header=did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ [NSynology #14] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 62
+Request-Body:
+ api=SYNO.Foto.Setting.MobileCompatibility&method=get&version=1
+ [NSynology #14] <<< 200 OK (6ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ POST MobileCompatibility: {"error":{"code":119},"success":false}
+ [NSynology #15] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 207
+Request-Body:
+ api=SYNO.Foto.Browse.Album&method=list&version=4&offset=0&limit=5&category=%22all%22&additional=%5B%22thumbnail%22%2C%22sharing_info%22%2C%22access_permission%22%2C%22provider_count%22%5D&accept_language=chs
+ [NSynology #15] <<< 200 OK (7ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ POST Browse.Album list: {"error":{"code":119},"success":false}
+ [NSynology #16] >>> GET https://192.168.0.2:5001/webapi/entry.cgi?api=SYNO.Foto.Browse.Album&version=4&method=list&offset=0&limit=5&category="all"&_sid=***&SynoToken=***
+ Request-Headers:
+   (none)
+ Request-Body:
+ (none)
+ [NSynology #16] <<< 200 OK (36ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   Set-Cookie: id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg;expires=Sun, 14-Jun-2026 06:45:44 GMT;max-age=604800;path=/;HttpOnly
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"data":{"list":[{"cant_migrate_condition":{},"condition":{},"create_time":1780225388,"end_time":0,"freeze_album":false,"id":17,"item_count":0,"name":"aa","owner_user_id":3,"passphrase":"","shared":false,"sort_by":"default","sort_direction":"default","start_time":0,"temporary_shared":false,"type":"normal","version":30352},{"cant_migrate_condition":{},"condition":{},"create_time":1780132658,"end_time":1780798407,"freeze_album":false,"id":15,"item_count":3,"name":"laoba","owner_user_id":3,"passphrase":"","shared":false,"sort_by":"default","sort_direction":"default","start_time":1704789136,"temporary_shared":false,"type":"normal","version":30441}]},"success":true}
+ GET Browse.Album list: {"data":{"list":[{"cant_migrate_condition":{},"condition":{},"create_time":1780225388,"end_time":0,"freeze_album":false,"id":17,"item_count":0,"name":"aa","owner_user_id":3,"passphrase":"","shared":false,"sort_by":"default","sort_direction":"default","start_time":0,"temporary_shared":false,"type":"normal","version":30352},{"cant_migrate_condition":{},"condition":{},"create_time":1780132658,"end_time":1780798407,"freeze_album":false,"id":15,"item_count":3,"name":"laoba","owner_user_id":3,"passphrase":"","shared":false,"sort_by":"default","sort_direction":"default","start_time":1704789136,"temporary_shared":false,"type":"normal","version":30441}]},"success":true}
+ [NSynology #17] >>> POST https://192.168.0.2:5001/webapi/entry.cgi
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Accept-Encoding: gzip
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 207
+Request-Body:
+ api=SYNO.Foto.Browse.Album&method=list&version=4&offset=0&limit=5&category=%22all%22&additional=%5B%22thumbnail%22%2C%22sharing_info%22%2C%22access_permission%22%2C%22provider_count%22%5D&accept_language=chs
+ [NSynology #17] <<< 200 OK (5ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ POST Browse.Album (cookie only): already above
+ [NSynology #18] >>> POST https://192.168.0.2:5001/webapi/entry.cgi?_sid=***
+ Request-Headers:
+   User-Agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+   Cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=kAd60yTQx6mz8TkQVaZqnm-lAAwjNoHdNJrlEi_6pzIExYS8qusU4_OIpjJJvCcQ0Si--JL1FJi0BuKeitkLzg
+ Content-Headers:
+  Content-Type: application/x-www-form-urlencoded
+   Content-Length: 84
+Request-Body:
+ api=SYNO.Foto.Browse.Album&method=list&version=4&offset=0&limit=5&category=%22all%22
+ [NSynology #18] <<< 200 OK (5ms)
+ Response-Headers:
+   Server: nginx
+   Date: Sun, 07 Jun 2026 06:45:44 GMT
+   Transfer-Encoding: chunked
+   Connection: keep-alive
+   Keep-Alive: timeout=20
+   x-request-error: unauth
+   X-Content-Type-Options: nosniff
+   X-XSS-Protection: 1; mode=block
+   Cache-Control: no-store, must-revalidate, no-cache, max-age=0
+   Pragma: no-cache
+ Content-Headers:
+  Content-Type: application/json; charset=utf-8
+Response-Body:
+ {"error":{"code":119},"success":false}
+ POST Browse.Album (_sid+cookie): {"error":{"code":119},"success":false}
+
+
+
+娴嬭瘯杩愯鎴愬姛銆?
+娴嬭瘯鎬绘暟: 1
+     閫氳繃鏁? 1
+鎬绘椂闂? 2.5777 绉?
+
+鏈夊彲鐢ㄧ殑宸ヤ綔璐熻浇鏇存柊銆傛湁鍏宠缁嗕俊鎭紝璇疯繍琛?`dotnet workload list`銆?

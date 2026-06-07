@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OpenNas.Views.BackupRulesView">
+    <VerticalStackLayout Padding="4,0" Spacing="8">
+        <Button Text="+ 添加备份规则" Clicked="OnAddRuleClicked" />
+        <CollectionView x:Name="RulesView">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="12" Margin="0,4" Stroke="{AppThemeBinding Light=#DDD, Dark=#555}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding LocalAlbumName}" FontAttributes="Bold" />
+                            <Label Text="{Binding RemoteAlbumName, StringFormat='→ {0}'}" FontSize="13" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </VerticalStackLayout>
+</ContentView>

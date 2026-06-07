@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Session SID="1415" ui-shared-id="1415" BitFlags="300">
+  <SessionTimers Version="2.0" ClientConnected="2026-06-07T11:44:43.2615631+08:00" ClientBeginRequest="2026-06-07T11:44:43.262288+08:00" GotRequestHeaders="2026-06-07T11:44:43.2623405+08:00" ClientDoneRequest="2026-06-07T11:44:43.2623638+08:00" GatewayTime="0" DNSTime="0" TCPConnectTime="2" ServerConnected="2026-06-07T11:44:43.2647474+08:00" ConnectionEstablishedOn="2026-06-07T11:44:43.2647484+08:00" FiddlerBeginRequest="2026-06-07T11:44:43.2647566+08:00" ServerGotRequest="2026-06-07T11:44:43.2647628+08:00" ServerBeginResponse="2026-06-07T11:44:43.2647628+08:00" GotResponseHeaders="2026-06-07T11:44:43.2647628+08:00" ServerDoneResponse="0001-01-01T00:00:00" ClientBeginResponse="2026-06-07T11:44:43.2648199+08:00" ClientDoneResponse="2026-06-07T11:44:43.2648671+08:00" RequestHeadersSize="112" RequestBodySize="0" ResponseHeadersSize="88" ResponseBodySize="0" TrailersSize="0" />
+  <PipeInfo Streamed="true" />
+  <SessionFlags>
+    <SessionFlag N="https-server-protocolversion" V="None" />
+    <SessionFlag N="https-client-protocolversion" V="None" />
+    <SessionFlag N="x-clientport" V="39972" />
+    <SessionFlag N="x-originalsessionid" V="1415" />
+    <SessionFlag N="x-egressport" V="51038" />
+    <SessionFlag N="https-client-ciphersuite" V="&lt;none&gt;" />
+    <SessionFlag N="x-clientip" V="::ffff:192.168.0.105" />
+    <SessionFlag N="x-loadedfrom" V="raw/1415_s.txt" />
+    <SessionFlag N="x-connect-peek" V="After the client received notice of the established CONNECT, it failed to send any data." />
+    <SessionFlag N="x-hostip" V="192.168.0.2" />
+    <SessionFlag N="x-responsebodytransferlength" V="0" />
+  </SessionFlags>
+  <CertificateChainInfo />
+</Session>

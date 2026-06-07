@@ -1,0 +1,9 @@
+## Build
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+## Local NAS integration credentials (never commit)
+NSynology.Tests/nas.integration.local.json

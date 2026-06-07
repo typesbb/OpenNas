@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
+             x:Class="OpenNas.Views.TasksPage"
+             Title="任务">
+    <Grid RowDefinitions="Auto,*,*" RowSpacing="4">
+        <Border Grid.Row="0" Margin="8,8,8,0" Padding="14" Stroke="{AppThemeBinding Light=#E0E0E0, Dark=#444}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="8">
+                <Label Text="相册备份" FontSize="17" FontAttributes="Bold" />
+                <Label x:Name="ProgressLabel" FontSize="13" />
+                <Label x:Name="StatsLabel" FontSize="12" TextColor="Gray" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="立即备份" Clicked="OnStartBackupClicked" />
+                    <Button x:Name="PauseButton" Text="暂停" Clicked="OnPauseClicked" />
+                    <Button Text="重试失败" Clicked="OnRetryFailedClicked" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="8,4,8,0">
+            <Label Text="备份规则" FontSize="15" FontAttributes="Bold" Margin="4,0" />
+            <ContentView x:Name="RulesHost" Grid.Row="1" />
+        </Grid>
+
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" Margin="8,4,8,8">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="4,0">
+                <Label Text="传输记录" FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="刷新" Clicked="OnRefreshClicked" />
+            </Grid>
+            <CollectionView x:Name="TasksView" Grid.Row="1" ItemsSource="{Binding Records}">
+                <CollectionView.EmptyView>
+                    <controls:EmptyStateView Title="暂无记录"
+                                             Message="配置规则并点击「立即备份」后，进度会显示在这里。" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="12,8" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <Label Text="{Binding FileName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                            <Label Grid.Row="1" Text="{Binding LastError}" FontSize="11" TextColor="Gray" LineBreakMode="TailTruncation" />
+                            <Label Grid.Column="1" Text="{Binding Status}" VerticalOptions="Center" FontSize="12" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>

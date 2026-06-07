@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:16 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE;expires=Sun, 14-Jun-2026 10:32:16 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"list":[{"additional":{"access_permission":{"download":true,"manage":true,"own":true,"upload":true,"view":true},"condition_object":{},"provider_count":1,"sharing_info":{"enable_password":false,"expiration":0,"is_expired":false,"mtime":0,"owner":{"id":-1,"name":""},"passphrase":"","permission":[],"privacy_type":"private","sharing_link":"","type":"album"},"thumbnail":{"cache_key":"5090_1780139329","m":"ready","preview":"broken","sm":"ready","unit_id":5090,"xl":"ready"}},"cant_migrate_condition":{},"condition":{},"create_time":1780132658,"end_time":1780798407,"freeze_album":false,"id":15,"item_count":3,"name":"laoba","owner_user_id":3,"passphrase":"","shared":false,"sort_by":"default","sort_direction":"default","start_time":1704789136,"temporary_shared":false,"type":"normal","version":30441}]},"success":true}

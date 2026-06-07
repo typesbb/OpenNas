@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:09 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE;expires=Sun, 14-Jun-2026 10:32:09 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"hint":[{"name":"tab_photo_request","show":true},{"name":"tab_sharing_by_photo_request","show":false}],"info":{"enable_home_service":true,"first_install":true,"migrate_from_personal_photo":false,"migrate_from_photo_station":false,"person_performance_note":false,"support_home_service":true,"team_space_permission":"management"},"prompt":[{"name":"new_codec_installed","show":false}],"tip":[{"name":"add_to_album","show":false},{"name":"album_owner_change","show":false},{"name":"dark_mode","show":false},{"name":"frozen_status","show":true},{"name":"permission","show":false},{"name":"search_hint","show":true},{"name":"shared_space","show":false},{"name":"switch_browse","show":false},{"name":"switcth_library","show":false}],"wizard":[{"name":"welcome","show":false},{"name":"management","show":false},{"name":"facial","show":false},{"name":"concept","show":false},{"name":"mobile","show":false}]},"success":true}

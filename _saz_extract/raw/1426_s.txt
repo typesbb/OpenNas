@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 03:44:43 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=pAKVbw9oBEpMD5oZNQ9Y-gipUvYnaKBBcO6O1jYMrVoTeRZ4mQv1NFryo1iypDKBcCsMESe8eHIj66za8bFOAM;expires=Sun, 14-Jun-2026 03:44:43 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"list":[]},"success":true}

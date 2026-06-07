@@ -1,0 +1,47 @@
+CONNECT 192.168.0.2:5001 HTTP/1.1
+Host: 192.168.0.2:5001
+Connection: Keep-Alive
+User-Agent: okhttp/4.12.0
+
+A SSLv3-compatible ClientHello handshake was found. Fiddler extracted the parameters below.
+
+Secure Protocol: TLS 1.3
+Cipher Suite: TLS_AES_256_GCM_SHA384
+
+Record Layer Version: 3.3 (TLS/1.2)
+Random: B3 90 6F 86 22 72 E1 37 4C A1 CD B3 FD 3A A0 2C 02 E2 92 C4 23 BA 71 F8 D0 77 49 96 A9 2B F0 A4
+"Time": 2041/6/22 4:14:43
+SessionID: 5D 25 21 08 2F BB DB 1C 90 CD 05 84 9B 30 45 F6 CF F7 F2 1C 7B B7 2C D0 9B F3 7A B2 77 46 57 52
+Extensions: 
+	extended_master_secret	empty
+	renegotiation_info	00
+	supported_groups	x25519 [0x1d], secp256r1 [0x17], secp384r1 [0x18]
+	ec_point_formats	uncompressed [0x0]
+	SessionTicket	empty
+	ALPN		h2, http/1.1
+	status_request	OCSP - Implicit Responder
+	signature_algs	ecdsa_secp256r1_sha256, rsa_pss_rsae_sha256, rsa_pkcs1_sha256, ecdsa_secp384r1_sha384, rsa_pss_rsae_sha384, rsa_pkcs1_sha384, rsa_pss_rsae_sha512, rsa_pkcs1_sha512, rsa_pkcs1_sha1
+	key_share	00 24 00 1D 00 20 7D 17 B1 B4 3F BF 25 2F 47 95 63 B8 76 49 3B CB 36 B7 5F 09 0D 92 2B 9C 4B 38 33 8F 5B DD 55 06
+	psk_key_exchange_modes	01 01
+	supported_versions	Tls1.3, Tls1.2
+Ciphers: 
+	[1301]	TLS_AES_128_GCM_SHA256
+	[1302]	TLS_AES_256_GCM_SHA384
+	[1303]	TLS_CHACHA20_POLY1305_SHA256
+	[C02B]	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+	[C02C]	TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+	[CCA9]	TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+	[C02F]	TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+	[C030]	TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	[CCA8]	TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+	[C013]	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+	[C014]	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+	[009C]	TLS_RSA_WITH_AES_128_GCM_SHA256
+	[009D]	TLS_RSA_WITH_AES_256_GCM_SHA384
+	[002F]	TLS_RSA_WITH_AES_128_CBC_SHA
+	[0035]	TLS_RSA_WITH_AES_256_CBC_SHA
+
+Compression: 
+	[00]	NO_COMPRESSION
+
+

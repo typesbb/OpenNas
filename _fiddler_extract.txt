@@ -1,0 +1,8 @@
+﻿=== LINE 1509 len=2689 ===
+ConvertFrom-Json : 找不到与参数名称“Depth”匹配的参数。
+所在位置 C:\Users\types\AppData\Local\Temp\ps-script-f9adaf63-f420-4dbd-ac63-b9b002ba23b5.ps1:89 字符: 36
++       $obj = $_ | ConvertFrom-Json -Depth 20
++                                    ~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [ConvertFrom-Json]，ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.ConvertFromJsonCommand
+ 

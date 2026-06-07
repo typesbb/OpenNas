@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:11 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE;expires=Sun, 14-Jun-2026 10:32:11 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"has_fail":false,"result":[{"api":"SYNO.Foto.Setting.User","data":{"alias":"","ame_status":{"has_h264":true,"has_hevc":true,"has_license":true,"has_vc1":true,"is_ame_install":true,"is_ame_v2":true,"is_ame_v4":false},"copy_move_default_action":"skip","date_format":"yyyy-mm-dd","enable_concept":false,"enable_home_service":true,"enable_person":true,"is_ge_dsm71":true,"is_ge_dsm72":true,"item_sort_by":"takentime","show_item_info_in_lightbox":false,"sort_direction":"asc","team_space_auto_backup":true,"team_space_permission":"management","theme":"auto","time_format":"24","timeline_group_unit":"day","upload_default_action":"ignore"},"method":"get","success":true,"version":1},{"api":"SYNO.Foto.Setting.TeamSpace","data":{"allow_root_folder_public":false,"enable_concept":false,"enable_person":false,"enabled":true,"team_space_disabled_by_share_folder_disabled":false},"method":"get","success":true,"version":1},{"api":"SYNO.Foto.UserInfo","data":{"enabled":true,"id":3,"is_admin":true,"is_migration_finished":true,"name":"yue","profile":{"email":"","emails":[],"groups":[{"gid":100,"id":"3aaf5b7c-6eaa-41d2-9c3b-91dae3ef9e6a"},{"gid":65536,"id":"8ed92bf8-48bc-4282-b7c0-2ac401dab0fa"}],"id":"61600f6d-0ef3-4926-981d-7719d72f439e","nickName":"","photo":"","preferredColor":"#1dbfbf","preferredLanguage":"def","timezone":"Beijing","timezoneUI":"def","title":"","uid":1028,"userName":"yue"},"uid":1028},"method":"me","success":true,"version":1},{"api":"SYNO.Foto.Setting.Admin","data":{"default_thumbnail_size":"sm","display_photo_info_to_guest":true,"enable_concept":true,"enable_converted_original_jpeg":false,"enable_person":true,"enable_user_sharing":true,"exclude_extension":[],"need_hevc":false},"method":"get","success":true,"version":1}]},"success":true}

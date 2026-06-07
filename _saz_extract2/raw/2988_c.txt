@@ -1,0 +1,10 @@
+GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5100&type=%22unit%22&size=%22sm%22&cache_key=%225100_1780673453%22 HTTP/2
+:method: GET
+:path: /synofoto/api/v2/p/Thumbnail/get?id=5100&type=%22unit%22&size=%22sm%22&cache_key=%225100_1780673453%22
+:authority: 192.168.0.2:5001
+:scheme: https
+cache-control: no-store
+accept-encoding: gzip
+user-agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE
+

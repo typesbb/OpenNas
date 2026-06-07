@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Session SID="2978" ui-shared-id="2603" BitFlags="19" ServerCertificatePolicyErrors="RemoteCertificateNameMismatch, RemoteCertificateChainErrors">
+  <SessionTimers Version="2.0" ClientConnected="2026-06-07T18:31:46.6535616+08:00" ClientBeginRequest="2026-06-07T18:32:09.9353017+08:00" GotRequestHeaders="2026-06-07T18:32:09.9353106+08:00" ClientDoneRequest="2026-06-07T18:32:09.9355272+08:00" GatewayTime="0" DNSTime="0" TCPConnectTime="0" ServerConnected="2026-06-07T18:32:09.7345195+08:00" FiddlerBeginRequest="2026-06-07T18:32:09.9356579+08:00" ServerGotRequest="2026-06-07T18:32:09.9357989+08:00" ServerBeginResponse="2026-06-07T18:32:09.9786402+08:00" GotResponseHeaders="2026-06-07T18:32:09.9786794+08:00" ServerDoneResponse="2026-06-07T18:32:09.9788219+08:00" ClientBeginResponse="2026-06-07T18:32:09.9788805+08:00" ClientDoneResponse="2026-06-07T18:32:09.9790706+08:00" RequestHeadersSize="22" RequestBodySize="128" ResponseHeadersSize="19" ResponseBodySize="1250" TrailersSize="0" />
+  <PipeInfo CltReuse="true" Reused="true" />
+  <SessionFlags>
+    <SessionFlag N="https-server-protocolversion" V="Tls13" />
+    <SessionFlag N="https-client-protocolversion" V="Tls13" />
+    <SessionFlag N="x-clientport" V="47284" />
+    <SessionFlag N="x-egressport" V="62999" />
+    <SessionFlag N="https-client-ciphersuite" V="TLS_AES_256_GCM_SHA384" />
+    <SessionFlag N="x-clientip" V="::ffff:192.168.0.105" />
+    <SessionFlag N="x-serversocket" V="REUSE ServerPipe#2973" />
+    <SessionFlag N="x-hostip" V="192.168.0.2" />
+    <SessionFlag N="x-responsebodytransferlength" V="1,241" />
+    <SessionFlag N="reused-connect-session-id" V="2598" />
+  </SessionFlags>
+  <CertificateChainInfo>
+    <Certificate>
+      <CertificateInfo Key="extensions" Value="Netscape Comment;2.16.840.1.113730.1.13;False;mod_ssl generated custom server certificate__split-extension__Netscape Cert Type;2.16.840.1.113730.1.1;False;SSL 服务器身份验证 (40)__split-extension__密钥用法;2.5.29.15;True;Digital Signature, Key Encipherment (a0)__split-extension__增强型密钥用法;2.5.29.37;False;服务器身份验证 (1.3.6.1.5.5.7.3.1), 客户端身份验证 (1.3.6.1.5.5.7.3.2)__split-extension__使用者可选名称;2.5.29.17;False;DNS Name=synology__split-extension__使用者密钥标识符;2.5.29.14;False;30dec59b88b9925b59ab2841f429e5e6a6745bfd__split-extension__授权密钥标识符;2.5.29.35;False;KeyID=e7509756649c2d448c0d7c37160dd07a30773639__split-extension__" />
+      <CertificateInfo Key="version" Value="3" />
+      <CertificateInfo Key="subject" Value="CN=synology, O=Synology Inc., L=Taipel, C=TW" />
+      <CertificateInfo Key="issuer" Value="CN=Synology Inc. CA, O=Synology Inc., L=Taipel, C=TW" />
+      <CertificateInfo Key="publickeysignaturealgorithm" Value="RSA" />
+      <CertificateInfo Key="thumbprint" Value="3DAA986EF634A48F30C33736B5F3F2551611EBE1" />
+      <CertificateInfo Key="publickeysize" Value="2048" />
+      <CertificateInfo Key="friendlyname" Value="" />
+      <CertificateInfo Key="publickeyalgorithm" Value="RSA" />
+      <CertificateInfo Key="sha256thumbprint" Value="F12CC29EB001F611F500E53DDB742DD4410AC5F11A89E62824C2972C6CB0EFCE" />
+      <CertificateInfo Key="serialnumber" Value="1682614191F303" />
+      <CertificateInfo Key="notafter" Value="Fri, 04 Dec 2026 22:29:49 GMT" />
+      <CertificateInfo Key="notbefore" Value="Wed, 03 Dec 2025 22:29:49 GMT" />
+      <CertificateInfo Key="publickeymodulus" Value="BFF82C9E60668E78CE6E0DBF675BA7A56DE3638339B495A260944C0F3E7011968CE0FA2A59491D50C7BAE1F1F4D2A709FE59F38D502C9801F8F83CB91D0955404A6D17A5323E99C11D0A4D4B6ED8B9625781C479424D2F753A54561BD95C98497231E4822026F9D89C1F3CD9A7E0D14B52957CCBFA289B960B8C778AB7BEFAC226F1138397F0979A5D9A9AAA7E6F989259F2E71A85B6F0A7CD96F28D1F3E3CAE8408A31C59F9A6022FA6C0FBDF7F4D6FBD8386571C3E855378DF57565F5E951B385E6E75CC7900BCA67A7701F55ADDA5AC483DD68AC222392DB85D2DA65395B766AC45BF336F9B13EAB83B73795C2300CFB191B1B67985EFFC865D21A1379747" />
+      <CertificateInfo Key="publickeyexponent" Value="010001" />
+      <CertificateErrors />
+    </Certificate>
+  </CertificateChainInfo>
+</Session>

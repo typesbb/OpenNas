@@ -1,0 +1,51 @@
+﻿1395	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.API.Auth	logout
+1405	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.API.Encryption	getinfo
+1406	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2		
+1407	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Setting.MobileCompatibility	get
+1409	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1410	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Setting.Wizard	get
+1411	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Diff	get_version
+1412	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Category	get
+1413	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Sharing.Misc	list_shared_with_me_album
+1414	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Sharing.Misc	list_shared_with_me_album
+1421	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	list
+1422	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Person	list
+1423	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.RecentlyAdded	list
+1424	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5099&type=%22unit%22&size=%22sm%22&cache_key=%225099_1780673393%22 HTTP/2		
+1425	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5098&type=%22unit%22&size=%22sm%22&cache_key=%225098_1780671541%22 HTTP/2		
+1426	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Geocoding	list
+1427	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.GeneralTag	list
+1428	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Item	list
+1429	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5105&type=%22unit%22&size=%22sm%22&cache_key=%225105_1780803832%22 HTTP/2		
+1430	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5101&type=%22unit%22&size=%22sm%22&cache_key=%225101_1780757921%22 HTTP/2		
+1431	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5100&type=%22unit%22&size=%22sm%22&cache_key=%225100_1780673453%22 HTTP/2		
+1432	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.FotoTeam.Browse.Geocoding	list
+1433	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.FotoTeam.Browse.GeneralTag	list
+1434	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5099&type=%22unit%22&size=%22sm%22&cache_key=%225099_1780673393%22 HTTP/2		
+1435	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.FotoTeam.Browse.Item	list
+1436	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=15&type=%22album%22&cache_key=%225090_1780139329%22&size=%22xl%22 HTTP/2		
+1437	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=15&type=%22album%22&cache_key=%225090_1780139329%22&size=%22xl%22 HTTP/2		
+1438	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Diff	get_version
+1439	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=1&type=%22album%22&cache_key=%221_1654615253%22&size=%22xl%22&passphrase=%22KXodvSNM2%22 HTTP/2		
+1440	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=13&type=%22album%22&cache_key=%223979_1746450925%22&size=%22xl%22&passphrase=%226OpMoMcNi%22 HTTP/2		
+1441	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Item	list
+1442	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1443	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Diff	list_item
+1444	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1445	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Diff	list_item
+1446	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5098&type=%22unit%22&size=%22sm%22&cache_key=%225098_1780671541%22 HTTP/2		
+1447	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1448	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5090&type=%22unit%22&size=%22sm%22&cache_key=%225090_1780139329%22 HTTP/2		
+1449	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5097&type=%22unit%22&size=%22sm%22&cache_key=%225097_1780670206%22 HTTP/2		
+1450	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Item	list
+1451	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	get
+1452	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	get
+1453	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1454	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	get
+1455	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5090&type=%22unit%22&size=%22sm%22&cache_key=%225090_1780139329%22&album_id=15 HTTP/2		
+1456	GET https://192.168.0.2:5001/synofoto/api/v2/p/Thumbnail/get?id=5105&type=%22unit%22&size=%22sm%22&cache_key=%225105_1780803832%22&album_id=15 HTTP/2		
+1457	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	get
+1459	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2		
+1461	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Item	list
+1462	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Entry.Request	request
+1463	POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2	SYNO.Foto.Browse.Album	get

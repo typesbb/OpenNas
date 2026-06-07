@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OpenNas.LoginPage"
+             Title="登录">
+    <ScrollView>
+        <VerticalStackLayout Padding="30" Spacing="12" VerticalOptions="Center">
+            <Label Text="OpenNas 登录" FontSize="24" HorizontalOptions="Center" />
+            <Label x:Name="ServerLabel" FontSize="12" TextColor="Gray" />
+            <Entry x:Name="usernameEntry" Placeholder="用户名" />
+            <Entry x:Name="passwordEntry" Placeholder="密码" IsPassword="True" ReturnType="Done" Completed="OnEntryCompleted"/>
+            <Button Text="登录" Clicked="OnLoginButtonClicked" />
+            <Button Text="连接设置" Clicked="OnConnectionSettingsClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

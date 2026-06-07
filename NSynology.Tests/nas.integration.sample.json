@@ -1,0 +1,11 @@
+{
+  "BaseUrl": "https://192.168.0.2:5001/",
+  "Username": "your_dsm_user",
+  "Password": "your_password",
+  "RemoteFolderName": "laoba",
+  "RemoteAlbumName": "laoba",
+  "LocalImageDirectory": "C:\\path\\to\\test\\images",
+  "PhotosDeviceId": "opennas-integration-test-device",
+  "BrowserCookieHeader": "id=...; _SSID=...; did=...; ViewLibrary=personal_space; AutoSmartAlbumLibrary=personal_space",
+  "BrowserSynoToken": "从 DevTools 请求头 X-SYNO-TOKEN 复制"
+}

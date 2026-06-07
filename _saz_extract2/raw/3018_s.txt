@@ -1,0 +1,11 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:28 GMT
+content-type: application/json; charset="UTF-8"
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"success":true,"data":{"diff_version":30452,"version_time":1780828348200,"has_next":false,"item":{"modify":[{"id":5107,"filename":"mmexport1780538292421.jpg","filesize":580572,"time":1780567092,"indexed_time":1780857148129,"owner_user_id":3,"folder_id":132,"type":"photo","additional":{"description":"","tag":[],"exif":{"aperture":"","camera":"","exposure_time":"","focal_length":"","iso":"","lens":""},"resolution":{"width":1200,"height":2670},"orientation":1,"orientation_original":1,"thumbnail":{"m":"converting","xl":"ready","preview":"broken","sm":"ready","cache_key":"5107_1780538292","unit_id":5107},"folder":"/PhotoLibrary/2026/06","rating":0,"thumb_version":1,"mobile_cache_mtime":1780538292,"duplicate_hash":"9C2E217FFFC2CC2AB54FE1831D7AA620"}}],"delete":[]}}}

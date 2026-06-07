@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
+             x:Class="OpenNas.Views.FilesPage"
+             Title="文件">
+    <Grid RowDefinitions="Auto,*" Padding="8">
+        <Label Grid.Row="0"
+               Text="浏览 NAS 上的文件夹，下载、上传与管理文件。"
+               FontSize="13"
+               TextColor="Gray"
+               Margin="8,4" />
+        <controls:EmptyStateView Grid.Row="1"
+                                 Title="File Station"
+                                 Message="文件浏览与操作功能即将接入。当前请先在「相册」管理 NAS 照片，在「任务」配置相册备份。" />
+    </Grid>
+</ContentPage>

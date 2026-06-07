@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "OpenNas (Android)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "targetFramework": "net8.0-android"
+    },
+    "Windows Machine": {
+      "commandName": "MsixPackage",
+      "nativeDebugging": false
+    }
+  }
+}

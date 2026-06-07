@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:10 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE;expires=Sun, 14-Jun-2026 10:32:09 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"list":[{"additional":{"thumbnail":{"cache_key":"5106_1780803897","m":"ready","preview":"broken","sm":"ready","unit_id":5106,"xl":"ready"}},"filename":"IMG_20260607_021326.jpg","filesize":1843654,"folder_id":132,"id":5106,"indexed_time":1780832697687,"owner_user_id":3,"time":1780798407,"type":"photo"},{"additional":{"thumbnail":{"cache_key":"5105_1780803832","m":"ready","preview":"broken","sm":"ready","unit_id":5105,"xl":"ready"}},"filename":"Screenshot_2026-06-07-01-11-38-959_com.mi.car.mobile.jpg","filesize":719416,"folder_id":132,"id":5105,"indexed_time":1780832631910,"owner_user_id":3,"time":1780794698,"type":"photo"},{"additional":{"thumbnail":{"cache_key":"5101_1780757921","m":"ready","preview":"broken","sm":"ready","unit_id":5101,"xl":"ready"}},"filename":"月球1.png","filesize":24925695,"folder_id":124,"id":5101,"indexed_time":1780786720369,"owner_user_id":3,"time":1724280566,"type":"photo"},{"additional":{"thumbnail":{"cache_key":"5100_1780673453","m":"ready","preview":"broken","sm":"ready","unit_id":5100,"xl":"ready"}},"filename":"opennas-pw-20260605153048.jpg","filesize":1053916,"folder_id":124,"id":5100,"indexed_time":1780702252241,"owner_user_id":3,"time":1780702261,"type":"photo"}]},"success":true}

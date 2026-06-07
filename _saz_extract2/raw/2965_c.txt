@@ -1,0 +1,12 @@
+POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2
+:method: POST
+:path: /webapi/entry.cgi
+:authority: 192.168.0.2:5001
+:scheme: https
+content-type: application/x-www-form-urlencoded
+content-length: 772
+accept-encoding: gzip
+user-agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw
+
+__cIpHeRtExT=RgK5uczHvNoUKhF00GyM5N0hVV5Ugh1UUa1my7%2Fz5cNKKGw%2FWClsaL4oHf6YgecCBp1O69%2F%2BAPeAYgsugacyo0b3e4B96PUMuyckjwGK0qKMGbOOOpUfvM0Qq5w1h%2BbgRU1A0HKGKdPIgoM7gZGAwcrkeFGrPNv0NJUwqzN47fu9pOsGXtVjsLlghS1SL9X6jMs75IzcIUPumQn%2BP0vRQwiUu%2FJGnEx151hb5tnLU40m4q6vQoTBZJEPqRG5i%2FHHhYhALI%2FfkLQQJYXhoYeI6BxmdXDrGH3DAThIS0v1P7A31AAgQBTM4RXVALRN%2FuNcB4r%2B8spHoQ9YAve%2FM6biB9mMQPyN3MlXWDiFtDprQ%2FhrWCIpJKQsdFKL7rKnHvSNvUPxuDoNCt%2FJ6SA49M1IbUFFD8meqzM7g%2FXTYqESRLlXKx7qfvH6daVAQjAWN2Wi1vZSjIIdQbPohSDgwUylcxD2M4ug51SXwm8Ap%2FsOGhqoKHP1%2BLUHh8UUfUL3gzxIzBTiJhoaRfE4mesZSIjJETsTjq7RoYswffxqxQ8vWZx%2FbaJ76JJoyJVS7uiDHh%2B%2FKmXtgBCHDP5W%2Fn%2FvefLGukTnubKWaDoYs59lFsnqIPfDjRi%2FXtZydFv68Jw362eXPACXS0rxV7uM%2B0kGjKCjQ5kTl%2FpWnlAvNR04KcjNU3A%3D&client_time=1780828328

@@ -1,0 +1,11 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 03:44:47 GMT
+content-type: application/json; charset="UTF-8"
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"success":true,"data":{"list":[{"id":5090,"filename":"族谱.png","filesize":428524,"time":1704789136,"indexed_time":1780168128756,"owner_user_id":3,"folder_id":127,"type":"photo","additional":{"description":"","tag":[],"exif":{"aperture":"","camera":"","exposure_time":"","focal_length":"","iso":"","lens":""},"resolution":{"width":2418,"height":1388},"orientation":1,"orientation_original":1,"thumbnail":{"m":"ready","xl":"ready","preview":"broken","sm":"ready","cache_key":"5090_1780139329","unit_id":5090},"folder":"/PhotoLibrary/2024/01","rating":0,"thumb_version":1,"mobile_cache_mtime":1704760336,"duplicate_hash":"25578828669706F1BA6A65211BF82085","provider_user_id":3}},{"id":5105,"filename":"Screenshot_2026-06-07-01-11-38-959_com.mi.car.mobile.jpg","filesize":719416,"time":1780794698,"indexed_time":1780832631910,"owner_user_id":3,"folder_id":132,"type":"photo","additional":{"description":"","tag":[],"exif":{"aperture":"","camera":"","exposure_time":"","focal_length":"","iso":"","lens":""},"resolution":{"width":1200,"height":2670},"orientation":1,"orientation_original":1,"thumbnail":{"m":"ready","xl":"ready","preview":"broken","sm":"ready","cache_key":"5105_1780803832","unit_id":5105},"folder":"/PhotoLibrary/2026/06","rating":0,"thumb_version":1,"mobile_cache_mtime":1780765899,"duplicate_hash":"1C8C6A69D63E67A1BF828F1569360785","provider_user_id":3}}]}}

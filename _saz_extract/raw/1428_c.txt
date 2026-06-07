@@ -1,0 +1,12 @@
+POST https://192.168.0.2:5001/webapi/entry.cgi HTTP/2
+:method: POST
+:path: /webapi/entry.cgi
+:authority: 192.168.0.2:5001
+:scheme: https
+content-type: application/x-www-form-urlencoded
+content-length: 144
+accept-encoding: gzip
+user-agent: Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))
+cookie: did=NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw; id=pAKVbw9oBEpMD5oZNQ9Y-gipUvYnaKBBcO6O1jYMrVoTeRZ4mQv1NFryo1iypDKBcCsMESe8eHIj66za8bFOAM
+
+api=SYNO.Foto.Browse.Item&method=list&version=5&offset=0&limit=4&geocoding_accept_language=chs&additional=%5B%22thumbnail%22%5D&type=%22video%22

@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 03:44:43 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=pAKVbw9oBEpMD5oZNQ9Y-gipUvYnaKBBcO6O1jYMrVoTeRZ4mQv1NFryo1iypDKBcCsMESe8eHIj66za8bFOAM;expires=Sun, 14-Jun-2026 03:44:43 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"list":[{"additional":{"access_permission":{"download":false,"manage":false,"own":false,"upload":false,"view":true},"provider_count":1,"sharing_info":{"enable_password":false,"expiration":0,"is_expired":false,"mtime":1746451942,"owner":{"id":4,"name":"lusir"},"passphrase":"6OpMoMcNi","permission":[{"db_id":2,"id":65536,"name":"family","role":"view","type":"group"}],"privacy_type":"private","sharing_link":"https://sunbinbin.quickconnect.cn/mo/sharing/6OpMoMcNi","type":"album"},"thumbnail":{"cache_key":"3979_1746450925","m":"ready","preview":"broken","sm":"ready","unit_id":3979,"xl":"ready"}},"cant_migrate_condition":{},"condition":{},"create_time":1746450906,"end_time":1746083640,"freeze_album":false,"id":13,"item_count":1,"name":"青月","owner_user_id":4,"passphrase":"6OpMoMcNi","shared":true,"sort_by":"default","sort_direction":"default","start_time":1746083640,"temporary_shared":false,"type":"normal","version":23200},{"additional":{"access_permission":{"download":false,"manage":false,"own":false,"upload":false,"view":true},"provider_count":1,"sharing_info":{"enable_password":false,"expiration":0,"is_expired":false,"mtime":1655035499,"owner":{"id":1,"name":"sbb"},"passphrase":"KXodvSNM2","permission":[{"db_id":2,"id":65536,"name":"family","role":"view","type":"group"}],"privacy_type":"private","sharing_link":"https://sunbinbin.quickconnect.cn/mo/sharing/KXodvSNM2","type":"album"},"thumbnail":{"cache_key":"1_1654615253","m":"ready","preview":"broken","sm":"ready","unit_id":1,"xl":"ready"}},"cant_migrate_condition":{},"condition":{},"create_time":1654615237,"end_time":1755559433,"freeze_album":false,"id":1,"item_count":3541,"name":"月月","owner_user_id":1,"passphrase":"KXodvSNM2","shared":true,"sort_by":"takentime","sort_direction":"desc","start_time":1583000960,"temporary_shared":false,"type":"normal","version":30204}]},"success":true}

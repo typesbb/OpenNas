@@ -1,0 +1,12 @@
+HTTP/2 200
+server: nginx
+date: Sun, 07 Jun 2026 10:32:10 GMT
+content-type: application/json; charset="UTF-8"
+set-cookie: id=SPw5PhRdQA2vMqqMiN_sV2sT4G4jn3XqnzsSco2BDQsKGE7dVXtyWvoChK_qAy9t2p1mXWq8Ob6lU-Mn1vzBPE;expires=Sun, 14-Jun-2026 10:32:09 GMT;max-age=604800;path=/;HttpOnly
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: max-age=0, no-cache, no-store, must-revalidate
+pragma: no-cache
+expires: 0
+
+{"data":{"list":[{"additional":{"thumbnail":{"cache_key":"5106_1780803897","m":"ready","preview":"broken","sm":"ready","unit_id":5106,"xl":"ready"}},"country":"中国大陆","country_id":1,"first_level":"桃花镇","id":40,"item_count":1,"name":"桃花镇","second_level":""}]},"success":true}
