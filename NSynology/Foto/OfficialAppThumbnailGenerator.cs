@@ -23,11 +23,14 @@ internal static class OfficialAppThumbnailGenerator
         byte[] imageBytes,
         CancellationToken cancellationToken = default)
     {
-        if (UseMinimalThumbnailsForUpload || IsVideo(mimeType))
+        if (UseMinimalThumbnailsForUpload)
             return Task.FromResult((MinimalJpeg, MinimalJpeg));
 
         if (UploadThumbnailFromBytesFactory is { } factory)
             return factory(mimeType, imageBytes, cancellationToken);
+
+        if (IsVideo(mimeType))
+            return Task.FromResult((MinimalJpeg, MinimalJpeg));
 
         return Task.FromResult(CreateFromImage(imageBytes));
     }
@@ -37,13 +40,14 @@ internal static class OfficialAppThumbnailGenerator
         UploadStreamFactory openStream,
         CancellationToken cancellationToken = default)
     {
-        if (UseMinimalThumbnailsForUpload || IsVideo(mimeType))
+        if (UseMinimalThumbnailsForUpload)
             return Task.FromResult((MinimalJpeg, MinimalJpeg));
 
         if (UploadThumbnailFromBytesFactory is not null)
-        {
             return CreateForUploadFromStreamAsBytesAsync(mimeType, openStream, cancellationToken);
-        }
+
+        if (IsVideo(mimeType))
+            return Task.FromResult((MinimalJpeg, MinimalJpeg));
 
         if (OperatingSystem.IsAndroid())
             return Task.FromResult((MinimalJpeg, MinimalJpeg));

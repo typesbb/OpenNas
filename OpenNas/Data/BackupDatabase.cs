@@ -137,16 +137,25 @@ public class BackupDatabase
             .ToListAsync();
     }
 
-    public async Task ResetFailedForRetryAsync()
+    public async Task ResetFailedForRetryAsync(int? ruleId = null)
     {
         var db = await GetDbAsync();
         var failed = await GetFailedRecordsAsync();
         foreach (var r in failed)
         {
+            if (ruleId is int id && r.RuleId != id) continue;
             r.Status = BackupItemStatus.Pending;
             r.LastError = null;
             await db.UpdateAsync(r);
         }
+    }
+
+    public async Task<int> CountFailedByRuleAsync(int ruleId)
+    {
+        var db = await GetDbAsync();
+        return await db.Table<BackupRecord>().CountAsync(r =>
+            r.RuleId == ruleId &&
+            (r.Status == BackupItemStatus.Failed || r.Status == BackupItemStatus.DeleteFailed));
     }
 
     public async Task<BackupRecord?> GetRecordByIdAsync(int id)

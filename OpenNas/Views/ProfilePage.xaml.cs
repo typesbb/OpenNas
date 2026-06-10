@@ -50,7 +50,7 @@ public partial class ProfilePage : ContentPage
 
     private async void OnLogoutClicked(object sender, EventArgs e)
     {
-        var ok = await DisplayAlert("退出", "确定退出登录？", "退出", "取消");
+        var ok = await UiFeedback.ConfirmAsync(this, "退出", "确定退出登录？", "退出", "取消");
         if (!ok) return;
         await _connection.LogoutAsync();
         if (Application.Current?.Windows.Count > 0)

@@ -2,44 +2,68 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.Views.NasAlbumsView">
-    <Grid RowDefinitions="Auto,*" Padding="8">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+    <Grid RowDefinitions="Auto,*" Padding="16,8">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
             <Label x:Name="StatusLabel"
-                   Text="正在加载…"
-                   FontSize="13"
-                   TextColor="Gray"
+                   Style="{StaticResource Caption}"
                    VerticalOptions="Center"
                    LineBreakMode="TailTruncation" />
-            <Button Grid.Column="1" Text="刷新" Clicked="OnRefreshClicked" Padding="12,6" />
+            <Button Grid.Column="1"
+                    Text="刷新"
+                    Style="{StaticResource SecondaryButton}"
+                    Padding="12,6"
+                    MinimumHeightRequest="36"
+                    Clicked="OnRefreshClicked" />
             <ActivityIndicator x:Name="BusyIndicator"
                                Grid.ColumnSpan="2"
                                IsRunning="False"
                                IsVisible="False"
+                               Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
                                HorizontalOptions="End"
                                VerticalOptions="Center" />
         </Grid>
-        <CollectionView x:Name="AlbumsView"
-                        Grid.Row="1"
-                        SelectionMode="Single"
-                        SelectionChanged="OnAlbumSelected">
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="foto:Album">
-                    <Grid ColumnDefinitions="72,*" Padding="8,6" ColumnSpacing="12">
-                        <Image HeightRequest="72"
-                               WidthRequest="72"
-                               Aspect="AspectFill"
-                               BackgroundColor="#EEEEEE"
-                               HandlerChanged="OnThumbHandlerChanged" />
-                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
-                            <Label Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding ItemCount, StringFormat='{0} 项'}"
-                                   FontSize="12"
-                                   TextColor="Gray" />
-                        </VerticalStackLayout>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+
+        <RefreshView x:Name="AlbumsRefreshView"
+                     Grid.Row="1"
+                     RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
+            <CollectionView x:Name="AlbumsView"
+                            SelectionMode="Single"
+                            SelectionChanged="OnAlbumSelected">
+                <CollectionView.EmptyView>
+                    <controls:EmptyStateView Title="暂无相册"
+                                             Message="下拉刷新或点击右上角按钮加载 NAS 相册。"
+                                             IconText="🖼" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="foto:Album">
+                        <Border Style="{StaticResource CardBorder}" Padding="10" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="72,*" ColumnSpacing="12">
+                                <Border WidthRequest="72"
+                                        HeightRequest="72"
+                                        StrokeThickness="0"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="10" />
+                                    </Border.StrokeShape>
+                                    <Image Aspect="AspectFill"
+                                           HeightRequest="72"
+                                           WidthRequest="72"
+                                           HandlerChanged="OnThumbHandlerChanged" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
+                                    <Label Text="{Binding Name}"
+                                           FontAttributes="Bold"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding ItemCount, StringFormat='{0} 项'}"
+                                           Style="{StaticResource Caption}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
     </Grid>
 </ContentView>

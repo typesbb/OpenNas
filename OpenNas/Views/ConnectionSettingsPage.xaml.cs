@@ -1,3 +1,4 @@
+using OpenNas.Helpers;
 using OpenNas.Models;
 using OpenNas.Services;
 
@@ -39,7 +40,7 @@ public partial class ConnectionSettingsPage : ContentPage
         var url = UrlEntry.Text?.Trim();
         if (string.IsNullOrEmpty(url))
         {
-            await DisplayAlert("错误", "请输入 NAS 地址", "确定");
+            await UiFeedback.AlertAsync(this, "错误", "请输入 NAS 地址");
             return;
         }
 
@@ -61,18 +62,18 @@ public partial class ConnectionSettingsPage : ContentPage
         _profiles = list;
         ProfilesView.ItemsSource = null;
         ProfilesView.ItemsSource = _profiles;
-        await DisplayAlert("已保存", "配置已更新", "确定");
+        await UiFeedback.ToastAsync("配置已保存");
     }
 
     private async void OnSetActiveClicked(object sender, EventArgs e)
     {
         if (_selected == null)
         {
-            await DisplayAlert("提示", "请先选择一条配置", "确定");
+            await UiFeedback.AlertAsync(this, "提示", "请先选择一条配置");
             return;
         }
         await _connection.SetActiveProfileAsync(_selected);
-        await DisplayAlert("已切换", "当前连接已更新，若未登录请重新登录。", "确定");
+        await UiFeedback.ToastAsync("已切换当前连接");
     }
 
     private void OnWifiOnlyToggled(object sender, ToggledEventArgs e) =>
@@ -83,14 +84,14 @@ public partial class ConnectionSettingsPage : ContentPage
 
     private async void OnAckDeleteRiskClicked(object sender, EventArgs e)
     {
-        var ok = await DisplayAlert(
+        var ok = await UiFeedback.ConfirmAsync(this,
             "删除风险提示",
             "备份成功后删除本地文件不可恢复。请确认 NAS 上已成功备份后再开启各规则的「备份后删除」。",
             "我已了解", "取消");
         if (ok)
         {
             _connection.SetAcknowledgedDeleteRisk(true);
-            await DisplayAlert("已确认", "可为规则开启「备份后删除」。", "确定");
+            await UiFeedback.ToastAsync("已确认，可为规则开启「备份后删除」");
         }
     }
 

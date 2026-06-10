@@ -4,37 +4,63 @@
              x:Class="OpenNas.Views.ConnectionSettingsPage"
              Title="连接与账号">
     <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="12">
-            <Label Text="NAS 地址配置" FontSize="18" FontAttributes="Bold" />
-            <CollectionView x:Name="ProfilesView" SelectionMode="Single" SelectionChanged="OnProfileSelected" HeightRequest="200">
+        <VerticalStackLayout Padding="16" Spacing="16">
+
+            <Label Text="NAS 地址" Style="{StaticResource SectionTitle}" />
+
+            <CollectionView x:Name="ProfilesView"
+                            SelectionMode="Single"
+                            SelectionChanged="OnProfileSelected"
+                            HeightRequest="200">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Border Padding="12" Margin="0,4" Stroke="{AppThemeBinding Light=#DDD, Dark=#555}">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                            <VerticalStackLayout>
+                        <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,8">
+                            <VerticalStackLayout Spacing="4">
                                 <Label Text="{Binding DisplayName}" FontAttributes="Bold" />
-                                <Label Text="{Binding BaseUrl}" FontSize="12" TextColor="Gray" />
+                                <Label Text="{Binding BaseUrl}" Style="{StaticResource Caption}" />
                             </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-            <Entry x:Name="NameEntry" Placeholder="显示名称" />
-            <Entry x:Name="UrlEntry" Placeholder="https://192.168.x.x:5001" Keyboard="Url" />
-            <Picker x:Name="KindPicker" Title="网络类型" />
-            <Button Text="保存/更新配置" Clicked="OnSaveProfileClicked" />
-            <Button Text="设为当前连接" Clicked="OnSetActiveClicked" />
-            <Label Text="备份策略" FontSize="16" FontAttributes="Bold" />
-            <HorizontalStackLayout>
-                <Switch x:Name="WifiOnlySwitch" Toggled="OnWifiOnlyToggled" />
-                <Label Text="仅 Wi-Fi 时备份" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-            <HorizontalStackLayout>
-                <Switch x:Name="ConfirmDeleteSwitch" Toggled="OnConfirmDeleteToggled" />
-                <Label Text="删除本地前需已确认风险" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-            <Button Text="我已了解删除风险" Clicked="OnAckDeleteRiskClicked" />
-            <Button Text="重新登录" Clicked="OnReloginClicked" TextColor="DarkOrange" />
+
+            <Border Style="{StaticResource CardBorder}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="编辑配置" Style="{StaticResource SectionTitle}" />
+                    <Entry x:Name="NameEntry" Placeholder="显示名称" />
+                    <Entry x:Name="UrlEntry" Placeholder="https://192.168.x.x:5001" Keyboard="Url" />
+                    <Picker x:Name="KindPicker" Title="网络类型" />
+                    <Button Text="保存/更新配置"
+                            Style="{StaticResource PrimaryButton}"
+                            Clicked="OnSaveProfileClicked" />
+                    <Button Text="设为当前连接"
+                            Style="{StaticResource SecondaryButton}"
+                            Clicked="OnSetActiveClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="备份策略" Style="{StaticResource SectionTitle}" />
+
+            <Border Style="{StaticResource CardBorder}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Switch x:Name="WifiOnlySwitch" Toggled="OnWifiOnlyToggled" VerticalOptions="Center" />
+                        <Label Text="仅 Wi-Fi 时备份" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Switch x:Name="ConfirmDeleteSwitch" Toggled="OnConfirmDeleteToggled" VerticalOptions="Center" />
+                        <Label Text="删除本地前需已确认风险" VerticalOptions="Center" FontSize="14" />
+                    </Grid>
+                    <Button Text="我已了解删除风险"
+                            Style="{StaticResource OutlineButton}"
+                            Clicked="OnAckDeleteRiskClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="重新登录"
+                    Style="{StaticResource OutlineButton}"
+                    TextColor="{StaticResource Warning}"
+                    Clicked="OnReloginClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

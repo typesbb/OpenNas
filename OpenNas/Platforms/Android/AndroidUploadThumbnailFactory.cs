@@ -1,9 +1,10 @@
 using Android.Graphics;
+using Android.Media;
 using NSynology.Foto;
 
 namespace OpenNas.Platforms.Android;
 
-/// <summary>用系统 BitmapFactory 生成上传缩略图，避免 ImageSharp 在 Android 上阻塞。</summary>
+/// <summary>用系统 API 生成上传缩略图（含视频帧），避免 ImageSharp 在 Android 上阻塞。</summary>
 internal static class AndroidUploadThumbnailFactory
 {
     private const int XlMaxEdge = 1920;
@@ -20,10 +21,13 @@ internal static class AndroidUploadThumbnailFactory
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(CreateFromBytes(imageBytes));
+        if (mimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult(CreateFromVideoBytes(imageBytes));
+
+        return Task.FromResult(CreateFromImageBytes(imageBytes));
     }
 
-    private static (byte[] Xl, byte[] Sm) CreateFromBytes(byte[] data)
+    private static (byte[] Xl, byte[] Sm) CreateFromImageBytes(byte[] data)
     {
         if (!LooksLikeJpeg(data))
             return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
@@ -51,6 +55,38 @@ internal static class AndroidUploadThumbnailFactory
         catch
         {
             return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+        }
+    }
+
+    private static (byte[] Xl, byte[] Sm) CreateFromVideoBytes(byte[] data)
+    {
+        if (data.Length == 0)
+            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+
+        var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"opennas_vid_{Guid.NewGuid():N}.bin");
+        try
+        {
+            File.WriteAllBytes(tempPath, data);
+            using var retriever = new MediaMetadataRetriever();
+            retriever.SetDataSource(tempPath);
+
+            var bitmap = retriever.GetFrameAtTime(1_000_000, (int)Option.ClosestSync)
+                         ?? retriever.GetFrameAtTime(0, (int)Option.ClosestSync);
+            if (bitmap is null)
+                return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+
+            var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
+            var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
+            bitmap.Recycle();
+            return (xl, sm);
+        }
+        catch
+        {
+            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+        }
+        finally
+        {
+            try { System.IO.File.Delete(tempPath); } catch { /* ignore */ }
         }
     }
 
@@ -85,7 +121,6 @@ internal static class AndroidUploadThumbnailFactory
         }
         finally
         {
-            // CreateScaledBitmap 在尺寸不变时可能直接返回 source，不能 recycle 源图。
             if (!ReferenceEquals(scaled, source))
                 scaled.Recycle();
         }

@@ -1,79 +1,29 @@
 using OpenNas.Views;
 
-
-
 namespace OpenNas;
 
-
-
 public partial class AppShell : Shell
-
 {
-
     public AppShell()
-
     {
-
         InitializeComponent();
-
-
 
         var tabBar = new TabBar();
 
-        tabBar.Items.Add(new ShellContent
-
-        {
-
-            Title = "相册",
-
-            Route = "albums",
-
-            Content = AppServices.GetRequired<AlbumsPage>()
-
-        });
-
-        tabBar.Items.Add(new ShellContent
-
-        {
-
-            Title = "文件",
-
-            Route = "files",
-
-            Content = AppServices.GetRequired<FilesPage>()
-
-        });
-
-        tabBar.Items.Add(new ShellContent
-
-        {
-
-            Title = "任务",
-
-            Route = "tasks",
-
-            Content = AppServices.GetRequired<TasksPage>()
-
-        });
-
-        tabBar.Items.Add(new ShellContent
-
-        {
-
-            Title = "我的",
-
-            Route = "profile",
-
-            Content = AppServices.GetRequired<ProfilePage>()
-
-        });
-
-
+        tabBar.Items.Add(CreateTab("相册", "tab_albums", "albums", AppServices.GetRequired<AlbumsPage>()));
+        tabBar.Items.Add(CreateTab("文件", "tab_files", "files", AppServices.GetRequired<FilesPage>()));
+        tabBar.Items.Add(CreateTab("任务", "tab_tasks", "tasks", AppServices.GetRequired<TasksPage>()));
+        tabBar.Items.Add(CreateTab("我的", "tab_profile", "profile", AppServices.GetRequired<ProfilePage>()));
 
         Items.Add(tabBar);
-
     }
 
+    private static ShellContent CreateTab(string title, string icon, string route, ContentPage page) =>
+        new()
+        {
+            Title = title,
+            Icon = icon,
+            Route = route,
+            Content = page
+        };
 }
-
-

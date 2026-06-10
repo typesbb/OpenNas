@@ -582,6 +582,7 @@ public class SynologyClient
         int albumId,
         long fileSize = 0,
         long mtimeUnix = 0,
+        IProgress<double>? uploadProgress = null,
         CancellationToken cancellationToken = default)
     {
         if (albumId <= 0)
@@ -589,7 +590,7 @@ public class SynologyClient
 
         await EnsureSidAsync();
         return await PostOfficialAlbumUploadAsync(
-            openStream, fileName, mimeType, albumId, fileSize, mtimeUnix, cancellationToken);
+            openStream, fileName, mimeType, albumId, fileSize, mtimeUnix, uploadProgress, cancellationToken);
     }
 
     private Uri BuildOfficialAlbumUploadUri() =>
@@ -924,6 +925,7 @@ public class SynologyClient
         int albumId,
         long fileSize,
         long mtimeUnix,
+        IProgress<double>? uploadProgress,
         CancellationToken cancellationToken)
     {
         EnsureOfficialAppDeviceCookie();
@@ -955,7 +957,7 @@ public class SynologyClient
             OfficialAppCapture.UploadRawDataJson);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAlbumUploadUri());
-        request.Content = new ByteArrayContent(body);
+        request.Content = new ProgressByteArrayContent(body, uploadProgress);
         request.Content.Headers.TryAddWithoutValidation(
             "Content-Type", $"multipart/form-data; boundary={boundary}");
         ApplyOfficialAppAlbumUploadHeaders(request);

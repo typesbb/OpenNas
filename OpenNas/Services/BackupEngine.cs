@@ -18,9 +18,9 @@ public class BackupEngine
 
 {
 
-    /// <summary>串行上传，避免多张大图/视频同时读入内存触发 GC 风暴。</summary>
-
-    private const int MaxParallelUploads = 1;
+    /// <summary>3 路并行加载，同时仅 1 路上传。</summary>
+    private const int SlotCount = BackupQueueTracker.SlotCount;
+    private const int MaxParallelUpload = 1;
 
     private readonly BackupDatabase _db;
 
@@ -29,11 +29,13 @@ public class BackupEngine
 
     private CancellationTokenSource? _cts;
 
-    private bool _paused;
+    private volatile bool _paused;
 
     private bool _retryFailedOnly;
 
+    private int? _ruleIdFilter;
 
+    private readonly BackupQueueTracker _queue = new();
 
     public BackupProgressInfo Progress { get; } = new();
 
@@ -49,21 +51,48 @@ public class BackupEngine
 
 
 
-    public bool IsRunning => Progress.IsRunning;
+    public IReadOnlyList<BackupQueueItem> GetQueueSnapshot(int? ruleId = null) =>
+        _queue.GetVisibleSnapshot(ruleId);
 
-    public void Pause() => _paused = true;
+    /// <summary>仅在有汇总字段变化时触发 UI/通知刷新（非逐字节进度）。</summary>
+    public bool HasSummaryChangedSince(BackupSummarySnapshot previous)
+    {
+        var p = Progress;
+        return p.IsRunning != previous.IsRunning
+            || p.IsPaused != previous.IsPaused
+            || p.Completed != previous.Completed
+            || p.Total != previous.Total
+            || p.Failed != previous.Failed
+            || p.ActiveRuleId != previous.ActiveRuleId;
+    }
 
-    public void Resume() => _paused = false;
+    public BackupSummarySnapshot CaptureSummarySnapshot() => new(Progress);
+
+    public void Pause()
+    {
+        _paused = true;
+        Progress.IsPaused = true;
+        Notify(force: true);
+    }
+
+    public void Resume()
+    {
+        _paused = false;
+        Progress.IsPaused = false;
+        Notify(force: true);
+    }
 
     public void Cancel() => _cts?.Cancel();
 
 
 
-    public Task RunBackupAsync(ILocalMediaService mediaService, bool retryFailedOnly = false)
+    public Task RunBackupAsync(ILocalMediaService mediaService, bool retryFailedOnly = false, int? ruleId = null)
 
     {
 
         _retryFailedOnly = retryFailedOnly;
+
+        _ruleIdFilter = ruleId;
 
         return RunBackupCoreAsync(mediaService);
 
@@ -125,15 +154,19 @@ public class BackupEngine
 
             Progress.ResetCounters();
 
-            Notify();
+            _queue.Reset();
 
+            var activeRuleIds = work.Select(w => w.Rule.Id).Distinct().ToList();
+            lock (Progress)
+            {
+                Progress.ActiveRuleId = _ruleIdFilter
+                    ?? (activeRuleIds.Count == 1 ? activeRuleIds[0] : null);
+                Progress.ActiveRuleLabel = BuildActiveRuleLabel(work);
+            }
 
+            Notify(force: true);
 
-            using var parallel = new SemaphoreSlim(MaxParallelUploads);
-
-            var tasks = work.Select(item => ProcessOneAsync(item, mediaService, parallel, token)).ToList();
-
-            await Task.WhenAll(tasks);
+            await RunSlotWorkersAsync(work, mediaService, token);
 
         }
         catch (Exception ex)
@@ -150,6 +183,8 @@ public class BackupEngine
             ResetProgress(running: false);
 
             _retryFailedOnly = false;
+
+            _ruleIdFilter = null;
 
             _runLock.Release();
 
@@ -183,6 +218,8 @@ public class BackupEngine
 
                 if (!rules.TryGetValue(record.RuleId, out var rule) || !rule.Enabled) continue;
 
+                if (_ruleIdFilter is int filterId && rule.Id != filterId) continue;
+
                 work.Add(new WorkItem(rule, new LocalMediaItem
 
                 {
@@ -213,9 +250,14 @@ public class BackupEngine
 
         var enabledRules = (await _db.GetRulesAsync()).Where(r => r.Enabled).ToList();
 
+        if (_ruleIdFilter is int ruleId)
+            enabledRules = enabledRules.Where(r => r.Id == ruleId).ToList();
+
         if (enabledRules.Count == 0)
 
-            throw new InvalidOperationException("请先在备份规则中启用至少一条映射。");
+            throw new InvalidOperationException(_ruleIdFilter.HasValue
+                ? "该规则未启用或不存在。"
+                : "请先添加并启用至少一条备份规则。");
 
         var completed = await _db.GetCompletedMediaKeysAsync();
 
@@ -247,184 +289,263 @@ public class BackupEngine
 
 
 
-    private async Task ProcessOneAsync(WorkItem workItem, ILocalMediaService mediaService, SemaphoreSlim parallel, CancellationToken token)
-
+    private async Task RunSlotWorkersAsync(
+        List<WorkItem> work,
+        ILocalMediaService mediaService,
+        CancellationToken token)
     {
+        var nextIndex = 0;
+        var workLock = new object();
+        var assignedKeys = new HashSet<string>();
 
-        await parallel.WaitAsync(token);
-
-        try
-
+        WorkItem? TakeNext()
         {
-
-            await WaitIfPausedAsync(token);
-
-
-
-            var rule = workItem.Rule;
-
-            var item = workItem.Media;
-
-            lock (Progress)
-
+            lock (workLock)
             {
-
-                Progress.CurrentFileName = item.DisplayName;
-
+                while (nextIndex < work.Count)
+                {
+                    var candidate = work[nextIndex++];
+                    var key = MediaKey(candidate.Media);
+                    if (assignedKeys.Add(key))
+                        return candidate;
+                }
             }
 
-            Notify();
-
-
-
-            var record = workItem.ExistingRecord ?? new BackupRecord
-
-            {
-
-                RuleId = rule.Id,
-
-                LocalMediaId = item.MediaStoreId,
-
-                ContentUri = item.ContentUri,
-
-                FileName = item.DisplayName,
-
-                Size = item.Size,
-
-                DateModified = item.DateModified
-
-            };
-
-            record.Status = BackupItemStatus.Uploading;
-
-            record.LastError = null;
-
-            await _db.UpsertRecordAsync(record);
-
-
-
-            try
-
-            {
-
-#if ANDROID
-
-                BackupLog.Info(
-                    $"开始上传 {item.DisplayName} ({item.Size} bytes) → 相册 {rule.RemoteAlbumName} (id={rule.RemoteAlbumId})");
-
-                var mtime = item.DateModified > 0 ? item.DateModified : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-                var result = await SynologyManager.Client.Foto.UploadToAlbumAsync(
-
-                    ct => OpenFileStreamAsync(item.ContentUri),
-
-                    item.DisplayName,
-
-                    item.MimeType,
-
-                    rule.RemoteAlbumId,
-
-                    item.Size,
-
-                    mtime,
-
-                    remoteAlbumName: rule.RemoteAlbumName,
-
-                    token);
-
-
-
-                if (!result.VerifiedOnServer)
-
-                    throw new Exception("NAS 未确认文件已成功入库。");
-
-
-
-                record.Status = BackupItemStatus.Uploaded;
-
-                record.RemotePhotoId = result.PhotoId;
-
-                record.UploadedAt = DateTime.UtcNow;
-
-                record.LastError = result.SkippedAsDuplicate ? "NAS 已有同名同大小文件（Search 跳过上传）" : null;
-
-                await _db.UpsertRecordAsync(record);
-
-                Progress.IncrementCompleted();
-
-                BackupLog.Info($"上传成功 {item.DisplayName} photoId={result.PhotoId} skipped={result.SkippedAsDuplicate}");
-
-
-
-                if (rule.DeleteAfterBackup)
-
-                    await TryDeleteLocalAsync(mediaService, rule, item, record, result, token);
-
-#else
-
-                throw new PlatformNotSupportedException("备份仅支持 Android。");
-
-#endif
-
-            }
-
-            catch (Exception ex) when (IsSessionError(ex))
-
-            {
-
-                record.Status = BackupItemStatus.Failed;
-
-                record.LastError = "会话已过期，请重新登录";
-
-                await _db.UpsertRecordAsync(record);
-
-                Progress.IncrementFailed();
-
-                lock (Progress) { Progress.LastError = record.LastError; }
-
-                BackupLog.Warn($"会话错误 {item.DisplayName}: {ex.Message}");
-                BackupLog.Error($"会话错误 {item.DisplayName}", ex);
-
-                _cts?.Cancel();
-
-            }
-
-            catch (Exception ex)
-
-            {
-
-                record.Status = BackupItemStatus.Failed;
-
-                record.LastError = FormatUploadError(ex);
-
-                await _db.UpsertRecordAsync(record);
-
-                Progress.IncrementFailed();
-
-                lock (Progress) { Progress.LastError = record.LastError; }
-
-                BackupLog.Warn($"上传失败 {item.DisplayName}: {record.LastError}");
-                BackupLog.Error($"上传失败 {item.DisplayName}", ex);
-
-            }
-
-
-
-            Notify();
-
+            return null;
         }
 
-        finally
-
+        void ReleaseKey(string key)
         {
-
-            parallel.Release();
-
+            lock (workLock)
+                assignedKeys.Remove(key);
         }
 
+        var uploadSem = new SemaphoreSlim(MaxParallelUpload, MaxParallelUpload);
+
+        async Task RunSlotAsync(int slotIndex)
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                await WaitIfPausedAsync(token);
+
+                var workItem = TakeNext();
+                if (workItem is null)
+                    break;
+
+                var key = MediaKey(workItem.Media);
+                try
+                {
+                    await RunSlotWorkAsync(slotIndex, workItem, key, mediaService, uploadSem, token);
+                }
+                catch (Exception ex) when (IsSessionError(ex))
+                {
+                    BackupLog.Error($"会话错误 {workItem.Media.DisplayName}", ex);
+                    _cts?.Cancel();
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    BackupLog.Warn($"处理失败 {workItem.Media.DisplayName}: {ex.Message}");
+                }
+                finally
+                {
+                    ReleaseKey(key);
+                    _queue.ClearSlot(slotIndex);
+                    Notify(force: true);
+                }
+            }
+        }
+
+        var slotTasks = Enumerable.Range(0, SlotCount)
+            .Select(RunSlotAsync)
+            .ToArray();
+        await Task.WhenAll(slotTasks);
     }
 
+    private async Task RunSlotWorkAsync(
+        int slotIndex,
+        WorkItem workItem,
+        string key,
+        ILocalMediaService mediaService,
+        SemaphoreSlim uploadSem,
+        CancellationToken token)
+    {
+        _queue.AssignSlot(slotIndex, new BackupQueueItem
+        {
+            SlotIndex = slotIndex,
+            Key = key,
+            FileName = workItem.Media.DisplayName,
+            ContentUri = workItem.Media.ContentUri,
+            RuleId = workItem.Rule.Id,
+            Stage = BackupQueueStage.Loading,
+            Progress = 0
+        });
+        Notify(force: true);
 
+        var bytes = await LoadBytesAsync(
+            workItem.Media,
+            token,
+            p =>
+            {
+                if (_queue.UpdateSlotProgress(slotIndex, p))
+                    Notify();
+            });
+
+        if (_queue.SetSlotReady(slotIndex))
+            Notify(force: true);
+
+        await WaitIfPausedAsync(token);
+
+        await uploadSem.WaitAsync(token);
+        try
+        {
+            await WaitIfPausedAsync(token);
+
+            if (_queue.SetSlotUploading(slotIndex))
+                Notify(force: true);
+
+            await UploadWorkItemAsync(workItem, key, bytes, mediaService, token, slotIndex);
+        }
+        finally
+        {
+            uploadSem.Release();
+        }
+    }
+
+    private async Task UploadWorkItemAsync(
+        WorkItem workItem,
+        string key,
+        byte[] bytes,
+        ILocalMediaService mediaService,
+        CancellationToken token,
+        int slotIndex)
+    {
+        var rule = workItem.Rule;
+        var item = workItem.Media;
+
+        var record = workItem.ExistingRecord ?? new BackupRecord
+        {
+            RuleId = rule.Id,
+            LocalMediaId = item.MediaStoreId,
+            ContentUri = item.ContentUri,
+            FileName = item.DisplayName,
+            Size = item.Size,
+            DateModified = item.DateModified
+        };
+        record.Status = BackupItemStatus.Uploading;
+        record.LastError = null;
+        await _db.UpsertRecordAsync(record);
+
+        try
+        {
+#if ANDROID
+            lock (Progress)
+            {
+                Progress.CurrentFileName = item.DisplayName;
+                Progress.CurrentContentUri = item.ContentUri;
+                Progress.CurrentMimeType = item.MimeType;
+            }
+
+            BackupLog.Info(
+                $"开始上传 {item.DisplayName} ({item.Size} bytes) → 相册 {rule.RemoteAlbumName} (id={rule.RemoteAlbumId})");
+
+            Notify(force: true);
+
+            var mtime = item.DateModified > 0 ? item.DateModified : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            var uploadProgress = new Progress<double>(p =>
+            {
+                if (_queue.UpdateSlotUploadProgress(slotIndex, p))
+                    Notify();
+            });
+
+            var result = await SynologyManager.Client.Foto.UploadToAlbumAsync(
+                _ => Task.FromResult<Stream>(new MemoryStream(bytes)),
+                item.DisplayName,
+                item.MimeType,
+                rule.RemoteAlbumId,
+                item.Size,
+                mtime,
+                uploadProgress,
+                remoteAlbumName: rule.RemoteAlbumName,
+                token);
+
+            if (!result.VerifiedOnServer)
+                throw new Exception("NAS 未确认文件已成功入库。");
+
+            record.Status = BackupItemStatus.Uploaded;
+            record.RemotePhotoId = result.PhotoId;
+            record.UploadedAt = DateTime.UtcNow;
+            record.LastError = result.SkippedAsDuplicate ? "NAS 已有同名同大小文件（Search 跳过上传）" : null;
+            await _db.UpsertRecordAsync(record);
+
+            Progress.IncrementCompleted();
+            BackupLog.Info($"上传成功 {item.DisplayName} photoId={result.PhotoId} skipped={result.SkippedAsDuplicate}");
+
+            if (rule.DeleteAfterBackup)
+                await TryDeleteLocalAsync(mediaService, rule, item, record, result, token);
+#else
+            throw new PlatformNotSupportedException("备份仅支持 Android。");
+#endif
+        }
+        catch (Exception ex) when (IsSessionError(ex))
+        {
+            record.Status = BackupItemStatus.Failed;
+            record.LastError = "会话已过期，请重新登录";
+            await _db.UpsertRecordAsync(record);
+            Progress.IncrementFailed();
+            lock (Progress) { Progress.LastError = record.LastError; }
+            BackupLog.Warn($"会话错误 {item.DisplayName}: {ex.Message}");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            record.Status = BackupItemStatus.Failed;
+            record.LastError = FormatUploadError(ex);
+            await _db.UpsertRecordAsync(record);
+            Progress.IncrementFailed();
+            lock (Progress) { Progress.LastError = record.LastError; }
+            BackupLog.Warn($"上传失败 {item.DisplayName}: {record.LastError}");
+        }
+    }
+
+#if ANDROID
+    private Task<byte[]> LoadBytesAsync(
+        LocalMediaItem item,
+        CancellationToken token,
+        Action<double>? reportProgress = null)
+    {
+        return Task.Run(async () =>
+        {
+            await using var stream = await OpenFileStreamAsync(item.ContentUri);
+            using var ms = new MemoryStream();
+            var buffer = new byte[81920];
+            long totalRead = 0;
+            var sizeHint = item.Size > 0 ? item.Size : 0L;
+
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                await WaitIfPausedAsync(token);
+
+                var read = await stream.ReadAsync(buffer, token);
+                if (read <= 0) break;
+                ms.Write(buffer, 0, read);
+                totalRead += read;
+                if (sizeHint > 0 && !_paused)
+                    reportProgress?.Invoke(Math.Min(1.0, (double)totalRead / sizeHint));
+            }
+
+            if (!_paused)
+                reportProgress?.Invoke(1.0);
+            return ms.ToArray();
+        }, token);
+    }
+#endif
+
+    private static string MediaKey(LocalMediaItem item) =>
+        BackupDatabase.BackupMediaKey(item.MediaStoreId, item.Size, item.DateModified);
 
 #if ANDROID
 
@@ -605,6 +726,27 @@ public class BackupEngine
 
 
 
+    private static string BuildActiveRuleLabel(List<WorkItem> work)
+    {
+        var rules = work.Select(w => w.Rule).GroupBy(r => r.Id).Select(g => g.First()).ToList();
+        if (rules.Count == 1)
+            return TrimRuleLabel(rules[0]);
+
+        return $"{rules.Count} 条规则";
+    }
+
+    private static string TrimRuleLabel(BackupRule rule)
+    {
+        var label = $"{rule.LocalAlbumName}→{rule.RemoteAlbumName}";
+        if (label.Length <= 22)
+            return label;
+
+        if (rule.LocalAlbumName.Length <= 18)
+            return rule.LocalAlbumName;
+
+        return rule.LocalAlbumName[..15] + "…";
+    }
+
     private void ResetProgress(bool running)
 
     {
@@ -617,17 +759,34 @@ public class BackupEngine
 
             Progress.CurrentFileName = null;
 
+            Progress.CurrentContentUri = null;
+
+            Progress.CurrentMimeType = null;
+
+            Progress.ActiveRuleId = null;
+
+            Progress.ActiveRuleLabel = null;
+
+            Progress.IsPaused = false;
+
             _paused = false;
+
+            _queue.Reset();
 
         }
 
-        Notify();
+        Notify(force: true);
 
     }
 
 
 
-    private void Notify() => ProgressChanged?.Invoke(this, EventArgs.Empty);
+    private void Notify(bool force = false)
+    {
+        if (!force && _paused)
+            return;
+        ProgressChanged?.Invoke(this, EventArgs.Empty);
+    }
 
 
 

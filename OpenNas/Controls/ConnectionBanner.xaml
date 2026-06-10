@@ -3,19 +3,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Controls.ConnectionBanner"
              x:Name="Root">
-    <Border Stroke="{AppThemeBinding Light=#E0E0E0, Dark=#444}"
-            StrokeThickness="1"
-            Padding="12,8"
-            Margin="8,4">
-        <Border.StrokeShape>
-            <RoundRectangle CornerRadius="8" />
-        </Border.StrokeShape>
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <VerticalStackLayout Spacing="2">
+    <Border Style="{StaticResource CardBorder}" Padding="12,10" Margin="0">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <BoxView x:Name="StatusStripe"
+                     WidthRequest="4"
+                     VerticalOptions="Fill"
+                     Color="{AppThemeBinding Light={StaticResource Success}, Dark={StaticResource Success}}"
+                     Margin="-16,0,0,0" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2">
                 <Label x:Name="StatusLabel" FontSize="14" FontAttributes="Bold" />
-                <Label x:Name="UrlLabel" FontSize="11" TextColor="{AppThemeBinding Light=Gray, Dark=LightGray}" LineBreakMode="TailTruncation" />
+                <Label x:Name="UrlLabel"
+                       Style="{StaticResource MicroCaption}"
+                       LineBreakMode="TailTruncation" />
             </VerticalStackLayout>
-            <Button x:Name="SwitchButton" Text="切换" FontSize="12" Padding="12,4" Clicked="OnSwitchClicked" />
+            <Button Grid.Column="2"
+                    x:Name="SwitchButton"
+                    Text="切换"
+                    Style="{StaticResource SecondaryButton}"
+                    FontSize="12"
+                    Padding="12,4"
+                    MinimumHeightRequest="36"
+                    Clicked="OnSwitchClicked" />
         </Grid>
     </Border>
 </ContentView>

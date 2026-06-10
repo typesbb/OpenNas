@@ -18,7 +18,14 @@ public partial class NasAlbumsView : ContentView
     public NasAlbumsView()
     {
         InitializeComponent();
+        AlbumsRefreshView.Refreshing += OnPullRefreshing;
         Loaded += async (_, _) => await LoadAlbumsAsync();
+    }
+
+    private async void OnPullRefreshing(object? sender, EventArgs e)
+    {
+        await LoadAlbumsAsync();
+        AlbumsRefreshView.IsRefreshing = false;
     }
 
     private async void OnRefreshClicked(object sender, EventArgs e) => await LoadAlbumsAsync();

@@ -2,16 +2,18 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.BackupRulesView">
-    <VerticalStackLayout Padding="4,0" Spacing="8">
-        <Button Text="+ 添加备份规则" Clicked="OnAddRuleClicked" />
+    <VerticalStackLayout Padding="0" Spacing="8">
+        <Button Text="+ 添加备份规则"
+                Style="{StaticResource OutlineButton}"
+                Clicked="OnAddRuleClicked" />
         <CollectionView x:Name="RulesView">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Border Padding="12" Margin="0,4" Stroke="{AppThemeBinding Light=#DDD, Dark=#555}">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,8">
                         <VerticalStackLayout Spacing="4">
                             <Label Text="{Binding LocalAlbumName}" FontAttributes="Bold" />
-                            <Label Text="{Binding RemoteAlbumName, StringFormat='→ {0}'}" FontSize="13" />
+                            <Label Text="{Binding RemoteAlbumName, StringFormat='→ {0}'}"
+                                   Style="{StaticResource Caption}" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
