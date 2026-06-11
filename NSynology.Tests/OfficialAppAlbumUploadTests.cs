@@ -53,18 +53,18 @@ public sealed class OfficialAppAlbumUploadTests
         client.EnsureOfficialAppDeviceCookie();
 
         var jpegBytes = MinimalJpegBytes();
-        var result = await client.UploadItemOfficialAlbumAsync(
-            _ => Task.FromResult<Stream>(new MemoryStream(jpegBytes)),
+        var result = await client.UploadItemOfficialAlbumFromBytesAsync(
+            jpegBytes,
             fileName,
             "image/jpeg",
             albumId,
-            fileSize: 3,
+            fileSize: jpegBytes.Length,
             mtimeUnix: 1_700_000_000);
 
         Assert.True(result.Success);
         Assert.Equal(9001, result.PhotoId);
 
-        var request = recorder.LastRequest;
+        var request = recorder.LastUploadRequest ?? recorder.LastRequest;
         Assert.NotNull(request);
         Assert.Equal(HttpMethod.Post, request!.Method);
 
@@ -77,7 +77,8 @@ public sealed class OfficialAppAlbumUploadTests
             request.Headers.UserAgent?.ToString().Contains("Synology_Photos", StringComparison.OrdinalIgnoreCase) == true,
             "应使用官方 Photos User-Agent");
 
-        Assert.False(string.IsNullOrEmpty(recorder.LastBody));
+        var body = recorder.LastUploadBody ?? recorder.LastBody;
+        Assert.False(string.IsNullOrEmpty(body));
         foreach (var field in new[]
                  {
                      "method", "api", "version", "require_thumb_version", "name", "mtime", "date", "folder",
@@ -85,21 +86,21 @@ public sealed class OfficialAppAlbumUploadTests
                  })
         {
             Assert.True(
-                recorder.LastBody!.Contains($"name=\"{field}\"", StringComparison.OrdinalIgnoreCase)
-                || recorder.LastBody.Contains($"name={field}", StringComparison.OrdinalIgnoreCase),
+                body!.Contains($"name=\"{field}\"", StringComparison.OrdinalIgnoreCase)
+                || body.Contains($"name={field}", StringComparison.OrdinalIgnoreCase),
                 $"multipart 应包含字段 {field}");
         }
 
-        Assert.Contains("SYNO.Foto.Upload.Item", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("upload", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("\"ignore\"", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains(fileName, recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("[\"PhotoLibrary\"]", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains(albumId.ToString(), recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("1700000000", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("filename=\"xl\"", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("filename=\"sm\"", recorder.LastBody!, StringComparison.Ordinal);
-        Assert.Contains("_inference_by_mobile", recorder.LastBody!, StringComparison.Ordinal);
+        Assert.Contains("SYNO.Foto.Upload.Item", body!, StringComparison.Ordinal);
+        Assert.Contains("upload", body!, StringComparison.Ordinal);
+        Assert.Contains("\"ignore\"", body!, StringComparison.Ordinal);
+        Assert.Contains(fileName, body!, StringComparison.Ordinal);
+        Assert.Contains("[\"PhotoLibrary\"]", body!, StringComparison.Ordinal);
+        Assert.Contains(albumId.ToString(), body!, StringComparison.Ordinal);
+        Assert.Contains("1700000000", body!, StringComparison.Ordinal);
+        Assert.Contains("filename=\"xl\"", body!, StringComparison.Ordinal);
+        Assert.Contains("filename=\"sm\"", body!, StringComparison.Ordinal);
+        Assert.Contains("_inference_by_mobile", body!, StringComparison.Ordinal);
     }
 
     /// <summary>集成：仅主 DSM 会话（无 Photos 子会话 / _SSID）上传到 NAS 相册。</summary>
@@ -177,6 +178,8 @@ public sealed class OfficialAppAlbumUploadTests
     {
         public HttpRequestMessage? LastRequest { get; private set; }
         public string? LastBody { get; private set; }
+        public HttpRequestMessage? LastUploadRequest { get; private set; }
+        public string? LastUploadBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -187,6 +190,11 @@ public sealed class OfficialAppAlbumUploadTests
             {
                 var bytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
                 LastBody = Encoding.UTF8.GetString(bytes);
+                if (request.Content.Headers.ContentType?.MediaType?.Contains("multipart", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    LastUploadRequest = request;
+                    LastUploadBody = LastBody;
+                }
             }
 
             return new HttpResponseMessage(HttpStatusCode.OK)

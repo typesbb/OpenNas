@@ -1,10 +1,10 @@
 using System.Diagnostics;
-using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace NSynology.Diagnostics;
 
-/// <summary>捕获 HttpClient 往返并写入 <see cref="SynologyHttpTrace"/>。</summary>
+/// <summary>捕获 HttpClient 往返并写入 <see cref="SynologyHttpTrace"/>（单行摘要）。</summary>
 internal sealed class SynologyHttpTraceHandler(HttpMessageHandler innerHandler) : DelegatingHandler(innerHandler)
 {
     private static int _sequence;
@@ -18,27 +18,9 @@ internal sealed class SynologyHttpTraceHandler(HttpMessageHandler innerHandler) 
 
         var id = Interlocked.Increment(ref _sequence);
         var sw = Stopwatch.StartNew();
+        var requestSummary = await BuildRequestSummaryAsync(request, cancellationToken);
 
-        string? requestBody = null;
-        if (request.Content != null)
-        {
-            await request.Content.LoadIntoBufferAsync();
-            if (request.Content is MultipartFormDataContent multipart)
-                requestBody = await FormatMultipartSummaryAsync(multipart, cancellationToken);
-            else
-                requestBody = SynologyHttpTrace.Truncate(
-                    await request.Content.ReadAsStringAsync(cancellationToken));
-        }
-
-        var uri = request.RequestUri?.ToString() ?? "(null)";
-        SynologyHttpTrace.Write(
-            $"""
-            [NSynology #{id}] >>> {request.Method} {uri}
-            Request-Headers:
-            {SynologyHttpTrace.FormatHeaders(request.Headers)}
-            {(request.Content != null ? $"Content-Headers:\n{SynologyHttpTrace.FormatHeaders(request.Content.Headers)}\n" : "")}Request-Body:
-            {requestBody ?? "(none)"}
-            """);
+        SynologyHttpTrace.Write($"#{id} >>> {request.Method} {requestSummary}");
 
         HttpResponseMessage response;
         try
@@ -48,91 +30,181 @@ internal sealed class SynologyHttpTraceHandler(HttpMessageHandler innerHandler) 
         catch (Exception ex)
         {
             sw.Stop();
-            SynologyHttpTrace.Write($"[NSynology #{id}] <<< EXCEPTION after {sw.ElapsedMilliseconds}ms: {ex.GetType().Name}: {ex.Message}");
+            SynologyHttpTrace.Write($"#{id} <<< ERR {sw.ElapsedMilliseconds}ms {ex.GetType().Name}");
             throw;
         }
 
         sw.Stop();
-        string responseBody;
-        if (response.Content != null)
-        {
-            var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
-            var isBinary = mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
-                || mediaType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
-                || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase);
-
-            if (isBinary)
-            {
-                var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-                responseBody = $"(binary {bytes.Length} bytes, content-type={mediaType})";
-                var binary = new ByteArrayContent(bytes);
-                if (response.Content.Headers.ContentType != null)
-                    binary.Headers.ContentType = response.Content.Headers.ContentType;
-                response.Content = binary;
-            }
-            else
-            {
-                responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                var charset = response.Content.Headers.ContentType?.CharSet ?? "utf-8";
-                Encoding encoding;
-                try
-                {
-                    encoding = Encoding.GetEncoding(charset);
-                }
-                catch
-                {
-                    encoding = Encoding.UTF8;
-                }
-
-                var textMediaType = string.IsNullOrEmpty(mediaType) ? "text/plain" : mediaType;
-                response.Content = new StringContent(responseBody, encoding, textMediaType);
-            }
-
-            foreach (var h in response.Content.Headers)
-            {
-                if (!h.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
-                    response.Content.Headers.TryAddWithoutValidation(h.Key, h.Value);
-            }
-        }
-        else
-        {
-            responseBody = "(no content)";
-        }
-
-        SynologyHttpTrace.Write(
-            $"""
-            [NSynology #{id}] <<< {(int)response.StatusCode} {response.ReasonPhrase} ({sw.ElapsedMilliseconds}ms)
-            Response-Headers:
-            {SynologyHttpTrace.FormatHeaders(response.Headers)}
-            {(response.Content != null ? $"Content-Headers:\n{SynologyHttpTrace.FormatHeaders(response.Content.Headers)}\n" : "")}Response-Body:
-            {SynologyHttpTrace.Truncate(responseBody)}
-            """);
+        var responseBody = await ReadResponseTextAsync(response, cancellationToken);
+        var responseSummary = SummarizeResponseBody(responseBody, (int)response.StatusCode);
+        SynologyHttpTrace.Write($"#{id} <<< {(int)response.StatusCode} {sw.ElapsedMilliseconds}ms {responseSummary}");
 
         return response;
     }
 
-    private static async Task<string> FormatMultipartSummaryAsync(
-        MultipartFormDataContent multipart,
+    private static async Task<string> BuildRequestSummaryAsync(
+        HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("(multipart/form-data)");
-        foreach (var part in multipart)
-        {
-            var name = part.Headers.ContentDisposition?.Name?.Trim('"') ?? "(part)";
-            if (part.Headers.ContentDisposition?.FileName != null)
-            {
-                var fileName = part.Headers.ContentDisposition.FileName.Trim('"');
-                var len = part.Headers.ContentLength;
-                var mime = part.Headers.ContentType?.MediaType ?? "application/octet-stream";
-                sb.AppendLine($"  [{name}] file={fileName}, {len ?? -1} bytes, {mime}");
-                continue;
-            }
+        var uri = request.RequestUri?.ToString() ?? "(null)";
+        var path = request.RequestUri?.AbsolutePath ?? uri;
 
-            var text = await part.ReadAsStringAsync(cancellationToken);
-            sb.AppendLine($"  [{name}] = {SynologyHttpTrace.Truncate(text)}");
+        if (request.Content is null)
+            return ShortenUri(uri);
+
+        var mediaType = request.Content.Headers.ContentType?.MediaType ?? "";
+        var length = request.Content.Headers.ContentLength;
+
+        if (mediaType.Contains("multipart", StringComparison.OrdinalIgnoreCase))
+            return $"{path} multipart {FormatBytes(length ?? 0)}";
+
+        if (length > 64 * 1024
+            || mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            || mediaType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{path} {mediaType} {FormatBytes(length ?? 0)}";
         }
 
-        return sb.ToString().TrimEnd();
+        var body = await request.Content.ReadAsStringAsync(cancellationToken);
+        RestoreStringContent(request, body, mediaType);
+
+        var api = MatchFormField(body, "api") ?? MatchQuery(uri, "api");
+        var method = MatchFormField(body, "method") ?? MatchQuery(uri, "method");
+        if (!string.IsNullOrEmpty(api))
+        {
+            var hint = string.IsNullOrEmpty(method) ? api : $"{api}.{method}";
+            return $"{path} {hint}";
+        }
+
+        return $"{path} {SynologyHttpTrace.Truncate(body)}";
     }
+
+    private static async Task<string> ReadResponseTextAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.Content is null)
+            return "";
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
+        if (mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            || mediaType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            ReplaceContent(response, bytes, mediaType);
+            return $"(binary {bytes.Length} bytes)";
+        }
+
+        var text = await response.Content.ReadAsStringAsync(cancellationToken);
+        ReplaceContent(response, text, mediaType);
+        return text;
+    }
+
+    private static void ReplaceContent(HttpResponseMessage response, byte[] bytes, string mediaType)
+    {
+        var binary = new ByteArrayContent(bytes);
+        if (!string.IsNullOrEmpty(mediaType))
+            binary.Headers.TryAddWithoutValidation("Content-Type", mediaType);
+        response.Content = binary;
+    }
+
+    private static void ReplaceContent(HttpResponseMessage response, string text, string mediaType)
+    {
+        var charset = response.Content?.Headers.ContentType?.CharSet ?? "utf-8";
+        Encoding encoding;
+        try { encoding = Encoding.GetEncoding(charset); }
+        catch { encoding = Encoding.UTF8; }
+
+        var type = string.IsNullOrEmpty(mediaType) ? "text/plain" : mediaType;
+        response.Content = new StringContent(text, encoding, type);
+    }
+
+    private static void RestoreStringContent(HttpRequestMessage request, string body, string mediaType)
+    {
+        var type = string.IsNullOrEmpty(mediaType) ? "application/x-www-form-urlencoded" : mediaType;
+        request.Content = new StringContent(body, Encoding.UTF8, type);
+    }
+
+    private static string SummarizeResponseBody(string body, int statusCode)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return statusCode >= 400 ? "empty" : "ok";
+
+        if (body.StartsWith("(binary ", StringComparison.Ordinal))
+            return body;
+
+        var oneLine = body.Replace('\r', ' ').Replace('\n', ' ').Trim();
+
+        if (oneLine.Contains("\"success\"", StringComparison.Ordinal))
+        {
+            var success = Regex.Match(oneLine, @"""success""\s*:\s*(true|false)");
+            if (success.Success)
+            {
+                if (success.Groups[1].Value == "false")
+                {
+                    var code = Regex.Match(oneLine, @"""code""\s*:\s*(-?\d+)");
+                    return code.Success ? $"fail code={code.Groups[1].Value}" : "fail";
+                }
+
+                var id = Regex.Match(oneLine, @"""id""\s*:\s*(\d+)");
+                var action = Regex.Match(oneLine, @"""action""\s*:\s*""([^""]+)""");
+                if (id.Success || action.Success)
+                {
+                    var parts = new List<string>();
+                    if (action.Success)
+                        parts.Add(action.Groups[1].Value);
+                    if (id.Success)
+                        parts.Add($"id={id.Groups[1].Value}");
+                    return string.Join(' ', parts);
+                }
+
+                return "ok";
+            }
+        }
+
+        if (oneLine.Contains("\"error\"", StringComparison.Ordinal))
+        {
+            var code = Regex.Match(oneLine, @"""code""\s*:\s*(-?\d+)");
+            return code.Success
+                ? $"error code={code.Groups[1].Value}"
+                : "error";
+        }
+
+        if (statusCode >= 400)
+            return SynologyHttpTrace.Truncate(oneLine, 240);
+
+        return oneLine.Length > 128 ? $"({oneLine.Length} chars)" : SynologyHttpTrace.Truncate(oneLine);
+    }
+
+    private static string? MatchFormField(string body, string name)
+    {
+        var match = Regex.Match(
+            body,
+            $@"(?:^|&){Regex.Escape(name)}=([^&]+)",
+            RegexOptions.IgnoreCase);
+        return match.Success ? Uri.UnescapeDataString(match.Groups[1].Value) : null;
+    }
+
+    private static string? MatchQuery(string uri, string name)
+    {
+        var match = Regex.Match(uri, $@"(?:[?&]){Regex.Escape(name)}=([^&]+)", RegexOptions.IgnoreCase);
+        return match.Success ? Uri.UnescapeDataString(match.Groups[1].Value) : null;
+    }
+
+    private static string ShortenUri(string uri)
+    {
+        if (Uri.TryCreate(uri, UriKind.Absolute, out var u))
+            return u.AbsolutePath + (string.IsNullOrEmpty(u.Query) ? "" : " …");
+        return uri;
+    }
+
+    private static string FormatBytes(long bytes) =>
+        bytes switch
+        {
+            < 1024 => $"{bytes}B",
+            < 1024 * 1024 => $"{bytes / 1024.0:F1}KB",
+            _ => $"{bytes / (1024.0 * 1024.0):F1}MB"
+        };
 }

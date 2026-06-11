@@ -1,10 +1,9 @@
 using System.Net;
 using System.Text;
-using NSynology;
 
 namespace NSynology.Foto;
 
-/// <summary>流式 multipart 上传，避免将大文件整段读入内存。</summary>
+/// <summary>流式 multipart 上传，通过预先计算 Content-Length 避免 HttpClient 整包缓冲。</summary>
 internal sealed class OfficialAppMultipartUploadContent : HttpContent
 {
     private readonly string _boundary;
@@ -16,6 +15,9 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
     private readonly int _albumId;
     private readonly long _mtimeSec;
     private readonly long _dateSec;
+    private readonly long _fileBytesLength;
+    private readonly long _totalLength;
+    private readonly IProgress<double>? _progress;
 
     public OfficialAppMultipartUploadContent(
         string fileName,
@@ -25,9 +27,14 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
         byte[] thumbXl,
         byte[] thumbSm,
         string rawDataJson,
-        UploadStreamFactory openFileStream)
+        UploadStreamFactory openFileStream,
+        long fileBytesLength,
+        IProgress<double>? progress = null)
     {
-        _boundary = Guid.NewGuid().ToString();
+        if (fileBytesLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(fileBytesLength));
+
+        _boundary = OfficialAppMultipartWriter.NewBoundary();
         _fileName = fileName;
         _albumId = albumId;
         _mtimeSec = mtimeSec;
@@ -36,71 +43,43 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
         _thumbSm = thumbSm;
         _rawDataJson = rawDataJson;
         _openFileStream = openFileStream;
+        _fileBytesLength = fileBytesLength;
+        _progress = progress;
+        _totalLength = OfficialAppMultipartWriter.ComputeAlbumUploadLength(
+            _boundary,
+            fileName,
+            albumId,
+            mtimeSec,
+            dateSec,
+            thumbXl,
+            thumbSm,
+            rawDataJson,
+            fileBytesLength);
         Headers.TryAddWithoutValidation("Content-Type", $"multipart/form-data; boundary={_boundary}");
     }
 
     protected override bool TryComputeLength(out long length)
     {
-        length = -1;
-        return false;
+        length = _totalLength;
+        return true;
     }
 
     protected override async Task SerializeToStreamAsync(Stream target, TransportContext? context)
     {
-        await WriteFieldAsync(target, "method", "upload");
-        await WriteFieldAsync(target, "api", "SYNO.Foto.Upload.Item");
-        await WriteFieldAsync(target, "version", "5");
-        await WriteFieldAsync(target, "require_thumb_version", "true");
-        await WriteFieldAsync(target, "name", $"\"{_fileName}\"");
-        await WriteFieldAsync(target, "mtime", _mtimeSec.ToString());
-        await WriteFieldAsync(target, "date", _dateSec.ToString());
-        await WriteFieldAsync(target, "folder", "[\"PhotoLibrary\"]");
-        await WriteFieldAsync(target, "album_id", _albumId.ToString());
-        await WriteFieldAsync(target, "duplicate", "\"ignore\"");
-
-        await using (var fileStream = await _openFileStream(CancellationToken.None))
-            await WriteFileStreamAsync(target, "file", _fileName, fileStream);
-
-        WriteFileBytes(target, "thumb_xl", "xl", _thumbXl);
-        await WriteFieldAsync(target, "model_version", "3");
-        await WriteFieldAsync(target, "raw_data", _rawDataJson);
-        WriteFileBytes(target, "thumb_sm", "sm", _thumbSm);
-
-        await WriteAsync(target, $"--{_boundary}--\r\n");
+        var tracker = _progress is null ? null : new MultipartWriteTracker(_totalLength, _progress);
+        await OfficialAppMultipartWriter.WriteAlbumUploadAsync(
+            target,
+            _boundary,
+            _fileName,
+            _albumId,
+            _mtimeSec,
+            _dateSec,
+            _thumbXl,
+            _thumbSm,
+            _rawDataJson,
+            _openFileStream,
+            _fileBytesLength,
+            tracker);
+        _progress?.Report(1.0);
     }
-
-    private async Task WriteFieldAsync(Stream target, string name, string value)
-    {
-        await WriteAsync(target, $"--{_boundary}\r\n");
-        await WriteAsync(target, $"Content-Disposition: form-data; name=\"{name}\"\r\n\r\n");
-        await WriteAsync(target, value);
-        await WriteAsync(target, "\r\n");
-    }
-
-    private async Task WriteFileStreamAsync(Stream target, string name, string fileName, Stream data)
-    {
-        await WriteAsync(target, $"--{_boundary}\r\n");
-        await WriteAsync(target, $"Content-Disposition: form-data; name=\"{name}\"; filename=\"{fileName}\"\r\n");
-        await WriteAsync(target, "Content-Type: application/octet-stream\r\n\r\n");
-        await data.CopyToAsync(target);
-        await WriteAsync(target, "\r\n");
-    }
-
-    private void WriteFileBytes(Stream target, string name, string fileName, byte[] data)
-    {
-        Write(target, $"--{_boundary}\r\n");
-        Write(target, $"Content-Disposition: form-data; name=\"{name}\"; filename=\"{fileName}\"\r\n");
-        Write(target, "Content-Type: application/octet-stream\r\n\r\n");
-        target.Write(data, 0, data.Length);
-        Write(target, "\r\n");
-    }
-
-    private static async Task WriteAsync(Stream target, string text)
-    {
-        var bytes = Encoding.UTF8.GetBytes(text);
-        await target.WriteAsync(bytes);
-    }
-
-    private static void Write(Stream target, string text) =>
-        target.Write(Encoding.UTF8.GetBytes(text));
 }

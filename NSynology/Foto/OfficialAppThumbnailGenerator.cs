@@ -60,10 +60,12 @@ internal static class OfficialAppThumbnailGenerator
         UploadStreamFactory openStream,
         CancellationToken cancellationToken)
     {
+        if (IsVideo(mimeType))
+            return (MinimalJpeg, MinimalJpeg);
+
         await using var stream = await openStream(cancellationToken);
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken);
-        return await CreateForUploadFromBytesAsync(mimeType, ms.ToArray(), cancellationToken);
+        var prefix = await ReadPrefixAsync(stream, MaxBytesForThumbDecode, cancellationToken);
+        return await CreateForUploadFromBytesAsync(mimeType, prefix, cancellationToken);
     }
 
     private static async Task<(byte[] Xl, byte[] Sm)> CreateForUploadFromImageAsync(

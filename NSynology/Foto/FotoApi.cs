@@ -86,4 +86,23 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
             dateModifiedUnix,
             uploadProgress,
             cancellationToken);
+
+    public Task<UploadResult> UploadToAlbumFromBytesAsync(
+        byte[] fileBytes,
+        string fileName,
+        string mimeType,
+        int albumId,
+        long fileSize = 0,
+        long dateModifiedUnix = 0,
+        IProgress<double>? uploadProgress = null,
+        CancellationToken cancellationToken = default) =>
+        _client.UploadItemOfficialAlbumFromBytesAsync(
+            fileBytes,
+            fileName,
+            mimeType,
+            albumId,
+            fileSize,
+            dateModifiedUnix,
+            uploadProgress,
+            cancellationToken);
 }

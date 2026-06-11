@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -156,12 +157,20 @@ public class SynologyClient
 
     private HttpClient CreateHttpClient()
     {
-        // 官方 App：Cookie 仅通过显式请求头 did+id 发送（SAZ 无 _sid）；UseCookies=false 保留 Set-Cookie 供解析。
-        HttpMessageHandler pipeline = new HttpClientHandler
+        // Android 默认 HttpClientHandler 会把整块 multipart 读入内存（>256MB 堆上限必 OOM）。
+        // SocketsHttpHandler 才会按 HttpContent.SerializeToStreamAsync 逐块流式发送。
+        // Cookie 仍仅通过显式请求头 did+id 发送（SAZ 无 _sid）；UseCookies=false 保留 Set-Cookie 供解析。
+        HttpMessageHandler pipeline = new SocketsHttpHandler
         {
             CookieContainer = _cookieContainer,
             UseCookies = false,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            AutomaticDecompression = DecompressionMethods.All,
+            ConnectTimeout = TimeSpan.FromMinutes(2),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            SslOptions = new SslClientAuthenticationOptions
+            {
+                RemoteCertificateValidationCallback = static (_, _, _, _) => true
+            }
         };
 
         if (SynologyHttpTrace.IsEnabled)
@@ -589,8 +598,40 @@ public class SynologyClient
             throw new ArgumentOutOfRangeException(nameof(albumId));
 
         await EnsureSidAsync();
+        return await PostOfficialAlbumUploadFromStreamAsync(
+            openStream,
+            fileName,
+            mimeType,
+            albumId,
+            fileSize,
+            mtimeUnix,
+            uploadProgress,
+            cancellationToken);
+    }
+
+    public async Task<UploadResult> UploadItemOfficialAlbumFromBytesAsync(
+        byte[] fileBytes,
+        string fileName,
+        string mimeType,
+        int albumId,
+        long fileSize = 0,
+        long mtimeUnix = 0,
+        IProgress<double>? uploadProgress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (albumId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(albumId));
+
+        await EnsureSidAsync();
         return await PostOfficialAlbumUploadAsync(
-            openStream, fileName, mimeType, albumId, fileSize, mtimeUnix, uploadProgress, cancellationToken);
+            fileBytes,
+            fileName,
+            mimeType,
+            albumId,
+            fileSize,
+            mtimeUnix,
+            uploadProgress,
+            cancellationToken);
     }
 
     private Uri BuildOfficialAlbumUploadUri() =>
@@ -903,22 +944,25 @@ public class SynologyClient
             _warmedOfficialAlbumIds.Add(albumId);
     }
 
+    /// <summary>小于此值的文件可在内存中缓冲后上传；更大文件应走流式 multipart。</summary>
+    internal const int InMemoryUploadMaxBytes = 16 * 1024 * 1024;
+
     private static async Task<byte[]> ReadOfficialUploadFileBytesAsync(
         UploadStreamFactory openStream,
         long hintedSize,
         CancellationToken cancellationToken)
     {
-        const int maxBytes = 96 * 1024 * 1024;
         await using var stream = await openStream(cancellationToken);
         using var ms = new MemoryStream(
-            hintedSize is > 0 and <= maxBytes ? (int)hintedSize : 256 * 1024);
+            hintedSize is > 0 and <= InMemoryUploadMaxBytes ? (int)hintedSize : 256 * 1024);
         await stream.CopyToAsync(ms, cancellationToken);
-        if (ms.Length > maxBytes)
-            throw new InvalidOperationException($"文件过大（{ms.Length} 字节），超过官方相册上传缓冲上限 {maxBytes}。");
+        if (ms.Length > InMemoryUploadMaxBytes)
+            throw new InvalidOperationException(
+                $"文件过大（{ms.Length} 字节），请使用流式上传（上限 {InMemoryUploadMaxBytes}）。");
         return ms.ToArray();
     }
 
-    private async Task<UploadResult> PostOfficialAlbumUploadAsync(
+    private async Task<UploadResult> PostOfficialAlbumUploadFromStreamAsync(
         UploadStreamFactory openStream,
         string fileName,
         string mimeType,
@@ -939,13 +983,84 @@ public class SynologyClient
             Sid = idCookie;
 
         var dateSec = ToOfficialAppDateSeconds(mtimeSec);
-        var fileBytes = await ReadOfficialUploadFileBytesAsync(openStream, fileSize, cancellationToken);
+        var (thumbXl, thumbSm) = await OfficialAppThumbnailGenerator.CreateForUploadAsync(
+            mimeType, openStream, cancellationToken);
+
+        var fileBytesLength = await ResolveUploadFileBytesLengthAsync(openStream, fileSize, cancellationToken);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAlbumUploadUri());
+        request.Content = new OfficialAppMultipartUploadContent(
+            fileName,
+            albumId,
+            mtimeSec,
+            dateSec,
+            thumbXl,
+            thumbSm,
+            OfficialAppCapture.UploadRawDataJson,
+            openStream,
+            fileBytesLength,
+            uploadProgress);
+        ApplyOfficialAppAlbumUploadHeaders(request);
+
+        var response = await SendOfficialAppRequestAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        RefreshOfficialAppCookiesFromResponse(response);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new SynologyUploadException(
+                (int)response.StatusCode,
+                DescribeUploadHttpError((int)response.StatusCode),
+                string.IsNullOrEmpty(responseBody) ? response.ReasonPhrase ?? "" : responseBody);
+        }
+
+        var parsed = ParseUploadResponse(responseBody);
+        return await FinalizeOfficialAlbumUploadAsync(
+            parsed,
+            albumId,
+            fileName,
+            fileBytesLength,
+            cancellationToken);
+    }
+
+    private static async Task<long> ResolveUploadFileBytesLengthAsync(
+        UploadStreamFactory openStream,
+        long hintedSize,
+        CancellationToken cancellationToken)
+    {
+        if (hintedSize > 0)
+            return hintedSize;
+
+        await using var stream = await openStream(cancellationToken);
+        if (stream.CanSeek && stream.Length > 0)
+            return stream.Length;
+
+        throw new InvalidOperationException("无法确定文件大小，无法计算 multipart Content-Length。");
+    }
+
+    private async Task<UploadResult> PostOfficialAlbumUploadAsync(
+        byte[] fileBytes,
+        string fileName,
+        string mimeType,
+        int albumId,
+        long fileSize,
+        long mtimeUnix,
+        IProgress<double>? uploadProgress,
+        CancellationToken cancellationToken)
+    {
+        EnsureOfficialAppDeviceCookie();
+        StripPhotosViewCookiesForOfficialUpload();
+
+        var mtimeSec = ToMtimeSeconds(mtimeUnix);
+        await WarmupOfficialAlbumBeforeUploadAsync(albumId, cancellationToken);
+
+        var idCookie = GetSessionIdCookieValue();
+        if (!string.IsNullOrEmpty(idCookie))
+            Sid = idCookie;
+
+        var dateSec = ToOfficialAppDateSeconds(mtimeSec);
         var (thumbXl, thumbSm) = await OfficialAppThumbnailGenerator.CreateForUploadFromBytesAsync(
             mimeType, fileBytes, cancellationToken);
 
-        if (Diagnostics.SynologyHttpTrace.IsEnabled)
-            Diagnostics.SynologyHttpTrace.Write(
-                $"[NSynology] official-album-upload thumbs ready xl={thumbXl.Length} sm={thumbSm.Length} file={fileName}");
         var (body, boundary) = OfficialAppMultipartBuilder.BuildAlbumUpload(
             fileBytes,
             fileName,
@@ -962,14 +1077,6 @@ public class SynologyClient
             "Content-Type", $"multipart/form-data; boundary={boundary}");
         ApplyOfficialAppAlbumUploadHeaders(request);
 
-        if (Diagnostics.SynologyHttpTrace.IsEnabled)
-        {
-            Diagnostics.SynologyHttpTrace.Write(
-                $"[NSynology] official-album-upload POST multipart album_id={albumId} bytes={body.Length} " +
-                $"url={request.RequestUri} cookies=[{DescribeCookieNames()}] " +
-                $"id={(idCookie != null ? "set" : "missing")} did={(PhotosDeviceId != null ? "set" : "missing")}");
-        }
-
         var response = await SendOfficialAppRequestAsync(request, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         RefreshOfficialAppCookiesFromResponse(response);
@@ -981,7 +1088,106 @@ public class SynologyClient
                 string.IsNullOrEmpty(responseBody) ? response.ReasonPhrase ?? "" : responseBody);
         }
 
-        return ParseUploadResponse(responseBody);
+        var parsed = ParseUploadResponse(responseBody);
+        return await FinalizeOfficialAlbumUploadAsync(
+            parsed,
+            albumId,
+            fileName,
+            fileSize > 0 ? fileSize : fileBytes.LongLength,
+            cancellationToken);
+    }
+
+    internal async Task<IReadOnlyList<FotoItemSummary>> ListOfficialAlbumItemsAsync(
+        int albumId,
+        CancellationToken cancellationToken = default)
+    {
+        var parsed = await PostOfficialAppFormAsync<ListObject<FotoItemSummary>>(
+            "SYNO.Foto.Browse.Item",
+            5,
+            "list",
+            OfficialAlbumItemListFields(albumId),
+            cancellationToken);
+        return parsed?.List?.ToList() ?? [];
+    }
+
+    internal async Task<bool> TryAddPhotoToNormalAlbumAsync(
+        int albumId,
+        int photoId,
+        CancellationToken cancellationToken = default)
+    {
+        var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId, type = "photo" } });
+        return await TryPostOfficialAppFormAsync(
+            "SYNO.Foto.Browse.NormalAlbum",
+            1,
+            "add_item",
+            [
+                new KeyValuePair<string, string>("id", albumId.ToString()),
+                new KeyValuePair<string, string>("item", itemJson)
+            ],
+            cancellationToken);
+    }
+
+    private async Task<bool> IsPhotoInOfficialAlbumAsync(
+        int albumId,
+        int photoId,
+        string fileName,
+        long fileSize,
+        CancellationToken cancellationToken)
+    {
+        var items = await ListOfficialAlbumItemsAsync(albumId, cancellationToken);
+        return items.Any(i =>
+            i.Id == photoId
+            || (string.Equals(i.Filename, fileName, StringComparison.Ordinal)
+                && i.FileSize == fileSize));
+    }
+
+    private async Task<UploadResult> FinalizeOfficialAlbumUploadAsync(
+        UploadResult result,
+        int albumId,
+        string fileName,
+        long fileSize,
+        CancellationToken cancellationToken)
+    {
+        if (!result.Success)
+        {
+            result.VerifiedOnServer = false;
+            return result;
+        }
+
+        if (result.PhotoId <= 0)
+        {
+            result.VerifiedOnServer = false;
+            return result;
+        }
+
+        if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
+        {
+            result.VerifiedOnServer = true;
+            result.SkippedAsDuplicate = !string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase);
+            return result;
+        }
+
+        if (!string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase))
+        {
+            await TryAddPhotoToNormalAlbumAsync(albumId, result.PhotoId, cancellationToken);
+            if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
+            {
+                result.VerifiedOnServer = true;
+                result.SkippedAsDuplicate = true;
+                return result;
+            }
+        }
+
+        await Task.Delay(800, cancellationToken);
+        if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
+        {
+            result.VerifiedOnServer = true;
+            result.SkippedAsDuplicate = !string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase);
+            return result;
+        }
+
+        result.VerifiedOnServer = false;
+        return result;
     }
 
     /// <summary>Photos 上传 mtime：10 位 Unix 秒（非毫秒）。</summary>
@@ -1023,15 +1229,21 @@ public class SynologyClient
         }
 
         var photoId = 0;
+        var action = "";
         if (root.TryGetProperty("data", out var data))
+        {
             photoId = ExtractPhotoId(data);
+            if (data.TryGetProperty("action", out var actionEl))
+                action = actionEl.GetString() ?? "";
+        }
 
         return new UploadResult
         {
             Success = true,
             PhotoId = photoId,
+            Action = action,
             RawResponse = body,
-            VerifiedOnServer = true
+            VerifiedOnServer = false
         };
     }
 

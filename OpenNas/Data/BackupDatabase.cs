@@ -93,6 +93,19 @@ public class BackupDatabase
     internal static string BackupMediaKey(string localMediaId, long size, long dateModified) =>
         $"{localMediaId}|{size}|{dateModified}";
 
+    public async Task<BackupRecord?> FindOpenRecordAsync(string localMediaId, long size, long dateModified)
+    {
+        var db = await GetDbAsync();
+        return await db.Table<BackupRecord>()
+            .Where(r => r.LocalMediaId == localMediaId
+                && r.Size == size
+                && r.DateModified == dateModified
+                && r.Status != BackupItemStatus.Uploaded
+                && r.Status != BackupItemStatus.LocalDeleted)
+            .OrderByDescending(r => r.Id)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task UpsertRecordAsync(BackupRecord record)
     {
         var db = await GetDbAsync();

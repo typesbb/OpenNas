@@ -16,7 +16,7 @@ public static class SynologyHttpTrace
     public static bool IsEnabled { get; set; }
 
     /// <summary>单段响应/请求体最大字符数（超出截断）。</summary>
-    public static int MaxBodyChars { get; set; } = 16_384;
+    public static int MaxBodyChars { get; set; } = 180;
 
     /// <summary>是否脱敏 passwd、SynoToken、sid 等。</summary>
     public static bool RedactSecrets { get; set; } = true;
@@ -90,15 +90,17 @@ public static class SynologyHttpTrace
         return text;
     }
 
-    internal static string Truncate(string? text)
+    internal static string Truncate(string? text) => Truncate(text, MaxBodyChars);
+
+    internal static string Truncate(string? text, int maxChars)
     {
         if (string.IsNullOrEmpty(text))
             return "(empty)";
 
-        if (text.Length <= MaxBodyChars)
+        if (text.Length <= maxChars)
             return text;
 
-        return text[..MaxBodyChars] + $"... (truncated, total {text.Length} chars)";
+        return text[..maxChars] + "…";
     }
 
     internal static string FormatHeaders(HttpHeaders headers)

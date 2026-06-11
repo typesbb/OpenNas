@@ -7,6 +7,9 @@ public class UploadResult
     public string RawResponse { get; set; } = "";
     public bool VerifiedOnServer { get; set; }
 
-    /// <summary>Search 命中同名同大小，未实际上传。</summary>
+    /// <summary>官方响应 data.action，如 new / ignore。</summary>
+    public string Action { get; set; } = "";
+
+    /// <summary>库中已有同名文件被跳过实际上传，但已确认在目标相册。</summary>
     public bool SkippedAsDuplicate { get; set; }
 }

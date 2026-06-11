@@ -21,6 +21,8 @@ public class BackupEngine
     /// <summary>3 路并行加载，同时仅 1 路上传。</summary>
     private const int SlotCount = BackupQueueTracker.SlotCount;
     private const int MaxParallelUpload = 1;
+    /// <summary>超过此大小或大小未知时走流式上传，避免整文件进内存 OOM。</summary>
+    private const long InMemoryUploadThreshold = SynologyClient.InMemoryUploadMaxBytes;
 
     private readonly BackupDatabase _db;
 
@@ -168,6 +170,11 @@ public class BackupEngine
 
             await RunSlotWorkersAsync(work, mediaService, token);
 
+            BackupLog.Info(
+                $"备份完成 合计={Progress.Total} 成功={Progress.Completed} 失败={Progress.Failed}");
+            if (Progress.Failed > 0)
+                BackupLog.Warn("部分文件未进入目标相册，请在任务页对该规则点「重试」");
+
         }
         catch (Exception ex)
         {
@@ -275,7 +282,10 @@ public class BackupEngine
                 var key = BackupDatabase.BackupMediaKey(item.MediaStoreId, item.Size, item.DateModified);
                 if (completed.Contains(key)) continue;
 
-                work.Add(new WorkItem(rule, item, null));
+                var existing = await _db.FindOpenRecordAsync(
+                    item.MediaStoreId, item.Size, item.DateModified);
+
+                work.Add(new WorkItem(rule, item, existing));
 
             }
 
@@ -340,13 +350,12 @@ public class BackupEngine
                 }
                 catch (Exception ex) when (IsSessionError(ex))
                 {
-                    BackupLog.Error($"会话错误 {workItem.Media.DisplayName}", ex);
-                    _cts?.Cancel();
-                    break;
+                    BackupLog.Warn($"会话错误 {workItem.Media.DisplayName}: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
                     BackupLog.Warn($"处理失败 {workItem.Media.DisplayName}: {ex.Message}");
+                    Progress.IncrementFailed();
                 }
                 finally
                 {
@@ -383,17 +392,28 @@ public class BackupEngine
         });
         Notify(force: true);
 
-        var bytes = await LoadBytesAsync(
-            workItem.Media,
-            token,
-            p =>
-            {
-                if (_queue.UpdateSlotProgress(slotIndex, p))
-                    Notify();
-            });
+        var useStreaming = ShouldStreamUpload(workItem.Media);
 
-        if (_queue.SetSlotReady(slotIndex))
-            Notify(force: true);
+        byte[]? bytes = null;
+        if (useStreaming)
+        {
+            if (_queue.SetSlotReady(slotIndex))
+                Notify(force: true);
+        }
+        else
+        {
+            bytes = await LoadBytesAsync(
+                workItem.Media,
+                token,
+                p =>
+                {
+                    if (_queue.UpdateSlotProgress(slotIndex, p))
+                        Notify();
+                });
+
+            if (_queue.SetSlotReady(slotIndex))
+                Notify(force: true);
+        }
 
         await WaitIfPausedAsync(token);
 
@@ -413,10 +433,13 @@ public class BackupEngine
         }
     }
 
+    private static bool ShouldStreamUpload(LocalMediaItem item) =>
+        item.Size <= 0 || item.Size > InMemoryUploadThreshold;
+
     private async Task UploadWorkItemAsync(
         WorkItem workItem,
         string key,
-        byte[] bytes,
+        byte[]? bytes,
         ILocalMediaService mediaService,
         CancellationToken token,
         int slotIndex)
@@ -450,6 +473,14 @@ public class BackupEngine
             BackupLog.Info(
                 $"开始上传 {item.DisplayName} ({item.Size} bytes) → 相册 {rule.RemoteAlbumName} (id={rule.RemoteAlbumId})");
 
+            var uploadFileSize = item.Size;
+            if (uploadFileSize <= 0)
+            {
+                uploadFileSize = await ResolveContentSizeAsync(item.ContentUri);
+                if (uploadFileSize > 0)
+                    BackupLog.Info($"MediaStore 未返回大小，ContentResolver 测得 {uploadFileSize} bytes");
+            }
+
             Notify(force: true);
 
             var mtime = item.DateModified > 0 ? item.DateModified : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -460,19 +491,43 @@ public class BackupEngine
                     Notify();
             });
 
-            var result = await SynologyManager.Client.Foto.UploadToAlbumAsync(
-                _ => Task.FromResult<Stream>(new MemoryStream(bytes)),
-                item.DisplayName,
-                item.MimeType,
-                rule.RemoteAlbumId,
-                item.Size,
-                mtime,
-                uploadProgress,
-                remoteAlbumName: rule.RemoteAlbumName,
-                token);
+            UploadResult result;
+            if (bytes is not null)
+            {
+                result = await SynologyManager.Client.Foto.UploadToAlbumFromBytesAsync(
+                    bytes,
+                    item.DisplayName,
+                    item.MimeType,
+                    rule.RemoteAlbumId,
+                    uploadFileSize,
+                    mtime,
+                    uploadProgress,
+                    token);
+            }
+            else
+            {
+                result = await SynologyManager.Client.Foto.UploadToAlbumAsync(
+                    async ct =>
+                    {
+                        var stream = await OpenFileStreamAsync(item.ContentUri);
+                        return stream;
+                    },
+                    item.DisplayName,
+                    item.MimeType,
+                    rule.RemoteAlbumId,
+                    uploadFileSize,
+                    mtime,
+                    uploadProgress,
+                    cancellationToken: token);
+            }
 
             if (!result.VerifiedOnServer)
-                throw new Exception("NAS 未确认文件已成功入库。");
+            {
+                var detail = result.PhotoId > 0
+                    ? $"action={result.Action} photoId={result.PhotoId}"
+                    : "NAS 未返回有效 photoId";
+                throw new Exception($"文件未出现在目标相册（{detail}）");
+            }
 
             record.Status = BackupItemStatus.Uploaded;
             record.RemotePhotoId = result.PhotoId;
@@ -481,7 +536,8 @@ public class BackupEngine
             await _db.UpsertRecordAsync(record);
 
             Progress.IncrementCompleted();
-            BackupLog.Info($"上传成功 {item.DisplayName} photoId={result.PhotoId} skipped={result.SkippedAsDuplicate}");
+            BackupLog.Info(
+                $"上传成功 {item.DisplayName} photoId={result.PhotoId} action={result.Action} skipped={result.SkippedAsDuplicate}");
 
             if (rule.DeleteAfterBackup)
                 await TryDeleteLocalAsync(mediaService, rule, item, record, result, token);
@@ -497,12 +553,21 @@ public class BackupEngine
             Progress.IncrementFailed();
             lock (Progress) { Progress.LastError = record.LastError; }
             BackupLog.Warn($"会话错误 {item.DisplayName}: {ex.Message}");
-            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            record.Status = BackupItemStatus.Failed;
+            record.LastError = "上传已取消";
+            await _db.UpsertRecordAsync(record);
+            Progress.IncrementFailed();
+            BackupLog.Warn($"上传取消 {item.DisplayName}: {ex.Message}");
         }
         catch (Exception ex)
         {
             record.Status = BackupItemStatus.Failed;
-            record.LastError = FormatUploadError(ex);
+            record.LastError = ex is OutOfMemoryException
+                ? "文件过大，内存不足"
+                : FormatUploadError(ex);
             await _db.UpsertRecordAsync(record);
             Progress.IncrementFailed();
             lock (Progress) { Progress.LastError = record.LastError; }
@@ -523,6 +588,8 @@ public class BackupEngine
             var buffer = new byte[81920];
             long totalRead = 0;
             var sizeHint = item.Size > 0 ? item.Size : 0L;
+            if (sizeHint > InMemoryUploadThreshold)
+                throw new InvalidOperationException($"文件过大（{sizeHint} 字节），应使用流式上传。");
 
             while (true)
             {
@@ -533,6 +600,8 @@ public class BackupEngine
                 if (read <= 0) break;
                 ms.Write(buffer, 0, read);
                 totalRead += read;
+                if (totalRead > InMemoryUploadThreshold)
+                    throw new InvalidOperationException($"文件过大（{totalRead} 字节），应使用流式上传。");
                 if (sizeHint > 0 && !_paused)
                     reportProgress?.Invoke(Math.Min(1.0, (double)totalRead / sizeHint));
             }
@@ -673,6 +742,24 @@ public class BackupEngine
 
         return stream;
 
+    }
+
+    private static Task<long> ResolveContentSizeAsync(string contentUri)
+    {
+        var ctx = Platform.CurrentActivity ?? Android.App.Application.Context;
+        var uri = Android.Net.Uri.Parse(contentUri);
+        try
+        {
+            using var afd = ctx.ContentResolver!.OpenAssetFileDescriptor(uri, "r");
+            if (afd?.Length >= 0)
+                return Task.FromResult(afd.Length);
+        }
+        catch (Exception ex)
+        {
+            BackupLog.Warn($"无法通过 ContentResolver 获取文件大小: {ex.Message}");
+        }
+
+        return Task.FromResult(0L);
     }
 
 #endif
