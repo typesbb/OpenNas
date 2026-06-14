@@ -246,12 +246,6 @@ public partial class AlbumDetailPage : ContentPage
         if (sender is not BindableObject bindable || bindable.BindingContext is not Photo photo)
             return;
 
-        if (photo.IsVideo)
-        {
-            await DisplayAlert(_album.Name, "视频暂不支持全屏播放，可在网格中查看封面。", "确定");
-            return;
-        }
-
         if (_photos.Count == 0)
             return;
 

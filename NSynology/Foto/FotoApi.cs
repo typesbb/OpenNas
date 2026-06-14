@@ -92,6 +92,13 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         return await _client.GetStreamAsync(url, cancellationToken);
     }
 
+    /// <summary>带会话参数的原始文件下载地址，供视频流式播放。</summary>
+    public string GetDownloadUrl(Photo photo)
+    {
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Download&version=1&method=download&unit_id=[{photo.Id}]&{{0}}";
+        return _client.BuildApiUri(_client.BuildAuthenticatedApiUrl(url)).AbsoluteUri;
+    }
+
     /// <summary>备份开始前按相册预热官方 App 会话（每相册每轮仅一次）。</summary>
     public Task WarmupAlbumForBackupAsync(int albumId, CancellationToken cancellationToken = default) =>
         _client.WarmupOfficialAlbumBeforeUploadAsync(albumId, cancellationToken);

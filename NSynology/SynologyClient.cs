@@ -422,6 +422,8 @@ public class SynologyClient
         return string.Format(url, BuildSessionQuery());
     }
 
+    internal string BuildAuthenticatedApiUrl(string urlWithSessionPlaceholder) => FormatSid(urlWithSessionPlaceholder);
+
     internal string BuildSessionQuery(string? sid = null, string? synoToken = null)
     {
         sid ??= Sid;

@@ -7,6 +7,7 @@ public partial class PhotoViewerPage : ContentPage
 {
     private readonly IReadOnlyList<Photo> _photos;
     private readonly ZoomableImageView _imageView;
+    private readonly NasVideoPlayerView _videoView;
     private int _index;
     private bool _currentZoomed;
     private bool _initialized;
@@ -21,13 +22,26 @@ public partial class PhotoViewerPage : ContentPage
         _imageView = new ZoomableImageView
         {
             HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Fill
+            VerticalOptions = LayoutOptions.Fill,
+            IsVisible = true
         };
         _imageView.ZoomChanged += OnZoomChanged;
         _imageView.DismissDrag += OnDismissDrag;
         _imageView.DismissRequested += OnDismissRequested;
         _imageView.OnSwipeNavigateAsync = NavigateAsync;
+
+        _videoView = new NasVideoPlayerView
+        {
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            IsVisible = false
+        };
+        _videoView.DismissDrag += OnDismissDrag;
+        _videoView.DismissRequested += OnDismissRequested;
+        _videoView.OnSwipeNavigateAsync = NavigateAsync;
+
         DismissHost.Children.Add(_imageView);
+        DismissHost.Children.Add(_videoView);
 
         Loaded += OnLoaded;
     }
@@ -56,9 +70,27 @@ public partial class PhotoViewerPage : ContentPage
         if (_photos.Count == 0)
             return;
 
+        var photo = _photos[_index];
+        var isVideo = photo.IsVideo;
+
         _currentZoomed = false;
-        UpdateNavigationBounds();
-        _imageView.Photo = _photos[_index];
+        _imageView.IsVisible = !isVideo;
+        _videoView.IsVisible = isVideo;
+
+        if (isVideo)
+        {
+            _imageView.Photo = null;
+            _videoView.CanGoPrevious = _index > 0;
+            _videoView.CanGoNext = _index < _photos.Count - 1;
+            _videoView.Photo = photo;
+        }
+        else
+        {
+            _videoView.Stop();
+            _videoView.Photo = null;
+            UpdateNavigationBounds();
+            _imageView.Photo = photo;
+        }
     }
 
     private void UpdateNavigationBounds()
@@ -74,15 +106,13 @@ public partial class PhotoViewerPage : ContentPage
             return Task.CompletedTask;
 
         _index = next;
-        _currentZoomed = false;
-        UpdateNavigationBounds();
-        _imageView.Photo = _photos[_index];
+        ShowCurrent();
         return Task.CompletedTask;
     }
 
     private void OnZoomChanged(object? sender, EventArgs e)
     {
-        if (sender is ZoomableImageView zoomable)
+        if (sender is ZoomableImageView zoomable && _photos[_index].IsVideo == false)
             _currentZoomed = zoomable.IsZoomed;
     }
 
@@ -98,7 +128,9 @@ public partial class PhotoViewerPage : ContentPage
         }
 
         DismissHost.TranslationY = totalY;
-        var threshold = _imageView.GetDismissThreshold();
+        var threshold = _photos[_index].IsVideo
+            ? _videoView.GetDismissThreshold()
+            : _imageView.GetDismissThreshold();
         DismissHost.Opacity = Math.Clamp(1 - totalY / (threshold * 1.6), 0.35, 1);
     }
 
@@ -140,6 +172,7 @@ public partial class PhotoViewerPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        _videoView.Stop();
         DismissHost.TranslationY = 0;
         DismissHost.Opacity = 1;
     }

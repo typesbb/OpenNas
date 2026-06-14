@@ -71,9 +71,9 @@ public static class NasOriginalLoader
         MainThread.BeginInvokeOnMainThread(() => onLoadingChanged(loading));
     }
 
-    private static async Task<string?> DownloadAndCacheAsync(Photo photo)
+    private static async Task<string?> DownloadAndCacheAsync(Photo photo, CancellationToken cancellationToken = default)
     {
-        await Gate.WaitAsync(CancellationToken.None);
+        await Gate.WaitAsync(cancellationToken);
         try
         {
             if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
@@ -82,8 +82,8 @@ public static class NasOriginalLoader
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
                 return null;
 
-            await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo);
-            var path = await NasMediaCache.WriteOriginalFromStreamAsync(photo, network);
+            await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo, cancellationToken);
+            var path = await NasMediaCache.WriteOriginalFromStreamAsync(photo, network, cancellationToken);
             return path;
         }
         catch
@@ -98,4 +98,16 @@ public static class NasOriginalLoader
     }
 
     public static void ClearMemoryCache() => InFlight.Clear();
+
+    /// <summary>通过应用 HttpClient 下载原文件到本地缓存（可信任内网自签 HTTPS），供视频播放等场景使用。</summary>
+    public static Task<string?> EnsureCachedAsync(Photo photo, CancellationToken cancellationToken = default)
+    {
+        if (photo.Id <= 0)
+            return Task.FromResult<string?>(null);
+
+        if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
+            return Task.FromResult<string?>(cached);
+
+        return InFlight.GetOrAdd(photo.Id, _ => DownloadAndCacheAsync(photo, cancellationToken));
+    }
 }
