@@ -15,6 +15,7 @@ public partial class LoginPage : ContentPage
     public LoginPage(ConnectionService connection)
     {
         InitializeComponent();
+        NavigationPage.SetHasNavigationBar(this, false);
         _connection = connection;
     }
 

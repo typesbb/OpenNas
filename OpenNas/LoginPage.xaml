@@ -2,7 +2,6 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.LoginPage"
-             Title="登录"
              Shell.NavBarIsVisible="False">
     <ScrollView>
         <VerticalStackLayout Padding="28,48,28,32" Spacing="20" VerticalOptions="Center">
