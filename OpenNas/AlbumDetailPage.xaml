@@ -1,19 +1,101 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
+             xmlns:helpers="clr-namespace:OpenNas.Helpers"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.AlbumDetailPage"
-             Title="AlbumDetailPage">
-    <ScrollView VerticalOptions="FillAndExpand" Scrolled="ScrollView_Scrolled">
-        <FlexLayout BindableLayout.ItemsSource="{Binding}" Wrap="Wrap" JustifyContent="Start">
-            <BindableLayout.ItemTemplate>
-                <DataTemplate>
-                    <Frame Padding="0" Margin="0" BackgroundColor="Transparent" BorderColor="Transparent">
-                        <StackLayout>
-                            <Image Aspect="AspectFill" HeightRequest="100" WidthRequest="100" HandlerChanged="OnImageHandlerChanged"/>
-                        </StackLayout>
-                    </Frame>
-                </DataTemplate>
-            </BindableLayout.ItemTemplate>
-        </FlexLayout>
-    </ScrollView>
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid>
+        <Grid RowDefinitions="Auto,*">
+            <Grid Grid.Row="0"
+                  Padding="4,8,8,4"
+                  ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="4">
+                <Button Grid.Column="0"
+                        Text="‹"
+                        FontSize="28"
+                        Style="{StaticResource ToolbarIconButton}"
+                        SemanticProperties.Hint="返回"
+                        Clicked="OnBackClicked" />
+                <Label x:Name="TitleLabel"
+                       Grid.Column="1"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="18"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       LineBreakMode="TailTruncation"
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                <Button x:Name="MoreButton"
+                        Grid.Column="2"
+                        Text="⋮"
+                        Style="{StaticResource ToolbarIconButton}"
+                        SemanticProperties.Hint="更多"
+                        Clicked="OnMenuClicked" />
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <RefreshView x:Name="PhotosRefreshView"
+                             RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
+                    <CollectionView x:Name="PhotosView"
+                                    IsGrouped="True"
+                                    ItemsLayout="VerticalGrid, 3"
+                                    RemainingItemsThreshold="12"
+                                    RemainingItemsThresholdReached="OnLoadMore"
+                                    SelectionMode="None">
+                        <CollectionView.GroupHeaderTemplate>
+                            <DataTemplate x:DataType="helpers:PhotoDateGroup">
+                                <Label Text="{Binding DateLabel}"
+                                       FontFamily="OpenSansSemibold"
+                                       FontSize="17"
+                                       Margin="12,18,12,8"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                            </DataTemplate>
+                        </CollectionView.GroupHeaderTemplate>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="foto:Photo">
+                                <Border Margin="2"
+                                        StrokeThickness="0"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPhotoTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="4" />
+                                    </Border.StrokeShape>
+                                    <Image Aspect="AspectFill"
+                                           HeightRequest="112"
+                                           HandlerChanged="OnImageHandlerChanged" />
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </RefreshView>
+
+                <ActivityIndicator x:Name="BusyIndicator"
+                                   IsRunning="False"
+                                   IsVisible="False"
+                                   Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+
+                <Button x:Name="AddPhotoButton"
+                        Text="+"
+                        WidthRequest="56"
+                        HeightRequest="56"
+                        CornerRadius="28"
+                        FontSize="28"
+                        Padding="0"
+                        Margin="0,0,20,24"
+                        HorizontalOptions="End"
+                        VerticalOptions="End"
+                        Style="{StaticResource PrimaryButton}"
+                        SemanticProperties.Hint="添加照片"
+                        Clicked="OnAddPhotoClicked" />
+            </Grid>
+        </Grid>
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown" ZIndex="99" />
+    </Grid>
 </ContentPage>

@@ -31,9 +31,11 @@ namespace NSynology.Foto
         [JsonPropertyName("id")]
         public int Id { get; set; }
 
-        // Number bigger than int.MaxValue
         //[JsonPropertyName("indexed_time")]
         //public int IndexedTime { get; set; }
+
+        [JsonPropertyName("indexed_time")]
+        public long IndexedTime { get; set; }
 
         /// <summary>
         /// User identifier of the owner

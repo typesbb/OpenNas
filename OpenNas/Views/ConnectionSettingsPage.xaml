@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.ConnectionSettingsPage"
-             Title="连接与账号">
+             Title="连接设置">
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="16">
 
@@ -38,29 +38,6 @@
                             Clicked="OnSetActiveClicked" />
                 </VerticalStackLayout>
             </Border>
-
-            <Label Text="备份策略" Style="{StaticResource SectionTitle}" />
-
-            <Border Style="{StaticResource CardBorder}">
-                <VerticalStackLayout Spacing="12">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                        <Switch x:Name="WifiOnlySwitch" Toggled="OnWifiOnlyToggled" VerticalOptions="Center" />
-                        <Label Text="仅 Wi-Fi 时备份" VerticalOptions="Center" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                        <Switch x:Name="ConfirmDeleteSwitch" Toggled="OnConfirmDeleteToggled" VerticalOptions="Center" />
-                        <Label Text="删除本地前需已确认风险" VerticalOptions="Center" FontSize="14" />
-                    </Grid>
-                    <Button Text="我已了解删除风险"
-                            Style="{StaticResource OutlineButton}"
-                            Clicked="OnAckDeleteRiskClicked" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Button Text="重新登录"
-                    Style="{StaticResource OutlineButton}"
-                    TextColor="{StaticResource Warning}"
-                    Clicked="OnReloginClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

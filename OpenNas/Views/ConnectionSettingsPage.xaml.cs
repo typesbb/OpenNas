@@ -15,8 +15,6 @@ public partial class ConnectionSettingsPage : ContentPage
         InitializeComponent();
         _connection = connection;
         KindPicker.ItemsSource = new[] { "内网", "外网" };
-        WifiOnlySwitch.IsToggled = _connection.GetWifiOnly();
-        ConfirmDeleteSwitch.IsToggled = _connection.GetConfirmBeforeDelete();
     }
 
     protected override async void OnAppearing()
@@ -74,31 +72,5 @@ public partial class ConnectionSettingsPage : ContentPage
         }
         await _connection.SetActiveProfileAsync(_selected);
         await UiFeedback.ToastAsync("已切换当前连接");
-    }
-
-    private void OnWifiOnlyToggled(object sender, ToggledEventArgs e) =>
-        _connection.SetWifiOnly(e.Value);
-
-    private void OnConfirmDeleteToggled(object sender, ToggledEventArgs e) =>
-        _connection.SetConfirmBeforeDelete(e.Value);
-
-    private async void OnAckDeleteRiskClicked(object sender, EventArgs e)
-    {
-        var ok = await UiFeedback.ConfirmAsync(this,
-            "删除风险提示",
-            "备份成功后删除本地文件不可恢复。请确认 NAS 上已成功备份后再开启各规则的「备份后删除」。",
-            "我已了解", "取消");
-        if (ok)
-        {
-            _connection.SetAcknowledgedDeleteRisk(true);
-            await UiFeedback.ToastAsync("已确认，可为规则开启「备份后删除」");
-        }
-    }
-
-    private async void OnReloginClicked(object sender, EventArgs e)
-    {
-        await _connection.LogoutAsync();
-        if (Application.Current?.Windows.Count > 0)
-            Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
     }
 }

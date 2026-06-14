@@ -17,10 +17,25 @@
 
     <!-- 输入框容器 -->
     <Style x:Key="InputBorder" TargetType="Border" BasedOn="{StaticResource CardBorder}">
+        <Setter Property="StrokeThickness" Value="0" />
         <Setter Property="Padding" Value="12,4" />
         <Setter Property="StrokeShape">
             <RoundRectangle CornerRadius="10" />
         </Setter>
+    </Style>
+
+    <Style x:Key="ToolbarIconButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+        <Setter Property="FontFamily" Value="OpenSansSemibold" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="MinimumWidthRequest" Value="44" />
     </Style>
 
     <!-- 文字层级 -->

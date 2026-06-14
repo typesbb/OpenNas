@@ -8,27 +8,13 @@
         <VerticalStackLayout Padding="28,48,28,32" Spacing="20" VerticalOptions="Center">
 
             <VerticalStackLayout Spacing="8" HorizontalOptions="Center" Margin="0,0,0,8">
-                <Border WidthRequest="72"
-                        HeightRequest="72"
-                        HorizontalOptions="Center"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource BrandPrimarySoft}, Dark={StaticResource BrandPrimarySoftDark}}"
-                        StrokeThickness="0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="20" />
-                    </Border.StrokeShape>
-                    <Label Text="ON"
-                           FontFamily="OpenSansSemibold"
-                           FontSize="28"
-                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
-                </Border>
+                <Image Source="opennas_logo.svg"
+                       WidthRequest="72"
+                       HeightRequest="72"
+                       HorizontalOptions="Center"
+                       SemanticProperties.Description="OpenNas" />
                 <Label Text="OpenNas"
                        Style="{StaticResource PageTitle}"
-                       HorizontalOptions="Center" />
-                <Label Text="连接你的 Synology NAS，管理相册与备份"
-                       Style="{StaticResource Caption}"
-                       HorizontalTextAlignment="Center"
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
 
@@ -49,23 +35,29 @@
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="密码" Style="{StaticResource MicroCaption}" VerticalOptions="Center" />
-                            <Button Grid.Column="1"
-                                    x:Name="TogglePasswordButton"
-                                    Text="显示"
-                                    Style="{StaticResource OutlineButton}"
-                                    Padding="10,4"
-                                    MinimumHeightRequest="32"
-                                    FontSize="12"
-                                    Clicked="OnTogglePasswordClicked" />
-                        </Grid>
+                        <Label Text="密码" Style="{StaticResource MicroCaption}" />
                         <Border Style="{StaticResource InputBorder}">
-                            <Entry x:Name="passwordEntry"
-                                   Placeholder="密码"
-                                   IsPassword="True"
-                                   ReturnType="Done"
-                                   Completed="OnEntryCompleted" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+                                <Entry x:Name="passwordEntry"
+                                       Grid.Column="0"
+                                       Placeholder="密码"
+                                       IsPassword="True"
+                                       ReturnType="Done"
+                                       Completed="OnEntryCompleted" />
+                                <ImageButton x:Name="TogglePasswordButton"
+                                             Grid.Column="1"
+                                             Source="eye_open.svg"
+                                             WidthRequest="40"
+                                             HeightRequest="40"
+                                             Padding="8"
+                                             MinimumHeightRequest="40"
+                                             MinimumWidthRequest="40"
+                                             BackgroundColor="Transparent"
+                                             BorderWidth="0"
+                                             VerticalOptions="Center"
+                                             SemanticProperties.Hint="显示密码"
+                                             Clicked="OnTogglePasswordClicked" />
+                            </Grid>
                         </Border>
                     </VerticalStackLayout>
 

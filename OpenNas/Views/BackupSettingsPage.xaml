@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OpenNas.Views.BackupSettingsPage"
+             Title="备份策略">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="16">
+            <Border Style="{StaticResource CardBorder}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Switch x:Name="WifiOnlySwitch" Toggled="OnWifiOnlyToggled" VerticalOptions="Center" />
+                        <Label Text="仅 Wi-Fi 时备份" VerticalOptions="Center" FontSize="15" />
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Switch x:Name="ConfirmDeleteSwitch" Toggled="OnConfirmDeleteToggled" VerticalOptions="Center" />
+                        <Label Text="删除本地前需已确认风险" VerticalOptions="Center" FontSize="15" />
+                    </Grid>
+                    <Button Text="我已了解删除风险"
+                            Style="{StaticResource OutlineButton}"
+                            Clicked="OnAckDeleteRiskClicked" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

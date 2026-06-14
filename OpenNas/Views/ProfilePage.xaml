@@ -3,55 +3,85 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.Views.ProfilePage"
-             Title="我的">
-    <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="16">
-            <controls:ConnectionBanner x:Name="ConnectionBanner" />
+             Title="我的"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*">
+        <controls:PageTitleBar Grid.Row="0" Title="我的" />
 
-            <Border Style="{StaticResource CardBorder}">
-                <VerticalStackLayout Spacing="6">
-                    <Label Text="NAS 信息" Style="{StaticResource SectionTitle}" />
-                    <Label x:Name="ProfileNameLabel" FontSize="15" />
-                    <Label x:Name="ProfileUrlLabel" Style="{StaticResource Caption}" LineBreakMode="TailTruncation" />
-                    <Label x:Name="LoginStateLabel" Style="{StaticResource Caption}" />
-                </VerticalStackLayout>
-            </Border>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="12">
+                <Border Style="{StaticResource CardBorder}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                        <Label x:Name="UsernameLabel"
+                               FontSize="17"
+                               FontFamily="OpenSansSemibold" />
+                        <Button Grid.Column="1"
+                                Grid.RowSpan="3"
+                                x:Name="SwitchConnectionButton"
+                                Text="切换"
+                                Style="{StaticResource SecondaryButton}"
+                                FontSize="12"
+                                Padding="12,6"
+                                VerticalOptions="Center"
+                                Clicked="OnSwitchConnectionClicked" />
+                        <Label x:Name="ProfileNameLabel"
+                               Grid.Row="1"
+                               FontSize="15" />
+                        <Label x:Name="ProfileUrlLabel"
+                               Grid.Row="2"
+                               Style="{StaticResource Caption}"
+                               LineBreakMode="TailTruncation" />
+                    </Grid>
+                </Border>
 
-            <Label Text="设置" Style="{StaticResource MicroCaption}" Margin="4,0,0,0" />
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnConnectionClicked" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="连接设置" VerticalOptions="Center" FontSize="15" />
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
 
-            <Border Style="{StaticResource SettingRowBorder}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnConnectionClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="连接与账号设置" VerticalOptions="Center" FontSize="15" />
-                    <Label Grid.Column="1" Text="›" FontSize="20"
-                           TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
-                           VerticalOptions="Center" />
-                </Grid>
-            </Border>
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnBackupSettingsClicked" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="备份策略" VerticalOptions="Center" FontSize="15" />
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
 
-            <Border Style="{StaticResource SettingRowBorder}">
-                <Border.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnReloginClicked" />
-                </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="重新登录" VerticalOptions="Center" FontSize="15" />
-                    <Label Grid.Column="1" Text="›" FontSize="20"
-                           TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
-                           VerticalOptions="Center" />
-                </Grid>
-            </Border>
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnClearCacheClicked" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="清理缓存" VerticalOptions="Center" FontSize="15" />
+                        <Label x:Name="CacheSizeLabel"
+                               Grid.Column="1"
+                               Style="{StaticResource Caption}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
 
-            <Button Text="退出登录"
-                    Style="{StaticResource DangerTextButton}"
-                    Margin="0,8,0,0"
-                    Clicked="OnLogoutClicked" />
+                <Button Text="退出登录"
+                        Style="{StaticResource DangerTextButton}"
+                        Margin="0,8,0,0"
+                        Clicked="OnLogoutClicked" />
 
-            <Label Text="OpenNas — NAS 相册与文件管理"
-                   Style="{StaticResource MicroCaption}"
-                   HorizontalOptions="Center"
-                   Margin="0,16,0,8" />
-        </VerticalStackLayout>
-    </ScrollView>
+                <Label Text="OpenNas — NAS 相册与文件管理"
+                       Style="{StaticResource MicroCaption}"
+                       HorizontalOptions="Center"
+                       Margin="0,16,0,8" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>

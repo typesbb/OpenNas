@@ -39,6 +39,15 @@ public static class MauiProgram
 
 #if ANDROID
         Platforms.Android.AndroidUploadThumbnailFactory.Register();
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("NoUnderline", (handler, _) =>
+        {
+            if (handler.PlatformView is global::Android.Widget.EditText editText)
+            {
+                editText.Background = null;
+                editText.BackgroundTintList = global::Android.Content.Res.ColorStateList.ValueOf(
+                    global::Android.Graphics.Color.Transparent);
+            }
+        });
         Microsoft.Maui.Handlers.WebViewHandler.Mapper.AppendToMapping("NasSelfSignedSsl", (handler, _) =>
         {
             if (handler.PlatformView is Android.Webkit.WebView wv)

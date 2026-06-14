@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using NSynology;
 using NSynology.Foto;
+using OpenNas;
 using OpenNas.Data;
 using OpenNas.Helpers;
 using OpenNas.Models;
@@ -14,6 +15,7 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly BackupDatabase _db;
     private readonly BackupEngine _engine;
+    private readonly ConnectionService _connection;
 
     private bool _wasRunning;
     private bool _isRunning;
@@ -22,10 +24,11 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     private bool _lastKnownPaused;
     private BackupSummarySnapshot _lastSummary;
 
-    public BackupTaskViewModel(BackupDatabase db, BackupEngine engine)
+    public BackupTaskViewModel(BackupDatabase db, BackupEngine engine, ConnectionService connection)
     {
         _db = db;
         _engine = engine;
+        _connection = connection;
         Rules = new ObservableCollection<BackupRuleItemViewModel>();
         _engine.ProgressChanged += OnEngineProgressChanged;
     }
@@ -101,6 +104,9 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         if (_engine.Progress.IsRunning)
             return;
 
+        if (!await EnsureLoggedInAsync(page))
+            return;
+
 #if ANDROID
         if (!await EnsurePermissionsAsync(page))
             return;
@@ -122,6 +128,9 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 
     public async Task StartRuleAsync(Page page, int ruleId)
     {
+        if (!await EnsureLoggedInAsync(page))
+            return;
+
 #if ANDROID
         if (!await EnsurePermissionsAsync(page))
             return;
@@ -249,6 +258,23 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         await Task.CompletedTask;
         return false;
 #endif
+    }
+
+    private async Task<bool> EnsureLoggedInAsync(Page page)
+    {
+        if (_connection.IsLoggedIn)
+            return true;
+
+        var goLogin = await UiFeedback.ConfirmAsync(
+            page,
+            "需要登录",
+            "NAS 会话已过期或未登录，请重新登录后再备份。",
+            "去登录",
+            "取消");
+        if (goLogin && Application.Current?.Windows.Count > 0)
+            Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+
+        return false;
     }
 
     private void OnEngineProgressChanged(object? sender, EventArgs e)

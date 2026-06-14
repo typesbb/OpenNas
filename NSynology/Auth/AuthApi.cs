@@ -249,8 +249,59 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     public async Task<bool> ValidateAsync(string sid, CancellationToken cancellationToken = default)
     {
         _client.RestoreOfficialAppSessionCookies(sid);
-        return await CheckSessionAsync(sid, _client.SynoToken, cancellationToken);
+        var validity = await TryValidateOfficialAppSessionAsync(cancellationToken);
+        return validity == true;
     }
+
+    /// <summary>
+    /// 用官方 Cookie 会话向 NAS 探测是否仍有效。
+    /// <c>true</c> 有效，<c>false</c> 已失效，<c>null</c> 网络等原因暂无法判断。
+    /// </summary>
+    public async Task<bool?> TryValidateOfficialAppSessionAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(_client.Sid))
+            return false;
+
+        _client.RestorePersistedPhotosDeviceId();
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(20));
+
+            await _client.PostOfficialAppFormAsync(
+                "SYNO.Foto.UserInfo", 1, "me", cancellationToken: cts.Token);
+            return true;
+        }
+        catch (Exception ex) when (IsSessionRejected(ex))
+        {
+            return false;
+        }
+        catch (Exception ex) when (IsTransientFailure(ex))
+        {
+            return null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsSessionRejected(Exception ex)
+    {
+        var message = ex.Message;
+        return message.Contains("Session timeout", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Session interrupted", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("Synology Photos API", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("会话", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("permission", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("权限", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("privilege", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTransientFailure(Exception ex) =>
+        ex is HttpRequestException or TaskCanceledException or TimeoutException or IOException
+        || (ex.InnerException != null && IsTransientFailure(ex.InnerException));
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
@@ -326,20 +377,5 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
                 _client.FileStationSynoToken = token;
             return;
         }
-    }
-
-    private async Task<bool> CheckSessionAsync(string sid, string? synoToken, CancellationToken cancellationToken)
-    {
-        var q = $"_sid={sid}";
-        if (!string.IsNullOrEmpty(synoToken))
-            q += $"&SynoToken={Uri.EscapeDataString(synoToken)}";
-
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version=3&method=check&{q}";
-        var response = await _client.HttpClient.GetAsync(url, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.TryGetProperty("success", out var ok) && ok.GetBoolean();
     }
 }

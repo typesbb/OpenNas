@@ -1,6 +1,7 @@
 using System.Text.Json;
 using NSynology;
 using NSynology.Diagnostics;
+using OpenNas.Helpers;
 using OpenNas.Models;
 
 namespace OpenNas.Services;
@@ -116,19 +117,21 @@ public class ConnectionService
                 if (SynologyHttpTrace.IsEnabled)
                     SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
 #endif
-                if (!await SynologyManager.Client.Auth.ValidateAsync(sid))
+                var validity = await SynologyManager.Client.Auth.TryValidateOfficialAppSessionAsync();
+                if (validity == false)
                 {
-                    AppLog.Warn("已保存的 sid 校验失败，保留凭据。");
+                    await InvalidateStoredSessionAsync("NAS 会话已过期，请重新登录。");
                     return;
                 }
 
+                if (validity == true)
+                    await PersistSessionAsync();
             }
             catch (Exception ex)
             {
-                AppLog.Warn("恢复 NAS 会话失败（请检查地址是否为 https://…:5001）", ex);
-                SynologyManager.Init(baseUrl);
-                SynologyManager.Client.Sid = null;
-                SynologyManager.Client.SynoToken = null;
+                AppLog.Warn("恢复 NAS 会话失败（保留本地会话，稍后重试）", ex);
+                SynologyManager.Init(baseUrl, sid, synoToken);
+                SynologyManager.Client.RestoreOfficialAppSessionCookies(sid);
             }
             finally
             {
@@ -185,6 +188,26 @@ public class ConnectionService
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>清除已过期的 sid，保留 NAS 连接配置与登录页用户名。</summary>
+    public async Task InvalidateStoredSessionAsync(string reason)
+    {
+        AppLog.Warn(reason);
+        if (ActiveProfile != null)
+        {
+            SecureStorage.Remove(SidKey(ActiveProfile.Id));
+            SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
+        }
+
+        if (SynologyManager.Client != null)
+        {
+            SynologyManager.Client.Sid = null;
+            SynologyManager.Client.SynoToken = null;
+        }
+
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+        await Task.CompletedTask;
+    }
+
     public bool GetWifiOnly() => Preferences.Get(WifiOnlyKey, true);
     public void SetWifiOnly(bool value) => Preferences.Set(WifiOnlyKey, value);
 
@@ -200,8 +223,7 @@ public class ConnectionService
     public string GetConnectionLabel()
     {
         if (ActiveProfile == null) return "未配置";
-        var kind = ActiveProfile.NetworkKind == NetworkKind.Lan ? "内网" : "外网";
         var connected = !string.IsNullOrEmpty(SynologyManager.Client?.Sid);
-        return $"{kind} · {ActiveProfile.DisplayName} · {(connected ? "已连接" : "未登录")}";
+        return $"{NasProfileDisplay.FormatTitle(ActiveProfile)} · {(connected ? "已连接" : "未登录")}";
     }
 }

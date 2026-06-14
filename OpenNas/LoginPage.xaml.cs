@@ -29,6 +29,12 @@ public partial class LoginPage : ContentPage
         try
         {
             await _connection.InitializeAsync();
+            if (_connection.IsLoggedIn && Application.Current?.Windows.Count > 0)
+            {
+                Application.Current.Windows[0].Page = new AppShell();
+                return;
+            }
+
             if (_connection.ActiveProfile != null)
                 ServerLabel.Text = $"当前：{_connection.ActiveProfile.DisplayName} · {_connection.ActiveProfile.BaseUrl}";
             else
@@ -47,11 +53,19 @@ public partial class LoginPage : ContentPage
 
     private async void OnLoginButtonClicked(object sender, EventArgs e) => await LoginAsync();
 
-    private void OnTogglePasswordClicked(object sender, EventArgs e)
+    private async void OnTogglePasswordClicked(object sender, EventArgs e)
     {
+        if (_isLoggingIn) return;
+
+        await TogglePasswordButton.ScaleYTo(0.12, 90, Easing.CubicIn);
+
         _passwordVisible = !_passwordVisible;
         passwordEntry.IsPassword = !_passwordVisible;
-        TogglePasswordButton.Text = _passwordVisible ? "隐藏" : "显示";
+        TogglePasswordButton.Source = _passwordVisible ? "eye_off.svg" : "eye_open.svg";
+        SemanticProperties.SetHint(TogglePasswordButton, _passwordVisible ? "隐藏密码" : "显示密码");
+
+        TogglePasswordButton.ScaleY = 0.12f;
+        await TogglePasswordButton.ScaleYTo(1, 130, Easing.CubicOut);
     }
 
     private async Task LoginAsync()
@@ -112,8 +126,7 @@ public partial class LoginPage : ContentPage
         LoginIndicator.IsRunning = loggingIn;
         LoginButton.IsEnabled = !loggingIn;
         SettingsButton.IsEnabled = !loggingIn;
-        usernameEntry.IsEnabled = !loggingIn;
-        passwordEntry.IsEnabled = !loggingIn;
+        TogglePasswordButton.IsEnabled = !loggingIn;
         LoginButton.Text = loggingIn ? "正在连接…" : "登录";
     }
 

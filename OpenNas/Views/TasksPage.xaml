@@ -4,14 +4,23 @@
              xmlns:controls="clr-namespace:OpenNas.Controls"
              xmlns:vm="clr-namespace:OpenNas.ViewModels"
              x:Class="OpenNas.Views.TasksPage"
-             Title="任务">
+             Title="任务"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
 
-    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="10">
-
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <Label Text="相册备份"
-                   Style="{StaticResource SectionTitle}"
-                   VerticalOptions="Center" />
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16,0,16,12" RowSpacing="10">
+        <Grid Grid.Row="0"
+              Padding="0,8,0,4"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="4">
+            <Label Grid.Column="0"
+                   Grid.ColumnSpan="2"
+                   Text="任务"
+                   FontFamily="OpenSansSemibold"
+                   FontSize="18"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
             <Button Grid.Column="1"
                     Text="+"
                     Style="{StaticResource CompactOutlineButton}"
@@ -20,7 +29,12 @@
                     Clicked="OnAddRuleClicked" />
         </Grid>
 
-        <CollectionView Grid.Row="1"
+        <Label Grid.Row="1"
+               Text="相册备份"
+               Style="{StaticResource SectionTitle}"
+               Margin="0,0,0,0" />
+
+        <CollectionView Grid.Row="2"
                         ItemsSource="{Binding Rules}"
                         SelectionMode="None"
                         ItemsUpdatingScrollMode="KeepItemsInView">

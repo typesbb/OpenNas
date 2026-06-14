@@ -54,7 +54,7 @@ public partial class ConnectionBanner : ContentView
     {
         if (_connection == null) return;
         var profiles = await _connection.LoadProfilesAsync();
-        var names = profiles.Select(p => $"{(p.NetworkKind == NetworkKind.Lan ? "内网" : "外网")} - {p.DisplayName}").ToArray();
+        var names = profiles.Select(NasProfileDisplay.FormatTitle).ToArray();
         var pick = await Application.Current!.MainPage!.DisplayActionSheet("切换连接", "取消", null, names);
         if (pick == null || pick == "取消") return;
         var idx = Array.IndexOf(names, pick);

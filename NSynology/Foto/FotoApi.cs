@@ -41,18 +41,50 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         return result.Album;
     }
 
-    public async Task<Stream> GetThumbnailAsync(int id, string cacheKey, CancellationToken cancellationToken = default)
+    public async Task<Stream> GetThumbnailAsync(
+        int id,
+        string cacheKey,
+        string size = "sm",
+        CancellationToken cancellationToken = default)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Thumbnail&version=1&method=get&id={id}&size=sm&cache_key={cacheKey}&type=unit&{{0}}";
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Thumbnail&version=1&method=get&id={id}&size={size}&cache_key={cacheKey}&type=unit&{{0}}";
         return await _client.GetStreamAsync(url, cancellationToken);
     }
 
-    public async Task<IEnumerable<Photo>> GetPhotosAsync(Album album, int offset, int limit, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Photo>> GetPhotosAsync(
+        Album album,
+        int offset,
+        int limit,
+        string sortField = "time",
+        bool sortDescending = true,
+        CancellationToken cancellationToken = default)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Browse.Item&version=1&method=list&album_id={album.Id}&additional=[\"thumbnail\",\"resolution\",\"orientation\",\"video_convert\",\"video_meta\",\"provider_user_id\"]&offset={offset}&limit={limit}&{{0}}";
-        var result = await _client.GetAsync<ListObject<Photo>>(url, cancellationToken);
-        return result.List ?? Array.Empty<Photo>();
+        var apiSortBy = MapSortField(sortField);
+        var direction = sortDescending ? "desc" : "asc";
+
+        var parsed = await _client.PostOfficialAppFormAsync<ListObject<Photo>>(
+            "SYNO.Foto.Browse.Item",
+            5,
+            "list",
+            [
+                new KeyValuePair<string, string>("offset", offset.ToString()),
+                new KeyValuePair<string, string>("limit", limit.ToString()),
+                new KeyValuePair<string, string>("album_id", album.Id.ToString()),
+                new KeyValuePair<string, string>("sort_by", $"\"{apiSortBy}\""),
+                new KeyValuePair<string, string>("sort_direction", $"\"{direction}\""),
+                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseItemListAdditional),
+                new KeyValuePair<string, string>("geocoding_accept_language", "chs")
+            ],
+            cancellationToken);
+        return parsed?.List ?? Array.Empty<Photo>();
     }
+
+    private static string MapSortField(string sortField) => sortField switch
+    {
+        "name" => "filename",
+        "size" => "filesize",
+        _ => "takentime"
+    };
 
     public async Task<Stream> GetDownloadPhotoAsync(Photo photo, CancellationToken cancellationToken = default)
     {

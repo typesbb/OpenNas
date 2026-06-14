@@ -1,72 +1,79 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.Views.FilesPage"
-             Title="文件">
-    <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="20">
+             Title="文件"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*">
+        <controls:PageTitleBar Grid.Row="0" Title="文件" />
 
-            <Border Style="{StaticResource CardBorder}" Padding="24">
-                <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
-                    <Border WidthRequest="80"
-                            HeightRequest="80"
-                            HorizontalOptions="Center"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource BrandPrimarySoft}, Dark={StaticResource BrandPrimarySoftDark}}"
-                            StrokeThickness="0">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="20" />
-                        </Border.StrokeShape>
-                        <Image Source="icon_files_coming.svg"
-                               HeightRequest="40"
-                               WidthRequest="40"
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="20">
+
+                <Border Style="{StaticResource CardBorder}" Padding="24">
+                    <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
+                        <Border WidthRequest="80"
+                                HeightRequest="80"
+                                HorizontalOptions="Center"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource BrandPrimarySoft}, Dark={StaticResource BrandPrimarySoftDark}}"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="20" />
+                            </Border.StrokeShape>
+                            <Image Source="icon_files_coming.svg"
+                                   HeightRequest="40"
+                                   WidthRequest="40"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Border>
+
+                        <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                            <Label Text="File Station"
+                                   Style="{StaticResource SectionTitle}"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Text="文件浏览与管理功能正在开发中"
+                                   Style="{StaticResource Caption}"
+                                   HorizontalTextAlignment="Center" />
+                        </VerticalStackLayout>
+
+                        <Label Text="即将支持"
+                               Style="{StaticResource MicroCaption}"
                                HorizontalOptions="Center"
-                               VerticalOptions="Center" />
-                    </Border>
+                               Margin="0,4,0,0" />
 
-                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
-                        <Label Text="File Station"
-                               Style="{StaticResource SectionTitle}"
-                               HorizontalTextAlignment="Center" />
-                        <Label Text="文件浏览与管理功能正在开发中"
-                               Style="{StaticResource Caption}"
-                               HorizontalTextAlignment="Center" />
+                        <FlexLayout Wrap="Wrap"
+                                    JustifyContent="Center"
+                                    AlignItems="Center"
+                                    Direction="Row">
+                            <Border Style="{StaticResource FeatureChip}" Margin="4">
+                                <Label Text="文件夹浏览" FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                            </Border>
+                            <Border Style="{StaticResource FeatureChip}" Margin="4">
+                                <Label Text="上传下载" FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                            </Border>
+                            <Border Style="{StaticResource FeatureChip}" Margin="4">
+                                <Label Text="文件管理" FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                            </Border>
+                        </FlexLayout>
                     </VerticalStackLayout>
+                </Border>
 
-                    <Label Text="即将支持"
-                           Style="{StaticResource MicroCaption}"
-                           HorizontalOptions="Center"
-                           Margin="0,4,0,0" />
-
-                    <FlexLayout Wrap="Wrap"
-                                JustifyContent="Center"
-                                AlignItems="Center"
-                                Direction="Row">
-                        <Border Style="{StaticResource FeatureChip}" Margin="4">
-                            <Label Text="文件夹浏览" FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
-                        </Border>
-                        <Border Style="{StaticResource FeatureChip}" Margin="4">
-                            <Label Text="上传下载" FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
-                        </Border>
-                        <Border Style="{StaticResource FeatureChip}" Margin="4">
-                            <Label Text="文件管理" FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
-                        </Border>
-                    </FlexLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Style="{StaticResource CardBorder}">
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="现在你可以"
-                           Style="{StaticResource SectionTitle}" />
-                    <Label Text="· 在「相册」浏览 NAS 照片"
-                           Style="{StaticResource Caption}" />
-                    <Label Text="· 在「任务」配置相册自动备份"
-                           Style="{StaticResource Caption}" />
-                </VerticalStackLayout>
-            </Border>
-        </VerticalStackLayout>
-    </ScrollView>
+                <Border Style="{StaticResource CardBorder}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="现在你可以"
+                               Style="{StaticResource SectionTitle}" />
+                        <Label Text="· 在「相册」浏览 NAS 照片"
+                               Style="{StaticResource Caption}" />
+                        <Label Text="· 在「任务」配置相册自动备份"
+                               Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>

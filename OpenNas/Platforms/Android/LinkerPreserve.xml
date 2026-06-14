@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<linker>
+  <assembly fullname="OpenNas">
+    <type fullname="OpenNas.Platforms.Android.PhotoZoomTouchListener" preserve="all" />
+    <type fullname="OpenNas.Platforms.Android.PhotoZoomScaleListener" preserve="all" />
+    <type fullname="OpenNas.Platforms.Android.PhotoZoomGestureListener" preserve="all" />
+    <type fullname="OpenNas.Controls.ZoomableImageView" preserve="all" />
+  </assembly>
+</linker>
