@@ -17,7 +17,7 @@ namespace NSynology.Foto
         /// Size of the file
         /// </summary>
         [JsonPropertyName("filesize")]
-        public int FileSize { get; set; }
+        public long FileSize { get; set; }
 
         /// <summary>
         /// Folder identifier
@@ -54,6 +54,10 @@ namespace NSynology.Foto
         /// </summary>
         [JsonPropertyName("type")]
         public string Type { get; set; }
+
+        [JsonIgnore]
+        public bool IsVideo => string.Equals(Type, "video", StringComparison.OrdinalIgnoreCase);
+
         public Additional Additional { get; set; }
     }
 }

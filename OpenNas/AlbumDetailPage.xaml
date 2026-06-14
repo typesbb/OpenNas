@@ -64,9 +64,28 @@
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="4" />
                                     </Border.StrokeShape>
-                                    <Image Aspect="AspectFill"
-                                           HeightRequest="112"
-                                           HandlerChanged="OnImageHandlerChanged" />
+                                    <Grid>
+                                        <Image Aspect="AspectFill"
+                                               HeightRequest="112"
+                                               HandlerChanged="OnImageHandlerChanged" />
+                                        <Border IsVisible="{Binding IsVideo}"
+                                                BackgroundColor="#99000000"
+                                                WidthRequest="32"
+                                                HeightRequest="32"
+                                                HorizontalOptions="Center"
+                                                VerticalOptions="Center"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="16" />
+                                            </Border.StrokeShape>
+                                            <Label Text="▶"
+                                                   FontSize="14"
+                                                   TextColor="White"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center"
+                                                   Margin="2,0,0,0" />
+                                        </Border>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
