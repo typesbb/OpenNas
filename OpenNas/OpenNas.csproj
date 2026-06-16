@@ -35,6 +35,18 @@
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
 		<AndroidLinkDescription Include="Platforms\Android\LinkerPreserve.xml" />
 		<PackageReference Include="Xamarin.AndroidX.DocumentFile" Version="1.1.0.3" />
+		<!-- Pin AndroidX Lifecycle to 2.10.0.2 to resolve NU1608 version constraint warnings -->
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.Runtime.Ktx" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.Runtime.Ktx.Android" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.ViewModel.Ktx" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.ViewModelSavedState" Version="2.10.0.2" />
+		<PackageReference Include="Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android" Version="2.10.0.2" />
+		<!-- Pin AndroidX SavedState to 1.4.0.2 to resolve NU1608 version constraint warnings -->
+		<PackageReference Include="Xamarin.AndroidX.SavedState.SavedState.Ktx" Version="1.4.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
