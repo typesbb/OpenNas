@@ -4,5 +4,27 @@
              x:Class="OpenNas.Views.PhotoViewerPage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="Black">
-    <Grid x:Name="DismissHost" />
+    <Grid>
+        <Grid x:Name="DismissHost" />
+        <ImageButton x:Name="BackButton"
+                     Source="icon_back.png"
+                     BackgroundColor="Transparent"
+                     HorizontalOptions="Start"
+                     VerticalOptions="Start"
+                     Margin="8,44,0,0"
+                     WidthRequest="44"
+                     HeightRequest="44"
+                     Padding="10"
+                     Clicked="OnBackClicked" />
+        <ImageButton x:Name="FullscreenButton"
+                     Source="icon_fullscreen.png"
+                     BackgroundColor="Transparent"
+                     HorizontalOptions="End"
+                     VerticalOptions="End"
+                     Margin="0,0,12,24"
+                     WidthRequest="44"
+                     HeightRequest="44"
+                     Padding="8"
+                     Clicked="OnFullscreenClicked" />
+    </Grid>
 </ContentPage>

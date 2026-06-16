@@ -1,5 +1,6 @@
 using NSynology.Foto;
 using OpenNas.Controls;
+using OpenNas.Services;
 
 namespace OpenNas.Views;
 
@@ -39,6 +40,7 @@ public partial class PhotoViewerPage : ContentPage
         _videoView.DismissDrag += OnDismissDrag;
         _videoView.DismissRequested += OnDismissRequested;
         _videoView.OnSwipeNavigateAsync = NavigateAsync;
+        _videoView.FullscreenRequested += OnVideoFullscreenRequested;
 
         DismissHost.Children.Add(_imageView);
         DismissHost.Children.Add(_videoView);
@@ -76,6 +78,7 @@ public partial class PhotoViewerPage : ContentPage
         _currentZoomed = false;
         _imageView.IsVisible = !isVideo;
         _videoView.IsVisible = isVideo;
+        FullscreenButton.IsVisible = !isVideo;
 
         if (isVideo)
         {
@@ -168,6 +171,15 @@ public partial class PhotoViewerPage : ContentPage
             DismissHost.TranslateTo(0, 0, 180, Easing.CubicOut),
             DismissHost.FadeTo(1, 180, Easing.CubicOut));
     }
+
+    private async void OnBackClicked(object? sender, EventArgs e) =>
+        await Navigation.PopAsync();
+
+    private async void OnFullscreenClicked(object? sender, EventArgs e) =>
+        await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
+
+    private async void OnVideoFullscreenRequested(object? sender, EventArgs e) =>
+        await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
 
     protected override void OnDisappearing()
     {

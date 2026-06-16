@@ -4,6 +4,8 @@ using NSynology.Foto;
 
 namespace OpenNas.Helpers;
 
+public readonly record struct NasDownloadProgress(long BytesReceived, long? TotalBytes, bool IsComplete);
+
 public static class NasOriginalLoader
 {
     private static readonly SemaphoreSlim Gate = new(2, 2);
@@ -112,5 +114,75 @@ public static class NasOriginalLoader
             return Task.FromResult<string?>(cached);
 
         return InFlight.GetOrAdd(photo.Id, _ => DownloadAndCacheAsync(photo, cancellationToken));
+    }
+
+    public static Task<string?> EnsureCachedWithProgressAsync(
+        Photo photo,
+        IProgress<NasDownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (photo.Id <= 0)
+            return Task.FromResult<string?>(null);
+
+        if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
+        {
+            progress?.Report(new NasDownloadProgress(0, photo.FileSize > 0 ? photo.FileSize : null, true));
+            return Task.FromResult<string?>(cached);
+        }
+
+        return InFlight.GetOrAdd(
+            photo.Id,
+            _ => DownloadAndCacheWithProgressAsync(photo, progress, cancellationToken));
+    }
+
+    private static async Task<string?> DownloadAndCacheWithProgressAsync(
+        Photo photo,
+        IProgress<NasDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        await Gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
+                return cached;
+
+            if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
+                return null;
+
+            await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo, cancellationToken);
+            var path = NasMediaCache.GetOriginalFilePath(photo);
+            var temp = path + ".tmp";
+            long? totalBytes = photo.FileSize > 0 ? photo.FileSize : null;
+            long received = 0;
+
+            await using (var file = File.Create(temp))
+            {
+                var buffer = new byte[81920];
+                int read;
+                while ((read = await network.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await file.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                    received += read;
+                    progress?.Report(new NasDownloadProgress(received, totalBytes, false));
+                }
+
+                await file.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (File.Exists(path))
+                File.Delete(path);
+            File.Move(temp, path);
+            progress?.Report(new NasDownloadProgress(received, totalBytes ?? received, true));
+            return path;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            Gate.Release();
+            InFlight.TryRemove(photo.Id, out _);
+        }
     }
 }
