@@ -75,7 +75,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
     private float _navStartY;
     private bool _usesMatrix;
     private bool _isPinchZoomed;
-    private int _initRetryCount;
 
     public PhotoZoomTouchListener(ZoomableImageView view) => _view = view;
 
@@ -115,31 +114,14 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
         _usesMatrix = false;
         _isPinchZoomed = false;
         _mode = ModeNone;
-        _initRetryCount = 0;
         _minScale = 1f;
 
         _imageView.SetScaleType(ImageView.ScaleType.FitCenter);
         _imageView.ImageMatrix = null;
         _view.NotifyNativeZoomChanged(false);
-        ScheduleMatrixInit();
     }
 
-    private void ScheduleMatrixInit()
-    {
-        _imageView?.Post(() => TryEnterMatrixBaseline());
-    }
-
-    private void TryEnterMatrixBaseline()
-    {
-        if (_imageView == null || _usesMatrix)
-            return;
-
-        if (!TryInitFitMatrix())
-        {
-            if (_initRetryCount++ < 30)
-                _imageView.PostDelayed(() => TryEnterMatrixBaseline(), 50);
-        }
-    }
+    internal bool EnsureMatrixMode() => _usesMatrix || TryInitFitMatrix();
 
     private bool TryInitFitMatrix()
     {
@@ -169,8 +151,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
         _isPinchZoomed = false;
         return true;
     }
-
-    internal bool EnsureMatrixMode() => _usesMatrix || TryInitFitMatrix();
 
     public bool OnTouch(AView? v, MotionEvent? e)
     {

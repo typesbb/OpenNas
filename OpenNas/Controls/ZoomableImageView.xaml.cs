@@ -42,6 +42,7 @@ public partial class ZoomableImageView : ContentView
     private double _imageWidth;
     private double _imageHeight;
     private int _loadGeneration;
+    private bool _showThumbnailOnly;
     private PanMode _panMode = PanMode.None;
     internal double _navPanX;
     private double _navPanY;
@@ -178,10 +179,17 @@ public partial class ZoomableImageView : ContentView
     protected override void OnSizeAllocated(double width, double height)
     {
         base.OnSizeAllocated(width, height);
+        var hadSize = _containerWidth > 1 && _containerHeight > 1;
         _containerWidth = width;
         _containerHeight = height;
 
         UpdateTransformHostLayout();
+
+#if ANDROID
+        if (!ManagedGesturesEnabled && width > 1 && height > 1 && (!hadSize || Photo != null))
+            NotifyDisplayReady();
+#endif
+
         if (ManagedGesturesEnabled && !_isPinching)
         {
             ClampPan();
@@ -208,12 +216,41 @@ public partial class ZoomableImageView : ContentView
 
         view.UpdateImageDimensions(photo);
         view.UpdateTransformHostLayout();
-        NasThumbnailLoader.TryLoadPhotoThumbnail(view.PhotoImage, photo);
+        view._showThumbnailOnly = true;
+
+        if (NasMediaCache.TryGetOriginalFile(photo, out var cachedOriginal))
+        {
+            view._showThumbnailOnly = false;
+            view.PhotoImage.Source = ImageSource.FromFile(cachedOriginal);
+            view.NotifyDisplayReady();
+            return;
+        }
+
+        NasThumbnailLoader.TryLoadPhotoThumbnail(
+            view.PhotoImage,
+            photo,
+            () => generation == view._loadGeneration && view._showThumbnailOnly);
+
         NasOriginalLoader.TryLoad(
             view.PhotoImage,
             photo,
             loading => view.UpdateLoading(generation, loading),
-            () => generation == view._loadGeneration);
+            () => generation == view._loadGeneration,
+            () =>
+            {
+                if (generation != view._loadGeneration)
+                    return;
+
+                view._showThumbnailOnly = false;
+                view.NotifyDisplayReady();
+            });
+    }
+
+    internal void NotifyDisplayReady()
+    {
+#if ANDROID
+        MainThread.BeginInvokeOnMainThread(() => _androidTouchListener?.PrepareDisplay());
+#endif
     }
 
     private void UpdateImageDimensions(Photo photo)
@@ -234,7 +271,29 @@ public partial class ZoomableImageView : ContentView
 
     private void UpdateTransformHostLayout()
     {
+#if ANDROID
+        if (!ManagedGesturesEnabled)
+        {
+            TransformHost.HorizontalOptions = LayoutOptions.Fill;
+            TransformHost.VerticalOptions = LayoutOptions.Fill;
+            TransformHost.WidthRequest = -1;
+            TransformHost.HeightRequest = -1;
+            _displayWidth = _containerWidth > 1 ? _containerWidth : 0;
+            _displayHeight = _containerHeight > 1 ? _containerHeight : 0;
+            return;
+        }
+#endif
+
+        if (_containerWidth <= 1 || _containerHeight <= 1)
+        {
+            TransformHost.WidthRequest = -1;
+            TransformHost.HeightRequest = -1;
+            return;
+        }
+
         GetDisplayedSize(out _displayWidth, out _displayHeight);
+        TransformHost.HorizontalOptions = LayoutOptions.Center;
+        TransformHost.VerticalOptions = LayoutOptions.Center;
         TransformHost.WidthRequest = _displayWidth;
         TransformHost.HeightRequest = _displayHeight;
     }
@@ -548,8 +607,8 @@ public partial class ZoomableImageView : ContentView
 
     private void GetDisplayedSize(out double width, out double height)
     {
-        var cw = Math.Max(1, _containerWidth);
-        var ch = Math.Max(1, _containerHeight);
+        var cw = _containerWidth > 1 ? _containerWidth : 360;
+        var ch = _containerHeight > 1 ? _containerHeight : 640;
         var iw = _imageWidth > 0 ? _imageWidth : cw;
         var ih = _imageHeight > 0 ? _imageHeight : ch;
         var imageAspect = iw / ih;

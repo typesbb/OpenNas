@@ -22,40 +22,48 @@ public static class NasThumbnailLoader
         _ = LoadIntoImageAsync(image, thumb.UnitId, thumb.CacheKey);
     }
 
-    public static void TryLoadPhotoThumbnail(Image image, Photo photo)
+    public static void TryLoadPhotoThumbnail(Image image, Photo photo, Func<bool>? canApply = null)
     {
         var thumb = photo.Additional?.Thumbnail;
         if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
         {
-            image.Source = null;
+            if (canApply == null || canApply())
+                image.Source = null;
             return;
         }
 
         var id = thumb.UnitId > 0 ? thumb.UnitId : photo.Id;
         if (id <= 0)
         {
-            image.Source = null;
+            if (canApply == null || canApply())
+                image.Source = null;
             return;
         }
 
         if (NasMediaCache.TryGetThumbnailFile(id, thumb.CacheKey, out var cachedPath))
         {
-            image.Source = ImageSource.FromFile(cachedPath);
+            if (canApply == null || canApply())
+                image.Source = ImageSource.FromFile(cachedPath);
             return;
         }
 
-        image.Source = null;
-        _ = LoadIntoImageAsync(image, id, thumb.CacheKey);
+        if (canApply == null || canApply())
+            image.Source = null;
+        _ = LoadIntoImageAsync(image, id, thumb.CacheKey, canApply);
     }
 
-    private static async Task LoadIntoImageAsync(Image image, int id, string cacheKey)
+    private static async Task LoadIntoImageAsync(Image image, int id, string cacheKey, Func<bool>? canApply = null)
     {
         try
         {
             if (NasMediaCache.TryGetThumbnailFile(id, cacheKey, out var cachedPath))
             {
                 await MainThread.InvokeOnMainThreadAsync(() =>
-                    image.Source = ImageSource.FromFile(cachedPath));
+                {
+                    if (canApply != null && !canApply())
+                        return;
+                    image.Source = ImageSource.FromFile(cachedPath);
+                });
                 return;
             }
 
@@ -67,7 +75,11 @@ public static class NasThumbnailLoader
 
             var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
             await MainThread.InvokeOnMainThreadAsync(() =>
-                image.Source = ImageSource.FromFile(path));
+            {
+                if (canApply != null && !canApply())
+                    return;
+                image.Source = ImageSource.FromFile(path);
+            });
         }
         catch
         {

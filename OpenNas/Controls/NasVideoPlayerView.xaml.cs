@@ -190,6 +190,11 @@ public partial class NasVideoPlayerView : ContentView
             if (generation == _loadGeneration)
                 ShowError(generation, "视频加载失败。");
         }
+        finally
+        {
+            if (generation == _loadGeneration)
+                SetLoading(generation, false);
+        }
     }
 
     private void OnMediaOpened(object? sender, EventArgs e)

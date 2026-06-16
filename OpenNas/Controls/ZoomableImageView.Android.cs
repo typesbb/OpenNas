@@ -28,8 +28,9 @@ public partial class ZoomableImageView
         if (e.PropertyName != Image.SourceProperty.PropertyName)
             return;
 
-        MainThread.BeginInvokeOnMainThread(() => _androidTouchListener?.PrepareDisplay());
         ScheduleAndroidTouchAttach();
+        if (_androidTouchListener != null && _containerWidth > 1 && _containerHeight > 1)
+            MainThread.BeginInvokeOnMainThread(() => _androidTouchListener.PrepareDisplay());
     }
 
     private void ScheduleAndroidTouchAttach()

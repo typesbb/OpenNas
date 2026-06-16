@@ -13,19 +13,21 @@ public static class NasOriginalLoader
         Image image,
         Photo photo,
         Action<bool>? onLoadingChanged = null,
-        Func<bool>? canApply = null)
+        Func<bool>? canApply = null,
+        Action? onApplied = null)
     {
         if (photo.Id <= 0)
             return;
 
-        _ = LoadIntoImageAsync(image, photo, onLoadingChanged, canApply);
+        _ = LoadIntoImageAsync(image, photo, onLoadingChanged, canApply, onApplied);
     }
 
     private static async Task LoadIntoImageAsync(
         Image image,
         Photo photo,
         Action<bool>? onLoadingChanged,
-        Func<bool>? canApply)
+        Func<bool>? canApply,
+        Action? onApplied)
     {
         try
         {
@@ -33,14 +35,14 @@ public static class NasOriginalLoader
 
             if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
             {
-                await ApplyImageAsync(image, cached, canApply);
+                await ApplyImageAsync(image, cached, canApply, onApplied);
                 return;
             }
 
             var path = await InFlight.GetOrAdd(photo.Id, _ => DownloadAndCacheAsync(photo))
                 .ConfigureAwait(false);
             if (!string.IsNullOrEmpty(path))
-                await ApplyImageAsync(image, path, canApply);
+                await ApplyImageAsync(image, path, canApply, onApplied);
         }
         catch
         {
@@ -52,7 +54,7 @@ public static class NasOriginalLoader
         }
     }
 
-    private static async Task ApplyImageAsync(Image image, string path, Func<bool>? canApply)
+    private static async Task ApplyImageAsync(Image image, string path, Func<bool>? canApply, Action? onApplied = null)
     {
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
@@ -60,6 +62,7 @@ public static class NasOriginalLoader
                 return;
 
             image.Source = ImageSource.FromFile(path);
+            onApplied?.Invoke();
         });
     }
 
