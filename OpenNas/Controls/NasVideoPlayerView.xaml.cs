@@ -38,9 +38,11 @@ public partial class NasVideoPlayerView : ContentView
     private bool _wasPlayingBeforeScrub;
     private CancellationTokenSource? _progressCts;
     private bool _isFastForwarding;
+    private string? _playbackPath;
+    private double _durationSeconds;
 
     private const double NormalSpeed = 1;
-    private const double FastSpeed = 2;
+    private const double FastSpeed = 3;
 
     private Grid Host = null!;
     private Grid SlideHost = null!;
@@ -213,7 +215,8 @@ public partial class NasVideoPlayerView : ContentView
             TextColor = Colors.White,
             FontSize = 12,
             VerticalOptions = LayoutOptions.Center,
-            WidthRequest = 44
+            HorizontalOptions = LayoutOptions.End,
+            HorizontalTextAlignment = TextAlignment.End
         };
 
         DurationLabel = new Label
@@ -222,8 +225,8 @@ public partial class NasVideoPlayerView : ContentView
             TextColor = Colors.White,
             FontSize = 12,
             VerticalOptions = LayoutOptions.Center,
-            HorizontalTextAlignment = TextAlignment.End,
-            WidthRequest = 44
+            HorizontalOptions = LayoutOptions.Start,
+            HorizontalTextAlignment = TextAlignment.Start
         };
 
         ProgressSlider = new Slider
@@ -232,7 +235,13 @@ public partial class NasVideoPlayerView : ContentView
             Maximum = 1,
             MinimumTrackColor = Colors.White,
             MaximumTrackColor = Color.FromArgb("#66FFFFFF"),
-            ThumbColor = Colors.White
+            ThumbColor = Colors.White,
+            HorizontalOptions = LayoutOptions.Fill,
+#if ANDROID
+            Margin = new Thickness(-10, 0)
+#else
+            Margin = new Thickness(-4, 0)
+#endif
         };
         ProgressSlider.DragStarted += OnScrubDragStarted;
         ProgressSlider.DragCompleted += OnScrubDragCompleted;
@@ -264,7 +273,7 @@ public partial class NasVideoPlayerView : ContentView
 
         SpeedHintLabel = new Label
         {
-            Text = "2倍速",
+            Text = "3倍速",
             FontSize = 15,
             FontAttributes = FontAttributes.Bold,
             TextColor = Colors.White,
@@ -279,13 +288,14 @@ public partial class NasVideoPlayerView : ContentView
 
         var timeRow = new Grid
         {
+            ColumnSpacing = 4,
             ColumnDefinitions =
             {
-                new ColumnDefinition(new GridLength(40)),
-                new ColumnDefinition(new GridLength(44)),
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),
                 new ColumnDefinition(GridLength.Star),
-                new ColumnDefinition(new GridLength(44)),
-                new ColumnDefinition(new GridLength(40))
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto)
             },
             Margin = new Thickness(8, 0, 8, 0),
             Children = { PlayPauseButton, CurrentTimeLabel, ProgressSlider, DurationLabel, FullscreenButton }
@@ -392,6 +402,8 @@ public partial class NasVideoPlayerView : ContentView
         view._progressCts?.Cancel();
         view._progressCts = null;
         view.EndFastForward();
+        view._playbackPath = null;
+        view._durationSeconds = 0;
         var generation = view._loadGeneration;
 
         if (newValue is not Photo photo)
@@ -467,7 +479,9 @@ public partial class NasVideoPlayerView : ContentView
                 return;
 
             MediaPlayer.Source = MediaSource.FromFile(path);
+            _playbackPath = path;
             ApplyDefaultSpeed();
+            RefreshDuration();
         });
     }
 
@@ -523,17 +537,63 @@ public partial class NasVideoPlayerView : ContentView
             LoadingIndicator.IsVisible = false;
             HideDownloadProgress();
 
-            var duration = MediaPlayer.Duration;
-            if (duration > TimeSpan.Zero)
-            {
-                ProgressSlider.Maximum = duration.TotalSeconds;
-                DurationLabel.Text = FormatTime(duration);
-            }
+            RefreshDuration(MediaPlayer.Duration);
 
             UpdatePlayPauseButton();
             ApplyDefaultSpeed();
         });
     }
+
+    private void RefreshDuration(TimeSpan? candidate = null)
+    {
+        var best = candidate is { TotalSeconds: > 0 } c ? c.TotalSeconds : 0;
+
+        var playerDuration = MediaPlayer.Duration;
+        if (playerDuration.TotalSeconds > best)
+            best = playerDuration.TotalSeconds;
+
+#if ANDROID
+        if (!string.IsNullOrEmpty(_playbackPath))
+        {
+            var fileDuration = Platforms.Android.VideoDurationHelper.TryGetFromFile(_playbackPath);
+            if (fileDuration is { TotalSeconds: > 0 } fd && fd.TotalSeconds > best)
+                best = fd.TotalSeconds;
+        }
+
+        var photoDuration = Platforms.Android.VideoDurationHelper.TryGetFromPhoto(Photo);
+        if (photoDuration is { TotalSeconds: > 0 } pd && pd.TotalSeconds > best)
+            best = pd.TotalSeconds;
+#else
+        var photoDuration = TryGetPhotoDurationFallback(Photo);
+        if (photoDuration is { TotalSeconds: > 0 } pd && pd.TotalSeconds > best)
+            best = pd.TotalSeconds;
+#endif
+
+        if (best <= 0)
+            return;
+
+        if (Math.Abs(best - _durationSeconds) < 0.5 && _durationSeconds > 0)
+            return;
+
+        _durationSeconds = best;
+        ProgressSlider.Maximum = best;
+        DurationLabel.Text = FormatTime(TimeSpan.FromSeconds(best));
+    }
+
+#if !ANDROID
+    private static TimeSpan? TryGetPhotoDurationFallback(Photo? photo)
+    {
+        var raw = photo?.Additional?.VideoMeta?.Duration ?? 0;
+        if (raw <= 0)
+            return null;
+
+        var duration = TimeSpan.FromMilliseconds(raw);
+        if (duration.TotalSeconds < 1 && raw is >= 1 and < 86_400)
+            return TimeSpan.FromSeconds(raw);
+
+        return duration;
+    }
+#endif
 
     private void OnMediaFailed(object? sender, MediaFailedEventArgs e)
     {
@@ -545,8 +605,11 @@ public partial class NasVideoPlayerView : ContentView
         });
     }
 
-    private void OnStateChanged(object? sender, MediaStateChangedEventArgs e) =>
+    private void OnStateChanged(object? sender, MediaStateChangedEventArgs e)
+    {
         UpdatePlayPauseButton();
+        RefreshDuration();
+    }
 
     private void OnPositionChanged(object? sender, MediaPositionChangedEventArgs e)
     {
@@ -642,6 +705,8 @@ public partial class NasVideoPlayerView : ContentView
         _progressCts?.Cancel();
         _progressCts = null;
         EndFastForward();
+        _playbackPath = null;
+        _durationSeconds = 0;
         MediaPlayer.Stop();
         MediaPlayer.Source = null;
         ErrorLabel.IsVisible = false;
