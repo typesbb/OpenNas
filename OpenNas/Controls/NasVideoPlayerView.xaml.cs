@@ -37,6 +37,10 @@ public partial class NasVideoPlayerView : ContentView
     private bool _isScrubbing;
     private bool _wasPlayingBeforeScrub;
     private CancellationTokenSource? _progressCts;
+    private bool _isFastForwarding;
+
+    private const double NormalSpeed = 1;
+    private const double FastSpeed = 2;
 
     private Grid Host = null!;
     private Grid SlideHost = null!;
@@ -53,12 +57,27 @@ public partial class NasVideoPlayerView : ContentView
     private Label DurationLabel = null!;
     private Button PlayPauseButton = null!;
     private ImageButton FullscreenButton = null!;
+    private Label SpeedHintLabel = null!;
 
     public NasVideoPlayerView()
     {
         InitializeComponent();
         BuildUi();
+        Loaded += OnViewLoaded;
     }
+
+    private void OnViewLoaded(object? sender, EventArgs e) =>
+        InitializePlatform();
+
+    partial void InitializePlatform();
+
+#if !ANDROID
+    partial void InitializePlatform() { }
+
+    partial void OnPhotoReadyForPlatform() { }
+#else
+    partial void OnPhotoReadyForPlatform();
+#endif
 
     public Photo? Photo
     {
@@ -78,7 +97,21 @@ public partial class NasVideoPlayerView : ContentView
         set => SetValue(CanGoNextProperty, value);
     }
 
-    public bool IsFullscreenHost { get; set; }
+    public bool IsFullscreenHost
+    {
+        get => _isFullscreenHost;
+        set
+        {
+            if (_isFullscreenHost == value)
+                return;
+
+            _isFullscreenHost = value;
+            if (FullscreenButton != null)
+                UpdateChromeVisibility();
+        }
+    }
+
+    private bool _isFullscreenHost;
 
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
     public event EventHandler<double>? DismissDrag;
@@ -102,7 +135,8 @@ public partial class NasVideoPlayerView : ContentView
             Aspect = Aspect.AspectFit,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            BackgroundColor = Colors.Black
+            BackgroundColor = Colors.Black,
+            InputTransparent = true
         };
         MediaPlayer.MediaOpened += OnMediaOpened;
         MediaPlayer.MediaFailed += OnMediaFailed;
@@ -123,6 +157,7 @@ public partial class NasVideoPlayerView : ContentView
             VerticalOptions = LayoutOptions.Fill
         };
 
+#if !ANDROID
         var pan = new PanGestureRecognizer();
         pan.PanUpdated += OnPanUpdated;
         TopTouchLayer.GestureRecognizers.Add(pan);
@@ -130,6 +165,7 @@ public partial class NasVideoPlayerView : ContentView
         var doubleTap = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
         doubleTap.Tapped += OnDoubleTapped;
         TopTouchLayer.GestureRecognizers.Add(doubleTap);
+#endif
 
         LoadingIndicator = new ActivityIndicator
         {
@@ -226,6 +262,21 @@ public partial class NasVideoPlayerView : ContentView
         };
         FullscreenButton.Clicked += (_, _) => FullscreenRequested?.Invoke(this, EventArgs.Empty);
 
+        SpeedHintLabel = new Label
+        {
+            Text = "2倍速",
+            FontSize = 15,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Colors.White,
+            BackgroundColor = Color.FromArgb("#99000000"),
+            Padding = new Thickness(10, 4),
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(0, 48, 0, 0),
+            IsVisible = false,
+            InputTransparent = true
+        };
+
         var timeRow = new Grid
         {
             ColumnDefinitions =
@@ -269,12 +320,13 @@ public partial class NasVideoPlayerView : ContentView
                 new RowDefinition(GridLength.Star),
                 new RowDefinition(GridLength.Auto)
             },
-            Children = { SlideHost, TopTouchLayer, LoadingIndicator, ErrorLabel, ControlsOverlay }
+            Children = { SlideHost, TopTouchLayer, LoadingIndicator, ErrorLabel, SpeedHintLabel, ControlsOverlay }
         };
         Grid.SetRow(TopTouchLayer, 0);
         Grid.SetRow(SlideHost, 0);
         Grid.SetRow(LoadingIndicator, 0);
         Grid.SetRow(ErrorLabel, 0);
+        Grid.SetRow(SpeedHintLabel, 0);
         Grid.SetRow(ControlsOverlay, 1);
 
         Content = Host;
@@ -284,6 +336,49 @@ public partial class NasVideoPlayerView : ContentView
     private void UpdateChromeVisibility()
     {
         FullscreenButton.IsVisible = !IsFullscreenHost;
+    }
+
+    private void ApplyDefaultSpeed()
+    {
+        MediaPlayer.Speed = _isFastForwarding ? FastSpeed : NormalSpeed;
+    }
+
+    private void OnPipClicked(object? sender, EventArgs e)
+    {
+#if ANDROID
+        if (MediaPlayer.Source != null && MediaPlayer.CurrentState != MediaElementState.Playing)
+            MediaPlayer.Play();
+
+        if (Platforms.Android.VideoPictureInPictureHelper.TryEnter())
+            return;
+
+        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
+        if (page != null)
+            _ = page.DisplayAlert("小窗播放", "当前无法进入画中画，请确认系统已允许本应用使用画中画。", "确定");
+#endif
+    }
+
+    private void StartFastForward()
+    {
+        if (_isFastForwarding || MediaPlayer.Source == null)
+            return;
+
+        _isFastForwarding = true;
+        MediaPlayer.Speed = FastSpeed;
+        SpeedHintLabel.IsVisible = true;
+
+        if (MediaPlayer.CurrentState != MediaElementState.Playing)
+            MediaPlayer.Play();
+    }
+
+    private void EndFastForward()
+    {
+        if (!_isFastForwarding)
+            return;
+
+        _isFastForwarding = false;
+        MediaPlayer.Speed = NormalSpeed;
+        SpeedHintLabel.IsVisible = false;
     }
 
     private static void OnPhotoChanged(BindableObject bindable, object oldValue, object newValue)
@@ -296,6 +391,7 @@ public partial class NasVideoPlayerView : ContentView
         view._loadGeneration++;
         view._progressCts?.Cancel();
         view._progressCts = null;
+        view.EndFastForward();
         var generation = view._loadGeneration;
 
         if (newValue is not Photo photo)
@@ -310,6 +406,7 @@ public partial class NasVideoPlayerView : ContentView
         view.HideDownloadProgress();
         view.UpdateChromeVisibility();
         NasThumbnailLoader.TryLoadPhotoThumbnail(view.PosterImage, photo);
+        view.OnPhotoReadyForPlatform();
         _ = view.LoadVideoAsync(photo, generation);
     }
 
@@ -370,6 +467,7 @@ public partial class NasVideoPlayerView : ContentView
                 return;
 
             MediaPlayer.Source = MediaSource.FromFile(path);
+            ApplyDefaultSpeed();
         });
     }
 
@@ -433,6 +531,7 @@ public partial class NasVideoPlayerView : ContentView
             }
 
             UpdatePlayPauseButton();
+            ApplyDefaultSpeed();
         });
     }
 
@@ -542,6 +641,7 @@ public partial class NasVideoPlayerView : ContentView
         _loadGeneration++;
         _progressCts?.Cancel();
         _progressCts = null;
+        EndFastForward();
         MediaPlayer.Stop();
         MediaPlayer.Source = null;
         ErrorLabel.IsVisible = false;
@@ -556,6 +656,7 @@ public partial class NasVideoPlayerView : ContentView
 
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
+#if !ANDROID
         if (_isNavigating || _isScrubbing)
             return;
 
@@ -598,6 +699,7 @@ public partial class NasVideoPlayerView : ContentView
                 _panMode = PanMode.None;
                 break;
         }
+#endif
     }
 
     private double ApplyHorizontalResistance(double deltaX)
