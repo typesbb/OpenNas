@@ -65,9 +65,9 @@
                                         <RoundRectangle CornerRadius="4" />
                                     </Border.StrokeShape>
                                     <Grid>
-                                        <Image Aspect="AspectFill"
-                                               HeightRequest="112"
-                                               HandlerChanged="OnImageHandlerChanged" />
+                                        <controls:AlbumThumbnailImage Aspect="AspectFill"
+                                                                      HeightRequest="112"
+                                                                      Photo="{Binding .}" />
                                         <Border IsVisible="{Binding IsVideo}"
                                                 BackgroundColor="#99000000"
                                                 WidthRequest="32"

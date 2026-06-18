@@ -5,6 +5,9 @@ using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
 using OpenNas.Views;
+#if ANDROID
+using OpenNas.Platforms.Android;
+#endif
 
 namespace OpenNas;
 
@@ -36,6 +39,9 @@ public partial class AlbumDetailPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        AlbumGridScrollHelper.TryAttach(PhotosView);
+#endif
         if (_photos.Count > 0)
             return;
 
@@ -105,9 +111,6 @@ public partial class AlbumDetailPage : ContentPage
         if (!await _loadGate.WaitAsync(0))
             return;
 
-        BusyIndicator.IsVisible = true;
-        BusyIndicator.IsRunning = true;
-
         try
         {
             await LoadNextPhotoPageAsync();
@@ -119,8 +122,6 @@ public partial class AlbumDetailPage : ContentPage
         }
         finally
         {
-            BusyIndicator.IsRunning = false;
-            BusyIndicator.IsVisible = false;
             _loadGate.Release();
         }
     }
@@ -178,12 +179,37 @@ public partial class AlbumDetailPage : ContentPage
 
     private void AppendToDisplay(IReadOnlyList<Photo> page)
     {
+        if (page.Count == 0)
+            return;
+
         if (UsesGroups)
-            RebuildGroups();
+            AppendToGroups(page);
         else
         {
             foreach (var photo in page)
                 _flatPhotos.Add(photo);
+        }
+    }
+
+    private void AppendToGroups(IReadOnlyList<Photo> page)
+    {
+        if (AlbumPhotoSort.UsesSizeGroups(_sortField))
+        {
+            RebuildGroups();
+            return;
+        }
+
+        foreach (var photo in page)
+        {
+            var dateLabel = PhotoDateHelper.FormatGroupLabel(photo.Time);
+            if (_groups.Count > 0 && _groups[^1].DateLabel == dateLabel)
+            {
+                var last = _groups[^1];
+                _groups[^1] = new PhotoDateGroup(dateLabel, last.Append(photo));
+                continue;
+            }
+
+            _groups.Add(new PhotoDateGroup(dateLabel, [photo]));
         }
     }
 
@@ -217,28 +243,6 @@ public partial class AlbumDetailPage : ContentPage
             _sortField = field;
             _sortDescending = field is not "name";
         }
-    }
-
-    private void OnImageHandlerChanged(object? sender, EventArgs e)
-    {
-        if (sender is not Image image)
-            return;
-
-        image.BindingContextChanged -= OnPhotoBindingContextChanged;
-        image.BindingContextChanged += OnPhotoBindingContextChanged;
-        LoadPhotoThumbnail(image);
-    }
-
-    private void OnPhotoBindingContextChanged(object? sender, EventArgs e)
-    {
-        if (sender is Image image)
-            LoadPhotoThumbnail(image);
-    }
-
-    private static void LoadPhotoThumbnail(Image image)
-    {
-        if (image.BindingContext is Photo photo)
-            NasThumbnailLoader.TryLoadPhotoThumbnail(image, photo);
     }
 
     private async void OnPhotoTapped(object? sender, TappedEventArgs e)

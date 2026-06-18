@@ -22,6 +22,23 @@ public static class NasThumbnailLoader
         _ = LoadIntoImageAsync(image, thumb.UnitId, thumb.CacheKey);
     }
 
+    public static Task EnsureCachedAsync(Photo photo, CancellationToken cancellationToken = default)
+    {
+        var thumb = photo.Additional?.Thumbnail;
+        if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
+            return Task.CompletedTask;
+
+        var id = thumb.UnitId > 0 ? thumb.UnitId : photo.Id;
+        if (id <= 0)
+            return Task.CompletedTask;
+
+        if (NasMediaCache.TryGetThumbnailFile(id, thumb.CacheKey, out _))
+            return Task.CompletedTask;
+
+        var key = $"{id}:{thumb.CacheKey}";
+        return MemoryCache.GetOrAdd(key, _ => DownloadAndCacheAsync(id, thumb.CacheKey, cancellationToken));
+    }
+
     public static void TryLoadPhotoThumbnail(Image image, Photo photo, Func<bool>? canApply = null)
     {
         var thumb = photo.Additional?.Thumbnail;
@@ -68,7 +85,7 @@ public static class NasThumbnailLoader
             }
 
             var key = $"{id}:{cacheKey}";
-            var bytes = await MemoryCache.GetOrAdd(key, _ => DownloadAndCacheAsync(id, cacheKey))
+            var bytes = await MemoryCache.GetOrAdd(key, _ => DownloadAndCacheAsync(id, cacheKey, CancellationToken.None))
                 .ConfigureAwait(false);
             if (bytes == null || bytes.Length == 0)
                 return;
@@ -87,21 +104,21 @@ public static class NasThumbnailLoader
         }
     }
 
-    private static async Task<byte[]?> DownloadAndCacheAsync(int id, string cacheKey)
+    private static async Task<byte[]?> DownloadAndCacheAsync(int id, string cacheKey, CancellationToken cancellationToken)
     {
-        await ThumbnailGate.WaitAsync(CancellationToken.None);
+        await ThumbnailGate.WaitAsync(cancellationToken);
         try
         {
             if (NasMediaCache.TryGetThumbnailFile(id, cacheKey, out var cachedPath))
-                return await File.ReadAllBytesAsync(cachedPath);
+                return await File.ReadAllBytesAsync(cachedPath, cancellationToken);
 
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
                 return null;
 
             await using var network = await SynologyManager.Client.Foto.GetThumbnailAsync(
-                id, cacheKey, cancellationToken: CancellationToken.None);
+                id, cacheKey, cancellationToken: cancellationToken);
             using var ms = new MemoryStream();
-            await network.CopyToAsync(ms, CancellationToken.None);
+            await network.CopyToAsync(ms, cancellationToken);
             var bytes = ms.ToArray();
             if (bytes.Length == 0)
                 return null;
