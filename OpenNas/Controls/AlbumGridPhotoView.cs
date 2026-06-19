@@ -16,14 +16,12 @@ public class AlbumGridPhotoView : Image
 
     private void OnBindingContextChanged(object? sender, EventArgs e)
     {
-        // 立即清除旧缩略图，避免回收的 cell 在延迟加载期间显示错误图片。
         var photoId = (BindingContext as Photo)?.Id ?? 0;
-        if (photoId != _lastPhotoId)
-        {
-            _lastPhotoId = photoId;
-            Source = null;
-        }
+        if (photoId == _lastPhotoId)
+            return; // 同一张照片重新绑定，保持已有缩略图，不触发任何加载
 
+        _lastPhotoId = photoId;
+        Source = null; // 清除回收 cell 上残留的旧缩略图
         ScheduleLoad();
     }
 

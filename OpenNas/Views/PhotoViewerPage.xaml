@@ -8,7 +8,8 @@
         <Grid x:Name="DismissHost" />
         <ImageButton x:Name="BackButton"
                      Source="icon_back.png"
-                     BackgroundColor="Transparent"
+                     BackgroundColor="#44FFFFFF"
+                     CornerRadius="22"
                      HorizontalOptions="Start"
                      VerticalOptions="Start"
                      Margin="8,44,0,0"
