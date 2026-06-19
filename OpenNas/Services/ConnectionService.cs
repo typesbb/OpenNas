@@ -13,6 +13,12 @@ public class ConnectionService
     private const string WifiOnlyKey = "backup_wifi_only";
     private const string ConfirmDeleteKey = "backup_confirm_delete";
     private const string DeleteRiskAckKey = "backup_delete_risk_ack";
+    private const string AutoSwitchEnabledKey = "auto_switch_enabled";
+
+    private CancellationTokenSource? _autoSwitchCts;
+    private readonly SemaphoreSlim _autoSwitchLock = new(1, 1);
+    private DateTime _manualSwitchCooldownUntil = DateTime.MinValue;
+    private bool _networkMonitoringStarted;
 
     public NasProfile? ActiveProfile { get; private set; }
 
@@ -22,6 +28,17 @@ public class ConnectionService
     public event EventHandler? ConnectionChanged;
 
     public void NotifyConnectionChanged() => ConnectionChanged?.Invoke(this, EventArgs.Empty);
+
+    public bool AutoSwitchEnabled
+    {
+        get => Preferences.Get(AutoSwitchEnabledKey, true);
+        set
+        {
+            Preferences.Set(AutoSwitchEnabledKey, value);
+            if (value)
+                _ = TryAutoSwitchAsync();
+        }
+    }
 
     public async Task InitializeAsync()
     {
@@ -59,6 +76,115 @@ public class ConnectionService
         var activeId = Preferences.Get(ActiveProfileKey, profiles[0].Id);
         ActiveProfile = profiles.FirstOrDefault(p => p.Id == activeId) ?? profiles[0];
         await ApplyActiveProfileAsync(restoreSid: true);
+
+        StartNetworkMonitoring();
+        _ = TryAutoSwitchAsync();
+    }
+
+    private void StartNetworkMonitoring()
+    {
+        if (_networkMonitoringStarted) return;
+        _networkMonitoringStarted = true;
+        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+    }
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        if (Connectivity.Current.NetworkAccess == NetworkAccess.None) return;
+
+        _autoSwitchCts?.Cancel();
+        _autoSwitchCts?.Dispose();
+        _autoSwitchCts = new CancellationTokenSource();
+        var token = _autoSwitchCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(2000, token);
+                await TryAutoSwitchAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn("自动切换连接失败", ex);
+            }
+        }, token);
+    }
+
+    private async Task TryAutoSwitchAsync(CancellationToken cancellationToken = default)
+    {
+        if (!AutoSwitchEnabled) return;
+        if (DateTime.UtcNow < _manualSwitchCooldownUntil) return;
+
+        await _autoSwitchLock.WaitAsync(cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (AppServices.GetRequired<BackupEngine>().Progress.IsRunning) return;
+
+            var profiles = await LoadProfilesAsync();
+            var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
+            var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
+
+            if (lanProfile == null) return;
+
+            var isLanReachable = await IsLanReachableAsync(lanProfile.BaseUrl);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            NasProfile? targetProfile = null;
+            if (isLanReachable)
+            {
+                if (ActiveProfile?.Id != lanProfile.Id)
+                    targetProfile = lanProfile;
+            }
+            else if (wanProfile != null)
+            {
+                if (ActiveProfile?.Id != wanProfile.Id)
+                    targetProfile = wanProfile;
+            }
+
+            if (targetProfile == null) return;
+
+            ActiveProfile = targetProfile;
+            Preferences.Set(ActiveProfileKey, targetProfile.Id);
+            await ApplyActiveProfileAsync(restoreSid: true);
+            ConnectionChanged?.Invoke(this, EventArgs.Empty);
+
+            var kindLabel = NasProfileDisplay.KindLabel(targetProfile.NetworkKind);
+            MainThread.BeginInvokeOnMainThread(async () =>
+                await UiFeedback.ToastAsync($"已切换到{kindLabel}"));
+        }
+        finally
+        {
+            _autoSwitchLock.Release();
+        }
+    }
+
+    private static async Task<bool> IsLanReachableAsync(string baseUrl)
+    {
+        try
+        {
+            using var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
+            using var request = new HttpRequestMessage(HttpMethod.Head, baseUrl);
+            await client.SendAsync(request);
+            return true;
+        }
+        catch (TaskCanceledException)
+        {
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
     }
 
     public async Task<List<NasProfile>> LoadProfilesAsync()
@@ -76,6 +202,7 @@ public class ConnectionService
 
     public async Task SetActiveProfileAsync(NasProfile profile)
     {
+        _manualSwitchCooldownUntil = DateTime.UtcNow.AddSeconds(30);
         ActiveProfile = profile;
         Preferences.Set(ActiveProfileKey, profile.Id);
         await ApplyActiveProfileAsync(restoreSid: true);

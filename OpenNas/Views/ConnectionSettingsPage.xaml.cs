@@ -22,6 +22,7 @@ public partial class ConnectionSettingsPage : ContentPage
         base.OnAppearing();
         _profiles = await _connection.LoadProfilesAsync();
         ProfilesView.ItemsSource = _profiles;
+        AutoSwitchToggle.IsToggled = _connection.AutoSwitchEnabled;
     }
 
     private void OnProfileSelected(object sender, SelectionChangedEventArgs e)
@@ -72,5 +73,10 @@ public partial class ConnectionSettingsPage : ContentPage
         }
         await _connection.SetActiveProfileAsync(_selected);
         await UiFeedback.ToastAsync("已切换当前连接");
+    }
+
+    private void OnAutoSwitchToggled(object? sender, ToggledEventArgs e)
+    {
+        _connection.AutoSwitchEnabled = e.Value;
     }
 }

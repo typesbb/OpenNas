@@ -36,6 +36,10 @@
                     <Button Text="设为当前连接"
                             Style="{StaticResource SecondaryButton}"
                             Clicked="OnSetActiveClicked" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
+                        <Switch x:Name="AutoSwitchToggle" Toggled="OnAutoSwitchToggled" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="自动切换内/外网连接" VerticalOptions="Center" FontSize="15" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
         </VerticalStackLayout>
