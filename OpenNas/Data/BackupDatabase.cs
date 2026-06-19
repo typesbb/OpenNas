@@ -31,6 +31,7 @@ public class BackupDatabase
             {
                 await _db.CreateTableAsync<BackupRecord>();
                 await _db.CreateTableAsync<BackupRuleRecord>();
+                await _db.ExecuteAsync("CREATE INDEX IF NOT EXISTS idx_backup_items_rule_id ON backup_items(RuleId)");
                 _tablesReady = true;
             }
 
@@ -171,6 +172,15 @@ public class BackupDatabase
             r.LastError = null;
             await db.UpdateAsync(r);
         }
+    }
+
+    /// <summary>删除已从手机本地删除的文件记录（Status = LocalDeleted），这些文件不会再被扫描到。</summary>
+    public async Task DeleteLocalDeletedForRuleAsync(int ruleId)
+    {
+        var db = await GetDbAsync();
+        await db.ExecuteAsync(
+            "DELETE FROM backup_items WHERE RuleId = ? AND Status = ?",
+            ruleId, (int)BackupItemStatus.LocalDeleted);
     }
 
     public async Task<int> CountFailedByRuleAsync(int ruleId)

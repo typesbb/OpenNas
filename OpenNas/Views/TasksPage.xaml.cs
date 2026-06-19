@@ -45,13 +45,4 @@ public partial class TasksPage : ContentPage
 
         await _vm.ToggleRuleActionAsync(this, item);
     }
-
-    private async void OnRuleRetryClicked(object? sender, EventArgs e)
-    {
-        if (sender is not Button button
-            || button.BindingContext is not BackupRuleItemViewModel item)
-            return;
-
-        await _vm.RetryRuleAsync(this, item);
-    }
 }

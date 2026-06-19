@@ -38,7 +38,7 @@ public class BackupRuleItemViewModel : INotifyPropertyChanged
     public string SummaryLine => $"{Rule.LocalAlbumName} → {Rule.RemoteAlbumName}";
 
     public string MetaLine =>
-        $"{(Rule.Enabled ? "已启用" : "已停用")} · {(Rule.DeleteAfterBackup ? "备份后删本地" : "保留本地")}";
+        $"{(Rule.Enabled ? "已启用" : "已停用")} · {(Rule.DeleteAfterBackup ? "备份完成后删本地" : "保留本地")}";
 
     public int FailedCount
     {

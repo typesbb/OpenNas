@@ -9,6 +9,7 @@ public class BackupRecord
     [PrimaryKey, AutoIncrement]
     public int Id { get; set; }
 
+    [Indexed]
     public int RuleId { get; set; }
     public string LocalMediaId { get; set; } = "";
     public string ContentUri { get; set; } = "";

@@ -23,6 +23,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     private bool _updateScheduled;
     private bool _lastKnownPaused;
     private BackupSummarySnapshot _lastSummary;
+    private bool _rulesLoaded;
 
     public BackupTaskViewModel(BackupDatabase db, BackupEngine engine, ConnectionService connection)
     {
@@ -62,7 +63,17 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         _engine.ProgressChanged -= OnEngineProgressChanged;
         _engine.ProgressChanged += OnEngineProgressChanged;
-        await LoadRulesAsync();
+        if (!_rulesLoaded)
+        {
+            await LoadRulesAsync();
+            _rulesLoaded = true;
+        }
+        else
+        {
+            var p = _engine.Progress;
+            UpdateRuleStates(p.Completed, p.Total);
+            _ = RefreshRulesAfterBackupAsync();
+        }
         _lastSummary = default;
         UpdateFromEngine(force: true);
     }
@@ -76,7 +87,9 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             var failed = await _db.CountFailedByRuleAsync(rule.Id);
             Rules.Add(new BackupRuleItemViewModel(rule, failed));
         }
-        UpdateRuleStates();
+        var p = _engine.Progress;
+        UpdateRuleStates(p.Completed, p.Total);
+        _rulesLoaded = true;
     }
 
     public async Task ToggleRuleActionAsync(Page page, BackupRuleItemViewModel item)
@@ -118,6 +131,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         {
             await MediaPermissions.EnsureNotificationsAsync();
             await Platforms.Android.BackupServiceStarter.StartAsync(retryFailedOnly: true, ruleId: item.Id);
+            await UiFeedback.ToastAsync("重试已开始，请勿强制退出应用");
         }
         catch (Exception ex)
         {
@@ -142,6 +156,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         {
             await MediaPermissions.EnsureNotificationsAsync();
             await Platforms.Android.BackupServiceStarter.StartAsync(ruleId: ruleId);
+            await UiFeedback.ToastAsync("备份已在后台运行，请勿强制退出应用");
         }
         catch (Exception ex)
         {
@@ -175,7 +190,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         var rule = item.Rule;
         var action = await page.DisplayActionSheetAsync(
-            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份后删除");
+            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份完成后删除");
         if (action == "删除规则")
         {
             await _db.DeleteRuleAsync(rule.Id);
@@ -188,7 +203,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             await _db.SaveRuleAsync(rule);
             await LoadRulesAsync();
         }
-        else if (action == "切换备份后删除")
+        else if (action == "切换备份完成后删除")
         {
             if (!rule.DeleteAfterBackup)
             {

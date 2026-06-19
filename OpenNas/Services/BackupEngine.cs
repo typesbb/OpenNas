@@ -40,6 +40,10 @@ public class BackupEngine
 
     private readonly BackupQueueTracker _queue = new();
 
+#if ANDROID
+    private readonly List<string> _pendingDeleteUris = new();
+#endif
+
     public BackupProgressInfo Progress { get; } = new();
 
     public event EventHandler? ProgressChanged;
@@ -139,10 +143,17 @@ public class BackupEngine
                 throw new InvalidOperationException("当前非 Wi-Fi，已启用「仅 Wi-Fi 备份」。");
 
             BackupLog.Info("正在扫描本地相册并比对数据库…");
-            var work = await BuildWorkQueueAsync(mediaService, token);
-            BackupLog.Info($"待上传 {work.Count} 个文件");
+            var (work, previouslyCompleted) = await BuildWorkQueueAsync(mediaService, token);
+            BackupLog.Info($"待上传 {work.Count} 个文件（共 {work.Count + previouslyCompleted} 项，{previouslyCompleted} 项已完成）");
             if (work.Count == 0)
-                throw new InvalidOperationException(_retryFailedOnly ? "没有可重试的失败项。" : "没有待备份的新文件。");
+            {
+                if (previouslyCompleted > 0)
+                    BackupLog.Info("所有文件已备份完成。");
+                else if (_retryFailedOnly)
+                    BackupLog.Info("没有可重试的失败项。");
+                else
+                    BackupLog.Info("没有待备份的新文件。");
+            }
 
 #if ANDROID
             foreach (var albumId in work.Select(w => w.Rule.RemoteAlbumId).Distinct())
@@ -153,9 +164,11 @@ public class BackupEngine
             }
 #endif
 
-            Progress.Total = work.Count;
+            Progress.Total = work.Count + previouslyCompleted;
 
             Progress.ResetCounters();
+            if (previouslyCompleted > 0)
+                Progress.AddCompleted(previouslyCompleted);
 
             _queue.Reset();
 
@@ -173,8 +186,10 @@ public class BackupEngine
 
             BackupLog.Info(
                 $"备份完成 合计={Progress.Total} 成功={Progress.Completed} 失败={Progress.Failed}");
+            await CleanupLocalDeletedAsync(activeRuleIds);
+            await FlushPendingDeletesAsync();
             if (Progress.Failed > 0)
-                BackupLog.Warn("部分文件未进入目标相册，请在任务页对该规则点「重试」");
+                BackupLog.Warn("部分文件未上传成功，下次点击 ▶ 将继续尝试。");
 
         }
         catch (Exception ex)
@@ -204,11 +219,12 @@ public class BackupEngine
 
 
 
-    private async Task<List<WorkItem>> BuildWorkQueueAsync(ILocalMediaService mediaService, CancellationToken token)
+    private async Task<(List<WorkItem> Work, int PreviouslyCompleted)> BuildWorkQueueAsync(ILocalMediaService mediaService, CancellationToken token)
 
     {
 
         var work = new List<WorkItem>();
+        var previouslyCompleted = 0;
 
 
 
@@ -252,7 +268,7 @@ public class BackupEngine
 
             }
 
-            return work;
+            return (work, 0);
 
         }
 
@@ -282,7 +298,11 @@ public class BackupEngine
             {
 
                 var key = BackupDatabase.BackupMediaKey(item.MediaStoreId, item.Size, item.DateModified);
-                if (completed.Contains(key)) continue;
+                if (completed.Contains(key))
+                {
+                    previouslyCompleted++;
+                    continue;
+                }
 
                 var existing = await _db.FindOpenRecordAsync(
                     item.MediaStoreId, item.Size, item.DateModified);
@@ -295,7 +315,7 @@ public class BackupEngine
 
 
 
-        return work;
+        return (work, previouslyCompleted);
 
     }
 
@@ -679,35 +699,11 @@ public class BackupEngine
 
 
 
-        var deleted = await mediaService.DeleteMediaAsync(item.ContentUri);
-
-        if (deleted)
-
+        lock (_pendingDeleteUris)
         {
-
-            record.Status = BackupItemStatus.LocalDeleted;
-
-            record.LastError = null;
-
-            BackupLog.Info($"已删除本地 {item.DisplayName}");
-
+            _pendingDeleteUris.Add(item.ContentUri);
         }
-
-        else
-
-        {
-
-            record.Status = BackupItemStatus.DeleteFailed;
-
-            record.LastError = "NAS 已确认备份，但本地删除失败（可能需系统授权）";
-
-            BackupLog.Warn($"本地删除失败 {item.DisplayName}");
-
-        }
-
-
-
-        await _db.UpsertRecordAsync(record);
+        BackupLog.Info($"已加入批量删除队列 {item.DisplayName}");
 
     }
 
@@ -869,6 +865,9 @@ public class BackupEngine
             _paused = false;
 
             _queue.Reset();
+#if ANDROID
+            _pendingDeleteUris.Clear();
+#endif
 
         }
 
@@ -899,6 +898,39 @@ public class BackupEngine
 
     }
 
+    private async Task CleanupLocalDeletedAsync(List<int> ruleIds)
+    {
+        foreach (var ruleId in ruleIds)
+        {
+            try { await _db.DeleteLocalDeletedForRuleAsync(ruleId); }
+            catch (Exception ex) { BackupLog.Warn($"清理 LocalDeleted 记录失败 ruleId={ruleId}: {ex.Message}"); }
+        }
+    }
+
+    private async Task FlushPendingDeletesAsync()
+    {
+#if ANDROID
+        if (_pendingDeleteUris.Count == 0) return;
+        var uris = new List<Android.Net.Uri>(_pendingDeleteUris.Count);
+        foreach (var u in _pendingDeleteUris)
+            uris.Add(Android.Net.Uri.Parse(u));
+        _pendingDeleteUris.Clear();
+        try
+        {
+            var ctx = Platform.CurrentActivity ?? Android.App.Application.Context;
+            var pi = Android.Provider.MediaStore.CreateDeleteRequest(ctx.ContentResolver, uris);
+            if (pi != null)
+            {
+                pi.Send();
+                BackupLog.Info($"已批量请求删除 {uris.Count} 个文件");
+            }
+        }
+        catch (Exception ex)
+        {
+            BackupLog.Warn($"批量删除请求失败: {ex.Message}");
+        }
+#endif
+        await Task.CompletedTask;
+    }
+
 }
-
-

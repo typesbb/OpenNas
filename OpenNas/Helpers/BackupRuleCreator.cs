@@ -52,7 +52,7 @@ public static class BackupRuleCreator
             remote = nasAlbums.First(a => a.Name == pickNas);
 
         var delete = await page.DisplayAlertAsync(
-            "备份后删除", "是否在备份成功后删除手机上的原文件？", "是", "否");
+            "备份完成后删除", "是否在全部文件备份完成后，批量删除手机上的原文件？", "是", "否");
 
         if (delete)
         {

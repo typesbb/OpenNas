@@ -47,7 +47,7 @@
                 <DataTemplate x:DataType="vm:BackupRuleItemViewModel">
                     <Border Style="{StaticResource RuleRowBorder}">
                         <VerticalStackLayout Spacing="6">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                 <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                     <VerticalStackLayout.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnRuleTapped" />
@@ -68,14 +68,6 @@
                                        MinimumWidthRequest="72"
                                        HorizontalTextAlignment="End" />
                                 <Button Grid.Column="2"
-                                        Text="重试"
-                                        Style="{StaticResource CompactOutlineButton}"
-                                        Padding="8,4"
-                                        FontSize="12"
-                                        IsVisible="{Binding ShowRetry}"
-                                        VerticalOptions="Center"
-                                        Clicked="OnRuleRetryClicked" />
-                                <Button Grid.Column="3"
                                         Text="{Binding ActionIcon}"
                                         Style="{StaticResource IconCircleButton}"
                                         VerticalOptions="Center"

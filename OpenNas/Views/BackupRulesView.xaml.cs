@@ -33,7 +33,7 @@ public partial class BackupRulesView : ContentView
         RulesView.SelectedItem = null;
 
         var action = await (Application.Current?.Windows[0]?.Page)!.DisplayActionSheetAsync(
-            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份后删除");
+            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份完成后删除");
         if (action == "删除规则")
         {
             await _db.DeleteRuleAsync(rule.Id);
@@ -45,12 +45,12 @@ public partial class BackupRulesView : ContentView
             await _db.SaveRuleAsync(rule);
             await ReloadAsync();
         }
-        else if (action == "切换备份后删除")
+        else if (action == "切换备份完成后删除")
         {
             if (!rule.DeleteAfterBackup)
             {
                 var ok = await (Application.Current?.Windows[0]?.Page)!.DisplayAlertAsync(
-                    "备份后删除",
+                    "备份完成后删除",
                     "开启后，文件成功上传到 NAS 后将尝试删除手机本地副本。是否开启？",
                     "开启", "取消");
                 if (!ok) return;

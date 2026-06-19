@@ -39,6 +39,8 @@ public class BackupProgressInfo
 
     public void IncrementCompleted() => Interlocked.Increment(ref _completed);
 
+    public void AddCompleted(int count) => Interlocked.Add(ref _completed, count);
+
     public void IncrementFailed() => Interlocked.Increment(ref _failed);
 
     public void ResetCounters()

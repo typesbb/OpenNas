@@ -112,11 +112,27 @@ public class LocalMediaService : ILocalMediaService
         try
         {
             var uri = Android.Net.Uri.Parse(contentUri);
+            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.R)
+            {
+                var pi = Android.Provider.MediaStore.CreateDeleteRequest(_resolver, new List<Android.Net.Uri> { uri });
+                if (pi != null)
+                {
+                    pi.Send();
+                    return Task.FromResult(true);
+                }
+            }
             var rows = _resolver.Delete(uri, null, null);
             return Task.FromResult(rows > 0);
         }
-        catch
+        catch (Android.App.RecoverableSecurityException ex)
         {
+            BackupLog.Warn($"删除需用户授权 {contentUri}");
+            try { ex.UserAction.ActionIntent.Send(); return Task.FromResult(true); }
+            catch (Exception inner) { BackupLog.Warn($"无法启动授权对话框: {inner.Message}"); return Task.FromResult(false); }
+        }
+        catch (Exception ex)
+        {
+            BackupLog.Warn($"删除失败 {contentUri}: {ex.GetType().Name} - {ex.Message}");
             return Task.FromResult(false);
         }
     }
