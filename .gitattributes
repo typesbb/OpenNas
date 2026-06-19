@@ -3,6 +3,16 @@
 ###############################################################################
 * text=auto
 
+# Explicit text normalization for source files (prevent LF-in-CRLF-project warnings)
+*.cs text
+*.xaml text
+*.csproj text
+*.sln text
+*.json text
+*.md text
+*.xml text
+*.csx text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

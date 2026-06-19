@@ -11,6 +11,7 @@ public partial class LoginPage : ContentPage
     private readonly ConnectionService _connection;
     private bool _isLoggingIn;
     private bool _passwordVisible;
+    private bool _initialized;
 
     public LoginPage(ConnectionService connection)
     {
@@ -22,6 +23,9 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (_initialized)
+            return;
+        _initialized = true;
 
         var savedUsername = Preferences.Default.Get(LastUsernameKey, "");
         if (!string.IsNullOrEmpty(savedUsername))
@@ -58,15 +62,10 @@ public partial class LoginPage : ContentPage
     {
         if (_isLoggingIn) return;
 
-        await TogglePasswordButton.ScaleYTo(0.12, 90, Easing.CubicIn);
-
         _passwordVisible = !_passwordVisible;
         passwordEntry.IsPassword = !_passwordVisible;
         TogglePasswordButton.Source = _passwordVisible ? "eye_off.svg" : "eye_open.svg";
         SemanticProperties.SetHint(TogglePasswordButton, _passwordVisible ? "隐藏密码" : "显示密码");
-
-        TogglePasswordButton.ScaleY = 0.12f;
-        await TogglePasswordButton.ScaleYTo(1, 130, Easing.CubicOut);
     }
 
     private async Task LoginAsync()

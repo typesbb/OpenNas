@@ -119,6 +119,8 @@ public partial class NasAlbumsView : ContentView
         };
 
         AlbumsView.ItemsSource = sorted.ToList();
+        AlbumCountLabel.Text = _albums.Count == 0 ? "" : $"{_albums.Count} 个相册";
+        AlbumCountLabel.IsVisible = _albums.Count > 0;
     }
 
     private async Task CreateAlbumInternalAsync()
@@ -129,7 +131,7 @@ public partial class NasAlbumsView : ContentView
 
         if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
         {
-            await page.DisplayAlert("未连接 NAS", "请先在首页登录或检查连接设置。", "确定");
+            await page.DisplayAlertAsync("未连接 NAS", "请先在首页登录或检查连接设置。", "确定");
             return;
         }
 
@@ -145,7 +147,7 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("创建相册失败", ex);
-            await page.DisplayAlert("新建相册", $"创建失败：{ex.Message}", "确定");
+            await page.DisplayAlertAsync("新建相册", $"创建失败：{ex.Message}", "确定");
         }
     }
 
@@ -170,6 +172,6 @@ public partial class NasAlbumsView : ContentView
     private Task ShowAlertAsync(string message)
     {
         var page = GetHostPage();
-        return page == null ? Task.CompletedTask : page.DisplayAlert("相册", message, "确定");
+        return page == null ? Task.CompletedTask : page.DisplayAlertAsync("相册", message, "确定");
     }
 }

@@ -161,15 +161,15 @@ public partial class PhotoViewerPage : ContentPage
     {
         var height = Height > 0 ? Height : DismissHost.Height > 0 ? DismissHost.Height : 800;
         return Task.WhenAll(
-            DismissHost.TranslateTo(0, height, 240, Easing.CubicIn),
-            DismissHost.FadeTo(0, 240, Easing.CubicIn));
+            DismissHost.TranslateToAsync(0, height, 240, Easing.CubicIn),
+            DismissHost.FadeToAsync(0, 240, Easing.CubicIn));
     }
 
     private Task AnimateDismissResetAsync()
     {
         return Task.WhenAll(
-            DismissHost.TranslateTo(0, 0, 180, Easing.CubicOut),
-            DismissHost.FadeTo(1, 180, Easing.CubicOut));
+            DismissHost.TranslateToAsync(0, 0, 180, Easing.CubicOut),
+            DismissHost.FadeToAsync(1, 180, Easing.CubicOut));
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>

@@ -11,7 +11,7 @@ using OpenNas.Platforms.Android;
 
 namespace OpenNas;
 
-public partial class AlbumDetailPage : ContentPage
+public partial class AlbumDetailPage : ContentPage, IDisposable
 {
     private const int PageSize = 60;
 
@@ -26,6 +26,12 @@ public partial class AlbumDetailPage : ContentPage
     private bool _sortDescending = true;
     private bool _uploading;
     private bool _hasMore = true;
+
+    public void Dispose()
+    {
+        _loadGate?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     public AlbumDetailPage(Album album)
     {
@@ -42,10 +48,8 @@ public partial class AlbumDetailPage : ContentPage
 #if ANDROID
         AlbumGridUiHelper.TryOptimize(PhotosView);
 #endif
-        if (_photos.Count > 0)
-            return;
-
-        await ReloadPhotosAsync();
+        if (_photos.Count == 0)
+            await ReloadPhotosAsync();
     }
 
 
@@ -67,7 +71,7 @@ public partial class AlbumDetailPage : ContentPage
         {
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
             {
-                await DisplayAlert(_album.Name, "未连接 NAS，请重新登录。", "确定");
+                await DisplayAlertAsync(_album.Name, "未连接 NAS，请重新登录。", "确定");
                 return;
             }
 
@@ -94,7 +98,7 @@ public partial class AlbumDetailPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error($"刷新相册照片失败 {_album.Name}", ex);
-            await DisplayAlert(_album.Name, $"加载照片失败：{ex.Message}", "确定");
+            await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
         }
         finally
         {
@@ -119,7 +123,7 @@ public partial class AlbumDetailPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error($"加载相册照片失败 {_album.Name}", ex);
-            await DisplayAlert(_album.Name, $"加载照片失败：{ex.Message}", "确定");
+            await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
         }
         finally
         {
@@ -178,7 +182,7 @@ public partial class AlbumDetailPage : ContentPage
         _flatPhotos.Clear();
     }
 
-    private void AppendToDisplay(IReadOnlyList<Photo> page)
+    private void AppendToDisplay(List<Photo> page)
     {
         if (page.Count == 0)
             return;
@@ -285,7 +289,7 @@ public partial class AlbumDetailPage : ContentPage
 #if ANDROID
         if (!await MediaPermissions.EnsureReadMediaAsync())
         {
-            await DisplayAlert(_album.Name, "请允许访问照片和视频后再添加。", "确定");
+            await DisplayAlertAsync(_album.Name, "请允许访问照片和视频后再添加。", "确定");
             return;
         }
 #endif
@@ -306,7 +310,7 @@ public partial class AlbumDetailPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error($"选择照片失败 {_album.Name}", ex);
-            await DisplayAlert(_album.Name, ex.Message, "确定");
+            await DisplayAlertAsync(_album.Name, ex.Message, "确定");
         }
     }
 
@@ -325,12 +329,12 @@ public partial class AlbumDetailPage : ContentPage
             var uploaded = await AlbumPhotoUpload.UploadFilesAsync(_album, list, progress);
 
             await ReloadPhotosAsync(retryAfterUpload: true);
-            await DisplayAlert(_album.Name, $"已添加 {uploaded} 张照片。", "确定");
+            await DisplayAlertAsync(_album.Name, $"已添加 {uploaded} 张照片。", "确定");
         }
         catch (Exception ex)
         {
             AppLog.Error($"上传照片失败 {_album.Name}", ex);
-            await DisplayAlert(_album.Name, $"上传失败：{ex.Message}", "确定");
+            await DisplayAlertAsync(_album.Name, $"上传失败：{ex.Message}", "确定");
         }
         finally
         {

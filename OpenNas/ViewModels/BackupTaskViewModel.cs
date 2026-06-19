@@ -11,7 +11,7 @@ using OpenNas.Services;
 
 namespace OpenNas.ViewModels;
 
-public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
+public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly BackupDatabase _db;
     private readonly BackupEngine _engine;
@@ -29,7 +29,8 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         _db = db;
         _engine = engine;
         _connection = connection;
-        Rules = new ObservableCollection<BackupRuleItemViewModel>();
+        Rules = [];
+        Rules = [];
         _engine.ProgressChanged += OnEngineProgressChanged;
     }
 
@@ -152,56 +153,12 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 
     public async Task AddRuleAsync(Page page)
     {
-#if !ANDROID
-        await UiFeedback.AlertAsync(page, "提示", "备份规则仅支持 Android。");
-        return;
-#else
         try
         {
-            if (!await EnsurePermissionsAsync(page))
+            var rule = await BackupRuleCreator.CreateFromUserInputAsync(page, _db);
+            if (rule == null)
                 return;
 
-            var media = new Media.LocalMediaService();
-            var localAlbums = await media.GetLocalAlbumsAsync();
-            if (localAlbums.Count == 0)
-            {
-                await UiFeedback.AlertAsync(page, "提示", "未找到本机相册");
-                return;
-            }
-
-            var localNames = localAlbums.Select(a => a.Name).ToArray();
-            var pickLocal = await page.DisplayActionSheet("选择本机相册", "取消", null, localNames);
-            if (pickLocal is null or "取消") return;
-            var local = localAlbums.First(a => a.Name == pickLocal);
-
-            var nasAlbums = (await SynologyManager.Client.Foto.GetAlbumsAsync(0, 100)).ToList();
-            var nasNames = nasAlbums.Select(a => a.Name).ToArray();
-            var pickNas = await page.DisplayActionSheet("选择 NAS 相册", "取消", "新建相册...", nasNames);
-            if (pickNas is null or "取消") return;
-
-            Album remote;
-            if (pickNas == "新建相册...")
-            {
-                var newName = await page.DisplayPromptAsync("新建相册", "相册名称");
-                if (string.IsNullOrWhiteSpace(newName)) return;
-                remote = await SynologyManager.Client.Foto.CreateNormalAlbumAsync(newName);
-            }
-            else
-                remote = nasAlbums.First(a => a.Name == pickNas);
-
-            var delete = await page.DisplayAlert(
-                "备份后删除", "是否在备份成功后删除手机上的原文件？", "是", "否");
-
-            var rule = new BackupRule
-            {
-                LocalAlbumId = local.Id,
-                LocalAlbumName = local.Name,
-                RemoteAlbumId = remote.Id,
-                RemoteAlbumName = remote.Name,
-                Enabled = true,
-                DeleteAfterBackup = delete
-            };
-            await _db.SaveRuleAsync(rule);
             await LoadRulesAsync();
             await UiFeedback.ToastAsync("规则已添加");
         }
@@ -210,13 +167,12 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             AppLog.Error("添加备份规则失败", ex);
             await UiFeedback.AlertAsync(page, "错误", ex.Message);
         }
-#endif
     }
 
     public async Task EditRuleAsync(Page page, BackupRuleItemViewModel item)
     {
         var rule = item.Rule;
-        var action = await page.DisplayActionSheet(
+        var action = await page.DisplayActionSheetAsync(
             rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份后删除");
         if (action == "删除规则")
         {
@@ -234,7 +190,7 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!rule.DeleteAfterBackup)
             {
-                var ok = await page.DisplayAlert(
+                var ok = await page.DisplayAlertAsync(
                     "备份后删除",
                     "开启后，文件成功上传到 NAS 后将尝试删除手机本地副本。是否开启？",
                     "开启", "取消");
@@ -361,6 +317,12 @@ public class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public void Dispose()
+    {
+        _engine.ProgressChanged -= OnEngineProgressChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    public void Detach()
     {
         _engine.ProgressChanged -= OnEngineProgressChanged;
     }

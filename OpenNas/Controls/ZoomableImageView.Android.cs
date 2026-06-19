@@ -136,6 +136,7 @@ public partial class ZoomableImageView
         if (_nativeZoomed || _isNavigating)
         {
             await SlideHost.TranslateTo(0, 0, 160, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(0, 0, 160, Easing.CubicOut);
             return;
         }
 

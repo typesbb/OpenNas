@@ -7,6 +7,7 @@ using ARational = Android.Util.Rational;
 
 namespace OpenNas.Platforms.Android;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "Android-only file")]
 internal static class VideoPictureInPictureHelper
 {
     public static bool IsSupported
@@ -17,7 +18,8 @@ internal static class VideoPictureInPictureHelper
                 return false;
 
             var activity = MainActivity.Instance ?? Platform.CurrentActivity;
-            return activity?.PackageManager?.HasSystemFeature(PackageManager.FeaturePictureInPicture) == true;
+            return activity?.PackageManager != null
+                   && activity.PackageManager.HasSystemFeature(PackageManager.FeaturePictureInPicture);
         }
     }
 
@@ -36,7 +38,10 @@ internal static class VideoPictureInPictureHelper
                 if (Build.VERSION.SdkInt >= BuildVersionCodes.S)
                     builder.SetAutoEnterEnabled(false);
 
-                return activity.EnterPictureInPictureMode(builder.Build());
+                var @params = builder.Build();
+                if (@params == null)
+                    return false;
+                return activity.EnterPictureInPictureMode(@params);
             }
 
             if (Build.VERSION.SdkInt >= BuildVersionCodes.N)

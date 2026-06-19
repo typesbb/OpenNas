@@ -7,6 +7,7 @@ namespace OpenNas.Helpers;
 
 public static class NasThumbnailLoader
 {
+#pragma warning disable CA1068 // CancellationToken ordering: forGrid mode switch comes last by design
     private static readonly SemaphoreSlim ThumbnailGate = new(2, 2);
     private const int MaxMemoryCacheEntries = 200;
     private static readonly ConcurrentDictionary<string, Task<byte[]?>> MemoryCache = new();
@@ -233,7 +234,7 @@ public static class NasThumbnailLoader
             if (bytes.Length == 0)
                 return null;
 
-            await NasMediaCache.WriteThumbnailAsync(id, cacheKey, bytes).ConfigureAwait(false);
+            await NasMediaCache.WriteThumbnailAsync(id, cacheKey, bytes, cancellationToken).ConfigureAwait(false);
             MemoryCacheOrder.Enqueue($"{id}:{cacheKey}");
             TrimMemoryCache();
             return bytes;

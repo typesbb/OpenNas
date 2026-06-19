@@ -5,7 +5,20 @@
              xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.Views.NasAlbumsView">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Label x:Name="AlbumCountLabel"
+               Grid.Row="0"
+               FontSize="12"
+               Margin="4,0,4,6"
+               HorizontalOptions="Center"
+               TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+
         <RefreshView x:Name="AlbumsRefreshView"
+                     Grid.Row="1"
                      RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
             <CollectionView x:Name="AlbumsView"
                             SelectionMode="Single"

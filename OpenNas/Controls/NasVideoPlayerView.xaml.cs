@@ -73,12 +73,14 @@ public partial class NasVideoPlayerView : ContentView
 
     partial void InitializePlatform();
 
+    partial void OnPhotoReadyForPlatform();
+
 #if !ANDROID
+#pragma warning disable CA1822 // Partial methods: shared declaration can't be static due to Android impl
     partial void InitializePlatform() { }
 
     partial void OnPhotoReadyForPlatform() { }
-#else
-    partial void OnPhotoReadyForPlatform();
+#pragma warning restore CA1822
 #endif
 
     public Photo? Photo
@@ -362,9 +364,10 @@ public partial class NasVideoPlayerView : ContentView
         if (Platforms.Android.VideoPictureInPictureHelper.TryEnter())
             return;
 
-        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
+        var windows = Application.Current?.Windows;
+        var page = windows is { Count: > 0 } ? windows[0].Page : null;
         if (page != null)
-            _ = page.DisplayAlert("小窗播放", "当前无法进入画中画，请确认系统已允许本应用使用画中画。", "确定");
+            _ = page.DisplayAlertAsync("小窗播放", "当前无法进入画中画，请确认系统已允许本应用使用画中画。", "确定");
 #endif
     }
 
@@ -790,7 +793,7 @@ public partial class NasVideoPlayerView : ContentView
 
         if (!shouldNavigate || OnSwipeNavigateAsync == null)
         {
-            await SlideHost.TranslateTo(0, 0, 180, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(0, 0, 180, Easing.CubicOut);
             return;
         }
 
@@ -799,12 +802,12 @@ public partial class NasVideoPlayerView : ContentView
         {
             MediaPlayer.Pause();
             var exitX = direction > 0 ? -width : width;
-            await SlideHost.TranslateTo(exitX, 0, 200, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(exitX, 0, 200, Easing.CubicOut);
             SlideHost.TranslationX = direction > 0 ? width : -width;
 
             await OnSwipeNavigateAsync(direction);
 
-            await SlideHost.TranslateTo(0, 0, 200, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(0, 0, 200, Easing.CubicOut);
         }
         finally
         {

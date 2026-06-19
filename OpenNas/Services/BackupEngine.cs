@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using NSynology;
 
 using NSynology.Foto;
@@ -306,29 +307,26 @@ public class BackupEngine
         CancellationToken token)
     {
         var nextIndex = 0;
-        var workLock = new object();
-        var assignedKeys = new HashSet<string>();
+        var assignedKeys = new ConcurrentDictionary<string, byte>();
 
         WorkItem? TakeNext()
         {
-            lock (workLock)
+            while (true)
             {
-                while (nextIndex < work.Count)
-                {
-                    var candidate = work[nextIndex++];
-                    var key = MediaKey(candidate.Media);
-                    if (assignedKeys.Add(key))
-                        return candidate;
-                }
-            }
+                var index = Interlocked.Increment(ref nextIndex) - 1;
+                if (index >= work.Count)
+                    return null;
 
-            return null;
+                var candidate = work[index];
+                var key = MediaKey(candidate.Media);
+                if (assignedKeys.TryAdd(key, 0))
+                    return candidate;
+            }
         }
 
         void ReleaseKey(string key)
         {
-            lock (workLock)
-                assignedKeys.Remove(key);
+            assignedKeys.TryRemove(key, out _);
         }
 
         var uploadSem = new SemaphoreSlim(MaxParallelUpload, MaxParallelUpload);
@@ -403,6 +401,7 @@ public class BackupEngine
         }
         else
         {
+#if ANDROID
             bytes = await LoadBytesAsync(
                 workItem.Media,
                 token,
@@ -411,6 +410,7 @@ public class BackupEngine
                     if (_queue.UpdateSlotProgress(slotIndex, p))
                         Notify();
                 });
+#endif
 
             if (_queue.SetSlotReady(slotIndex))
                 Notify(force: true);

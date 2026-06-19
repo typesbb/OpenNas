@@ -19,6 +19,12 @@ public partial class TasksPage : ContentPage
         await _vm.RefreshAsync();
     }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _vm.Detach();
+    }
+
     private async void OnAddRuleClicked(object sender, EventArgs e) =>
         await _vm.AddRuleAsync(this);
 

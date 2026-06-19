@@ -12,6 +12,7 @@
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
 		<ApplicationTitle>OpenNas</ApplicationTitle>
 		<ApplicationId>com.companyname.opennas</ApplicationId>

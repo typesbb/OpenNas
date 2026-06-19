@@ -16,7 +16,9 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
+#pragma warning disable CA1416 // isAndroidForegroundServiceEnabled is Android-only
             .UseMauiCommunityToolkitMediaElement(isAndroidForegroundServiceEnabled: false)
+#pragma warning restore CA1416
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -66,4 +68,3 @@ public static class MauiProgram
         return app;
     }
 }
-

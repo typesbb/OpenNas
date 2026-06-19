@@ -20,10 +20,12 @@ public partial class LocalAlbumsView : ContentView
         {
             if (!await MediaPermissions.EnsureReadMediaAsync())
             {
-                await Application.Current!.MainPage!.DisplayAlert(
-                    "需要权限",
-                    "请允许访问照片和视频，以便读取本机相册。可在系统设置 → 应用 → OpenNas → 权限 中开启。",
-                    "确定");
+                var page = Application.Current?.Windows[0]?.Page;
+                if (page != null)
+                    await page.DisplayAlertAsync(
+                        "需要权限",
+                        "请允许访问照片和视频，以便读取本机相册。可在系统设置 → 应用 → OpenNas → 权限 中开启。",
+                        "确定");
                 return;
             }
 
@@ -34,10 +36,14 @@ public partial class LocalAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("加载本机相册失败", ex);
-            await Application.Current!.MainPage!.DisplayAlert("本机相册", ex.Message, "确定");
+            var page = Application.Current?.Windows[0]?.Page;
+            if (page != null)
+                await page.DisplayAlertAsync("本机相册", ex.Message, "确定");
         }
 #else
-        await Application.Current!.MainPage!.DisplayAlert("提示", "本机相册仅支持 Android。", "确定");
+        var page = Application.Current?.Windows[0]?.Page;
+        if (page != null)
+            await page.DisplayAlertAsync("提示", "本机相册仅支持 Android。", "确定");
 #endif
     }
 }

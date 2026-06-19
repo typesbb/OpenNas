@@ -12,8 +12,8 @@ public static class UiFeedback
     }
 
     public static Task<bool> ConfirmAsync(Page page, string title, string message, string accept = "确定", string cancel = "取消") =>
-        page.DisplayAlert(title, message, accept, cancel);
+        page.DisplayAlertAsync(title, message, accept, cancel);
 
     public static Task AlertAsync(Page page, string title, string message, string accept = "确定") =>
-        page.DisplayAlert(title, message, accept);
+        page.DisplayAlertAsync(title, message, accept);
 }

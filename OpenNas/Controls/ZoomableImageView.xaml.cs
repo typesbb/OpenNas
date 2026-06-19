@@ -44,8 +44,8 @@ public partial class ZoomableImageView : ContentView
     private int _loadGeneration;
     private bool _showThumbnailOnly;
     private PanMode _panMode = PanMode.None;
-    internal double _navPanX;
     private double _navPanY;
+    internal double _navPanX;
     internal bool _isNavigating;
     private bool _isPinching;
     internal bool ManagedGesturesEnabled;
@@ -417,16 +417,16 @@ public partial class ZoomableImageView : ContentView
         _currentScale = targetScale;
         ClampPan();
         await Task.WhenAll(
-            TransformHost.ScaleTo(_currentScale, 220, Easing.CubicOut),
-            TransformHost.TranslateTo(_panX, _panY, 220, Easing.CubicOut));
+            TransformHost.ScaleToAsync(_currentScale, 220, Easing.CubicOut),
+            TransformHost.TranslateToAsync(_panX, _panY, 220, Easing.CubicOut));
         ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task AnimateResetZoomAsync()
     {
         await Task.WhenAll(
-            TransformHost.ScaleTo(1, 200, Easing.CubicOut),
-            TransformHost.TranslateTo(0, 0, 200, Easing.CubicOut));
+            TransformHost.ScaleToAsync(1, 200, Easing.CubicOut),
+            TransformHost.TranslateToAsync(0, 0, 200, Easing.CubicOut));
 
         ResetImageTransform();
     }
@@ -434,7 +434,7 @@ public partial class ZoomableImageView : ContentView
     private async Task AnimatePanClampAsync()
     {
         ClampPan();
-        await TransformHost.TranslateTo(_panX, _panY, 160, Easing.CubicOut);
+        await TransformHost.TranslateToAsync(_panX, _panY, 160, Easing.CubicOut);
         ApplyTransform();
     }
 
