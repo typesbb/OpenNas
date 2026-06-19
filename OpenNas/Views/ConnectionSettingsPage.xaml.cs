@@ -7,72 +7,128 @@ namespace OpenNas.Views;
 public partial class ConnectionSettingsPage : ContentPage
 {
     private readonly ConnectionService _connection;
-    private List<NasProfile> _profiles = new();
-    private NasProfile? _selected;
 
     public ConnectionSettingsPage(ConnectionService connection)
     {
         InitializeComponent();
         _connection = connection;
-        KindPicker.ItemsSource = new[] { "内网", "外网" };
+        LanProtocol.SelectedIndex = 0;   // default https
+        WanProtocol.SelectedIndex = 0;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        _profiles = await _connection.LoadProfilesAsync();
-        ProfilesView.ItemsSource = _profiles;
+        await LoadCurrentConfigAsync();
+    }
+
+    private async Task LoadCurrentConfigAsync()
+    {
+        var profiles = await _connection.LoadProfilesAsync();
+
+        // Populate LAN
+        var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
+        PopulateAddress(lanProfile, LanProtocol, LanHost, LanPort);
+
+        // Populate WAN
+        var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
+        PopulateAddress(wanProfile, WanProtocol, WanHost, WanPort);
+
         AutoSwitchToggle.IsToggled = _connection.AutoSwitchEnabled;
+
+        var active = _connection.ActiveProfile;
+        if (active != null && !string.IsNullOrWhiteSpace(active.BaseUrl))
+            StatusLabel.Text = $"当前：{active.BaseUrl}";
+        else
+            StatusLabel.Text = "尚未配置连接";
     }
 
-    private void OnProfileSelected(object sender, SelectionChangedEventArgs e)
+    private static void PopulateAddress(NasProfile? profile, Picker protocol, Entry host, Entry port)
     {
-        _selected = e.CurrentSelection.FirstOrDefault() as NasProfile;
-        if (_selected == null) return;
-        NameEntry.Text = _selected.DisplayName;
-        UrlEntry.Text = _selected.BaseUrl;
-        KindPicker.SelectedIndex = _selected.NetworkKind == NetworkKind.Lan ? 0 : 1;
-    }
-
-    private async void OnSaveProfileClicked(object sender, EventArgs e)
-    {
-        var url = UrlEntry.Text?.Trim();
-        if (string.IsNullOrEmpty(url))
-        {
-            await UiFeedback.AlertAsync(this, "错误", "请输入 NAS 地址");
+        if (profile == null || string.IsNullOrWhiteSpace(profile.BaseUrl))
             return;
+
+        if (Uri.TryCreate(profile.BaseUrl, UriKind.Absolute, out var uri))
+        {
+            protocol.SelectedIndex = uri.Scheme == Uri.UriSchemeHttps ? 0 : 1;
+            host.Text = uri.Host;
+            port.Text = uri.Port.ToString();
         }
-
-        var profile = _selected ?? new NasProfile();
-        profile.DisplayName = NameEntry.Text?.Trim() ?? "NAS";
-        profile.BaseUrl = NasUrlHelper.NormalizeBaseUrl(url);
-        profile.NetworkKind = KindPicker.SelectedIndex == 1 ? NetworkKind.Wan : NetworkKind.Lan;
-
-        var list = await _connection.LoadProfilesAsync();
-        var existing = list.FirstOrDefault(p => p.Id == profile.Id);
-        if (existing == null) list.Add(profile);
         else
         {
-            var idx = list.FindIndex(p => p.Id == profile.Id);
-            list[idx] = profile;
+            host.Text = profile.BaseUrl;
         }
-
-        await _connection.SaveProfilesAsync(list);
-        _profiles = list;
-        ProfilesView.ItemsSource = null;
-        ProfilesView.ItemsSource = _profiles;
-        await UiFeedback.ToastAsync("配置已保存");
     }
 
-    private async void OnSetActiveClicked(object sender, EventArgs e)
+    private async void OnSaveClicked(object sender, EventArgs e)
     {
-        if (_selected == null)
+        // Build LAN address
+        var lanHost = LanHost.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(lanHost))
         {
-            await UiFeedback.AlertAsync(this, "提示", "请先选择一条配置");
+            await UiFeedback.AlertAsync(this, "错误", "请输入内网 (LAN) 的 IP 地址或域名");
             return;
         }
-        await _connection.SetActiveProfileAsync(_selected);
-        await UiFeedback.ToastAsync("已切换当前连接");
+
+        // Build WAN address (optional)
+        var wanHost = WanHost.Text?.Trim();
+
+        var profiles = await _connection.LoadProfilesAsync();
+
+        // Save/update LAN profile
+        var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan)
+                         ?? new NasProfile { NetworkKind = NetworkKind.Lan };
+        lanProfile.DisplayName = "内网";
+        lanProfile.BaseUrl = BuildUrl(LanProtocol, lanHost, LanPort);
+        lanProfile.NetworkKind = NetworkKind.Lan;
+
+        if (!profiles.Any(p => p.Id == lanProfile.Id))
+            profiles.Add(lanProfile);
+        else
+        {
+            var idx = profiles.FindIndex(p => p.Id == lanProfile.Id);
+            profiles[idx] = lanProfile;
+        }
+
+        // Save/update WAN profile (only if host is entered)
+        if (!string.IsNullOrWhiteSpace(wanHost))
+        {
+            var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan)
+                             ?? new NasProfile { NetworkKind = NetworkKind.Wan, DisplayName = "外网" };
+            wanProfile.DisplayName = "外网";
+            wanProfile.BaseUrl = BuildUrl(WanProtocol, wanHost, WanPort);
+            wanProfile.NetworkKind = NetworkKind.Wan;
+
+            if (!profiles.Any(p => p.Id == wanProfile.Id))
+                profiles.Add(wanProfile);
+            else
+            {
+                var idx = profiles.FindIndex(p => p.Id == wanProfile.Id);
+                profiles[idx] = wanProfile;
+            }
+        }
+
+        await _connection.SaveProfilesAsync(profiles);
+
+        // Keep the same active profile if it still exists, otherwise set to LAN
+        var active = _connection.ActiveProfile;
+        if (active == null || !profiles.Any(p => p.Id == active.Id))
+            active = lanProfile;
+
+        await _connection.SetActiveProfileAsync(active);
+
+        StatusLabel.Text = $"当前：{active.BaseUrl}";
+        await UiFeedback.ToastAsync("连接配置已保存");
+        await Navigation.PopAsync();
+    }
+
+    private static string BuildUrl(Picker protocol, string host, Entry port)
+    {
+        var scheme = protocol.SelectedIndex == 0 ? "https" : "http";
+        var portText = port.Text?.Trim();
+        if (string.IsNullOrEmpty(portText))
+            portText = "5001";
+        return $"{scheme}://{host}:{portText}";
     }
 
     private void OnAutoSwitchToggled(object? sender, ToggledEventArgs e)

@@ -1,6 +1,4 @@
-using NSynology;
 using OpenNas.Helpers;
-using OpenNas.Models;
 using OpenNas.Services;
 
 namespace OpenNas.Views;
@@ -47,29 +45,6 @@ public partial class ProfilePage : ContentPage
         CacheSizeLabel.Text = NasMediaCache.FormatBytes(bytes);
     }
 
-    private async void OnSwitchConnectionClicked(object? sender, EventArgs e)
-    {
-        var profiles = await _connection.LoadProfilesAsync();
-        if (profiles.Count == 0)
-        {
-            await UiFeedback.AlertAsync(this, "切换连接", "尚未配置 NAS 连接。");
-            return;
-        }
-
-        var names = profiles.Select(NasProfileDisplay.FormatTitle).ToArray();
-        var pick = await DisplayActionSheet("切换连接", "取消", null, names);
-        if (pick == null || pick == "取消")
-            return;
-
-        var idx = Array.IndexOf(names, pick);
-        if (idx < 0)
-            return;
-
-        await _connection.SetActiveProfileAsync(profiles[idx]);
-        var loggedIn = !string.IsNullOrEmpty(SynologyManager.Client?.Sid);
-        await UiFeedback.ToastAsync(loggedIn ? "已切换连接" : "已切换连接，请重新登录");
-        RefreshProfile();
-    }
 
     private async void OnConnectionClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(new ConnectionSettingsPage(_connection));
@@ -114,3 +89,4 @@ public partial class ProfilePage : ContentPage
             Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
     }
 }
+

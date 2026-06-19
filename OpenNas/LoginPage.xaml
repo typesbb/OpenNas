@@ -17,11 +17,49 @@
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
 
+            <!-- Connection error banner — shown prominently when config loading fails -->
+            <Border x:Name="ConnectionErrorBanner"
+                    IsVisible="False"
+                    BackgroundColor="{AppThemeBinding Light=#FFEEE0, Dark=#4A2020}"
+                    StrokeShape="RoundRectangle 8"
+                    StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=#F5A623, Dark=#FF6B6B}"
+                    Padding="12">
+                <VerticalStackLayout Spacing="4">
+                    <Label x:Name="ConnectionErrorTitle"
+                           Text="加载连接配置失败"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#D14524, Dark=#FF8C8C}"
+                           HorizontalOptions="Center" />
+                    <Label x:Name="ConnectionErrorDetail"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light=#8B4513, Dark=#FFB8B8}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap" />
+                    <Button x:Name="GoToSettingsFromErrorButton"
+                            Text="前往配置"
+                            FontSize="13"
+                            Padding="16,6"
+                            HorizontalOptions="Center"
+                            Margin="0,4,0,0"
+                            BackgroundColor="{AppThemeBinding Light=#D14524, Dark=#FF6B6B}"
+                            TextColor="White"
+                            CornerRadius="6"
+                            BorderWidth="0"
+                            Clicked="OnGoToSettingsClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Normal connection info label -->
+            <Label x:Name="ServerLabel"
+                   Style="{StaticResource Caption}"
+                   LineBreakMode="TailTruncation"
+                   HorizontalTextAlignment="Center" />
+
             <Border Style="{StaticResource CardBorder}">
                 <VerticalStackLayout Spacing="14">
-                    <Label x:Name="ServerLabel"
-                           Style="{StaticResource Caption}"
-                           LineBreakMode="TailTruncation" />
 
                     <VerticalStackLayout Spacing="6">
                         <Label Text="用户名" Style="{StaticResource MicroCaption}" />

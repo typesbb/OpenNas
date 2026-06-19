@@ -58,19 +58,8 @@ public class ConnectionService
 
         if (profiles.Count == 0)
         {
-            profiles.Add(new NasProfile
-            {
-                DisplayName = "内网",
-                BaseUrl = "https://192.168.0.2:5001",
-                NetworkKind = NetworkKind.Lan
-            });
-            profiles.Add(new NasProfile
-            {
-                DisplayName = "外网",
-                BaseUrl = "https://your-domain.com:5001",
-                NetworkKind = NetworkKind.Wan
-            });
-            await SaveProfilesAsync(profiles);
+            ActiveProfile = null;
+            return;
         }
 
         var activeId = Preferences.Get(ActiveProfileKey, profiles[0].Id);

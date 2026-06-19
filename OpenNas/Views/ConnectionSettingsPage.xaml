@@ -8,40 +8,49 @@
 
             <Label Text="NAS 地址" Style="{StaticResource SectionTitle}" />
 
-            <CollectionView x:Name="ProfilesView"
-                            SelectionMode="Single"
-                            SelectionChanged="OnProfileSelected"
-                            HeightRequest="200">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Border Style="{StaticResource CardBorder}" Padding="12" Margin="0,0,0,8">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" />
-                                <Label Text="{Binding BaseUrl}" Style="{StaticResource Caption}" />
-                            </VerticalStackLayout>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
+            <!-- 内网 (LAN) -->
             <Border Style="{StaticResource CardBorder}">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="编辑配置" Style="{StaticResource SectionTitle}" />
-                    <Entry x:Name="NameEntry" Placeholder="显示名称" />
-                    <Entry x:Name="UrlEntry" Placeholder="https://192.168.x.x:5001" Keyboard="Url" />
-                    <Picker x:Name="KindPicker" Title="网络类型" />
-                    <Button Text="保存/更新配置"
-                            Style="{StaticResource PrimaryButton}"
-                            Clicked="OnSaveProfileClicked" />
-                    <Button Text="设为当前连接"
-                            Style="{StaticResource SecondaryButton}"
-                            Clicked="OnSetActiveClicked" />
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,4,0,0">
-                        <Switch x:Name="AutoSwitchToggle" Toggled="OnAutoSwitchToggled" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="自动切换内/外网连接" VerticalOptions="Center" FontSize="15" />
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="内网 (LAN)" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="在家或与 NAS 同一网络时使用" Style="{StaticResource MicroCaption}" Margin="0,-4,0,0" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Picker x:Name="LanProtocol" WidthRequest="90">
+                            <Picker.Items><x:String>https://</x:String><x:String>http://</x:String></Picker.Items>
+                        </Picker>
+                        <Entry x:Name="LanHost" Grid.Column="1" Placeholder="IP 地址或域名" Keyboard="Url" />
+                        <Entry x:Name="LanPort" Grid.Column="2" Placeholder="端口" Text="5001" Keyboard="Numeric" WidthRequest="90" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
+
+            <!-- 外网 (WAN) -->
+            <Border Style="{StaticResource CardBorder}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="外网 (WAN)" FontAttributes="Bold" FontSize="15" />
+                    <Label Text="在外出或不同网络时使用（需要 QuickConnect 或 DDNS）" Style="{StaticResource MicroCaption}" Margin="0,-4,0,0" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Picker x:Name="WanProtocol" WidthRequest="90">
+                            <Picker.Items><x:String>https://</x:String><x:String>http://</x:String></Picker.Items>
+                        </Picker>
+                        <Entry x:Name="WanHost" Grid.Column="1" Placeholder="IP 地址或域名" Keyboard="Url" />
+                        <Entry x:Name="WanPort" Grid.Column="2" Placeholder="端口" Text="5001" Keyboard="Numeric" WidthRequest="90" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Auto-switch toggle -->
+            <Border Style="{StaticResource CardBorder}" Padding="14">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <Switch x:Name="AutoSwitchToggle" Toggled="OnAutoSwitchToggled" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="自动切换内/外网连接" VerticalOptions="Center" FontSize="15" />
+                </Grid>
+            </Border>
+
+            <Button Text="保存" Style="{StaticResource PrimaryButton}" Clicked="OnSaveClicked" />
+
+            <Label x:Name="StatusLabel" Style="{StaticResource Caption}" HorizontalOptions="Center" Margin="0,0,0,0" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
