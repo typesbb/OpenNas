@@ -797,13 +797,16 @@ public class BackupEngine
 
         {
 
-            ".mp4" or ".mov" or ".mkv" => "video/mp4",
+            ".mp4" or ".mov" or ".mkv" or ".avi" or ".wmv" or ".webm" or ".3gp" => "video/mp4",
 
             ".png" => "image/png",
 
             ".gif" => "image/gif",
 
             ".webp" => "image/webp",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".bmp" => "image/bmp",
 
             _ => "image/jpeg"
 

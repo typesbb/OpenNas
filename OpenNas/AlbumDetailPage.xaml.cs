@@ -13,23 +13,27 @@ namespace OpenNas;
 
 public partial class AlbumDetailPage : ContentPage, IDisposable
 {
-    private const int PageSize = 60;
+
+    private const int PageSize = 30;
 
     private readonly Album _album;
     private readonly List<Photo> _photos = [];
     private readonly ObservableCollection<PhotoDateGroup> _groups = [];
-    private readonly ObservableCollection<Photo> _flatPhotos = [];
+    private ObservableCollection<Photo> _flatPhotos = [];
     private readonly SemaphoreSlim _loadGate = new(1, 1);
 
     private int _offset;
     private string _sortField = "time";
     private bool _sortDescending = true;
     private bool _uploading;
+    private CancellationTokenSource? _uploadCts;
     private bool _hasMore = true;
 
     public void Dispose()
     {
         _loadGate?.Dispose();
+        _uploadCts?.Cancel();
+        _uploadCts?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -80,7 +84,7 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             _photos.Clear();
             ClearDisplay();
             await SyncAlbumCountAsync();
-            await SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(_album.Id);
+            await Task.Run(() => SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(_album.Id));
 
             var maxAttempts = retryAfterUpload ? 4 : 1;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
@@ -140,8 +144,11 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             return 0;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        var photos = (await SynologyManager.Client.Foto.GetPhotosAsync(
+        var photos = await Task.Run(async () =>
+        {
+            return (await SynologyManager.Client.Foto.GetPhotosAsync(
             _album, _offset, PageSize, _sortField, _sortDescending, cts.Token)).ToList();
+        });
 
         if (photos.Count == 0)
         {
@@ -162,7 +169,10 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             return;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var albums = await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cts.Token);
+        var albums = await Task.Run(async () =>
+        {
+            return await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cts.Token);
+        });
         var fresh = albums.FirstOrDefault(a => a.Id == _album.Id);
         if (fresh != null)
             _album.ItemCount = fresh.ItemCount;
@@ -191,8 +201,10 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             AppendToGroups(page);
         else
         {
-            foreach (var photo in page)
-                _flatPhotos.Add(photo);
+            // 批量替换避免逐个 Add 触发 RecyclerView 反复 layout
+            _flatPhotos = new ObservableCollection<Photo>(
+                _flatPhotos.Concat(page));
+            PhotosView.ItemsSource = _flatPhotos;
         }
     }
 
@@ -326,7 +338,8 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             var list = files.ToList();
             StatusLabel.IsVisible = true;
             var progress = new Progress<string>(msg => StatusLabel.Text = msg);
-            var uploaded = await AlbumPhotoUpload.UploadFilesAsync(_album, list, progress);
+            _uploadCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            var uploaded = await AlbumPhotoUpload.UploadFilesAsync(_album, list, progress, cancellationToken: _uploadCts.Token);
 
             await ReloadPhotosAsync(retryAfterUpload: true);
             await DisplayAlertAsync(_album.Name, $"已添加 {uploaded} 张照片。", "确定");
@@ -340,6 +353,8 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         {
             StatusLabel.IsVisible = false;
             StatusLabel.Text = "";
+        _uploadCts?.Dispose();
+            _uploadCts = null;
             _uploading = false;
             AddPhotoButton.IsEnabled = true;
             BusyIndicator.IsRunning = false;
