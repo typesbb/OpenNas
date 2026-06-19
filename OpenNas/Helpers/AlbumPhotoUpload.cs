@@ -15,14 +15,22 @@ public static class AlbumPhotoUpload
             ".heic" => "image/heic",
             ".heif" => "image/heif",
             ".bmp" => "image/bmp",
+            ".mp4" => "video/mp4",
+            ".mov" => "video/quicktime",
+            ".avi" => "video/x-msvideo",
+            ".mkv" => "video/x-matroska",
+            ".webm" => "video/webm",
+            ".wmv" => "video/x-ms-wmv",
+            ".m4v" => "video/x-m4v",
+            ".3gp" => "video/3gpp",
             _ => "image/jpeg"
         };
     }
 
     public static async Task<int> UploadFilesAsync(
         Album album,
-        IEnumerable<FileResult> files,
-        IProgress<string>? status = null,
+        IReadOnlyList<FileResult> files,
+        IProgress<(int current, int total, string fileName)>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
@@ -30,12 +38,17 @@ public static class AlbumPhotoUpload
 
         await SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(album.Id, cancellationToken);
 
+        var total = files.Count;
         var uploaded = 0;
-        foreach (var file in files)
+        for (var i = 0; i < total; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var fileName = string.IsNullOrWhiteSpace(file.FileName) ? $"photo_{DateTime.Now:yyyyMMdd_HHmmss}.jpg" : file.FileName;
-            status?.Report($"正在上传 {fileName}…");
+
+            var file = files[i];
+            var fileName = string.IsNullOrWhiteSpace(file.FileName)
+                ? $"photo_{DateTime.Now:yyyyMMdd_HHmmss}.jpg"
+                : file.FileName;
+            progress?.Report((i + 1, total, fileName));
 
             await using var stream = await file.OpenReadAsync();
             using var ms = new MemoryStream();

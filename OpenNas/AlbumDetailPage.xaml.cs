@@ -201,7 +201,6 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             AppendToGroups(page);
         else
         {
-            // 批量替换避免逐个 Add 触发 RecyclerView 反复 layout
             _flatPhotos = new ObservableCollection<Photo>(
                 _flatPhotos.Concat(page));
             PhotosView.ItemsSource = _flatPhotos;
@@ -311,7 +310,13 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             var picks = await FilePicker.Default.PickMultipleAsync(new PickOptions
             {
                 PickerTitle = "添加到相册",
-                FileTypes = FilePickerFileType.Images
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.Android, new[] { "image/*", "video/*" } },
+                    { DevicePlatform.iOS, new[] { "public.image", "public.movie" } },
+                    { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".mp4", ".mov", ".avi", ".wmv", ".mkv", ".webm", ".m4v", ".3gp" } },
+                    { DevicePlatform.macOS, new[] { "public.image", "public.movie" } },
+                })
             });
 
             if (picks == null || !picks.Any())
@@ -321,9 +326,15 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         }
         catch (Exception ex)
         {
-            AppLog.Error($"选择照片失败 {_album.Name}", ex);
+            AppLog.Error($"选择文件失败 {_album.Name}", ex);
             await DisplayAlertAsync(_album.Name, ex.Message, "确定");
         }
+    }
+
+    private void OnCancelUploadClicked(object? sender, EventArgs e)
+    {
+        try { _uploadCts?.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private async Task UploadPickedPhotosAsync(IEnumerable<FileResult> files)
@@ -337,7 +348,13 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         {
             var list = files.ToList();
             StatusLabel.IsVisible = true;
-            var progress = new Progress<string>(msg => StatusLabel.Text = msg);
+            UploadProgressArea.IsVisible = true;
+            UploadProgressBar.Progress = 0;
+            var progress = new Progress<(int current, int total, string fileName)>(p =>
+            {
+                StatusLabel.Text = $"正在上传 {p.current}/{p.total}…";
+                UploadProgressBar.Progress = (double)p.current / p.total;
+            });
             _uploadCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
             var uploaded = await AlbumPhotoUpload.UploadFilesAsync(_album, list, progress, cancellationToken: _uploadCts.Token);
 
@@ -346,14 +363,15 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         }
         catch (Exception ex)
         {
-            AppLog.Error($"上传照片失败 {_album.Name}", ex);
+            AppLog.Error($"上传失败 {_album.Name}", ex);
             await DisplayAlertAsync(_album.Name, $"上传失败：{ex.Message}", "确定");
         }
         finally
         {
             StatusLabel.IsVisible = false;
             StatusLabel.Text = "";
-        _uploadCts?.Dispose();
+            UploadProgressArea.IsVisible = false;
+            _uploadCts?.Dispose();
             _uploadCts = null;
             _uploading = false;
             AddPhotoButton.IsEnabled = true;

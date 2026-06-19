@@ -34,6 +34,27 @@
                            HorizontalOptions="Center"
                            IsVisible="False"
                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                    <HorizontalStackLayout x:Name="UploadProgressArea"
+                                           IsVisible="False"
+                                           HorizontalOptions="Center"
+                                           Spacing="8"
+                                           Margin="0,4,0,0">
+                        <ProgressBar x:Name="UploadProgressBar"
+                                     Progress="0"
+                                     ProgressColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+                                     WidthRequest="100"
+                                     VerticalOptions="Center" />
+                        <Button x:Name="CancelUploadButton"
+                                Text="✕"
+                                FontSize="14"
+                                WidthRequest="32"
+                                HeightRequest="32"
+                                CornerRadius="16"
+                                Padding="0"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+                                Clicked="OnCancelUploadClicked" />
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
                 <Button x:Name="MoreButton"
                         Grid.Column="2"
