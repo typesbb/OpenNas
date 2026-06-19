@@ -24,6 +24,17 @@ internal static class AppLog
 #endif
     }
 
+    public static void Debug(string context, Exception? ex = null)
+    {
+#if ANDROID
+        var msg = ex == null ? context : $"{context}\n{FormatException(ex)}";
+        global::Android.Util.Log.Debug(Tag, msg);
+#else
+        var msg = ex == null ? context : $"{context}\n{FormatException(ex)}";
+        System.Diagnostics.Debug.WriteLine(msg);
+#endif
+    }
+
     public static string FormatException(Exception ex)
     {
         var sb = new StringBuilder();

@@ -40,6 +40,7 @@
                              RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
                     <CollectionView x:Name="PhotosView"
                                     IsGrouped="True"
+                                    ItemSizingStrategy="MeasureFirstItem"
                                     ItemsLayout="VerticalGrid, 3"
                                     RemainingItemsThreshold="12"
                                     RemainingItemsThresholdReached="OnLoadMore"
@@ -55,38 +56,25 @@
                         </CollectionView.GroupHeaderTemplate>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="foto:Photo">
-                                <Border Margin="2"
-                                        StrokeThickness="0"
-                                        BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
-                                    <Border.GestureRecognizers>
+                                <Grid Margin="2"
+                                      HeightRequest="112"
+                                      BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
+                                    <Grid.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnPhotoTapped" />
-                                    </Border.GestureRecognizers>
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="4" />
-                                    </Border.StrokeShape>
-                                    <Grid>
-                                        <controls:AlbumThumbnailImage Aspect="AspectFill"
-                                                                      HeightRequest="112"
-                                                                      Photo="{Binding .}" />
-                                        <Border IsVisible="{Binding IsVideo}"
-                                                BackgroundColor="#99000000"
-                                                WidthRequest="32"
-                                                HeightRequest="32"
-                                                HorizontalOptions="Center"
-                                                VerticalOptions="Center"
-                                                StrokeThickness="0">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="16" />
-                                            </Border.StrokeShape>
-                                            <Label Text="▶"
-                                                   FontSize="14"
-                                                   TextColor="White"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center"
-                                                   Margin="2,0,0,0" />
-                                        </Border>
-                                    </Grid>
-                                </Border>
+                                    </Grid.GestureRecognizers>
+                                    <controls:AlbumGridPhotoView Aspect="AspectFill" />
+                                    <Label Text="▶"
+                                           IsVisible="{Binding IsVideo}"
+                                           FontSize="13"
+                                           TextColor="White"
+                                           BackgroundColor="#99000000"
+                                           WidthRequest="28"
+                                           HeightRequest="28"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center" />
+                                </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

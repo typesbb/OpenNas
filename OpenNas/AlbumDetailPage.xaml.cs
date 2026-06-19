@@ -40,13 +40,14 @@ public partial class AlbumDetailPage : ContentPage
     {
         base.OnAppearing();
 #if ANDROID
-        AlbumGridScrollHelper.TryAttach(PhotosView);
+        AlbumGridUiHelper.TryOptimize(PhotosView);
 #endif
         if (_photos.Count > 0)
             return;
 
         await ReloadPhotosAsync();
     }
+
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
