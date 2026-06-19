@@ -19,14 +19,22 @@
                         Style="{StaticResource ToolbarIconButton}"
                         SemanticProperties.Hint="返回"
                         Clicked="OnBackClicked" />
-                <Label x:Name="TitleLabel"
-                       Grid.Column="1"
-                       FontFamily="OpenSansSemibold"
-                       FontSize="18"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center"
-                       LineBreakMode="TailTruncation"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                <VerticalStackLayout Grid.Column="1"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="Center"
+                                     Spacing="2">
+                    <Label x:Name="TitleLabel"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18"
+                           HorizontalOptions="Center"
+                           LineBreakMode="TailTruncation"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                    <Label x:Name="StatusLabel"
+                           FontSize="12"
+                           HorizontalOptions="Center"
+                           IsVisible="False"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                </VerticalStackLayout>
                 <Button x:Name="MoreButton"
                         Grid.Column="2"
                         Text="⋮"

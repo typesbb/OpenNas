@@ -187,6 +187,8 @@ public class BackupEngine
 
         {
 
+            var cts = Interlocked.Exchange(ref _cts, null);
+            cts?.Dispose();
             ResetProgress(running: false);
 
             _retryFailedOnly = false;
@@ -266,12 +268,11 @@ public class BackupEngine
                 ? "该规则未启用或不存在。"
                 : "请先添加并启用至少一条备份规则。");
 
-        var completed = await _db.GetCompletedMediaKeysAsync();
-
         foreach (var rule in enabledRules)
 
         {
 
+            var completed = await _db.GetCompletedMediaKeysForRuleAsync(rule.Id);
             var items = await mediaService.GetMediaItemsAsync(rule.LocalAlbumId);
             BackupLog.Info($"相册「{rule.LocalAlbumName}」共 {items.Count} 项，规则 → NAS「{rule.RemoteAlbumName}」");
 
@@ -581,9 +582,15 @@ public class BackupEngine
         CancellationToken token,
         Action<double>? reportProgress = null)
     {
-        return Task.Run(async () =>
-        {
-            await using var stream = await OpenFileStreamAsync(item.ContentUri);
+        return LoadBytesCoreAsync(item, token, reportProgress);
+    }
+
+    private async Task<byte[]> LoadBytesCoreAsync(
+        LocalMediaItem item,
+        CancellationToken token,
+        Action<double>? reportProgress)
+    {
+        await using var stream = await OpenFileStreamAsync(item.ContentUri);
             using var ms = new MemoryStream();
             var buffer = new byte[81920];
             long totalRead = 0;
@@ -609,7 +616,6 @@ public class BackupEngine
             if (!_paused)
                 reportProgress?.Invoke(1.0);
             return ms.ToArray();
-        }, token);
     }
 #endif
 

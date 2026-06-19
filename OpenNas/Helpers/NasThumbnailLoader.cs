@@ -8,9 +8,17 @@ namespace OpenNas.Helpers;
 public static class NasThumbnailLoader
 {
     private static readonly SemaphoreSlim ThumbnailGate = new(2, 2);
+    private const int MaxMemoryCacheEntries = 200;
     private static readonly ConcurrentDictionary<string, Task<byte[]?>> MemoryCache = new();
+    private static readonly ConcurrentQueue<string> MemoryCacheOrder = new();
 
     public static void ClearMemoryCache() => MemoryCache.Clear();
+
+    private static void TrimMemoryCache()
+    {
+        while (MemoryCache.Count > MaxMemoryCacheEntries && MemoryCacheOrder.TryDequeue(out var oldKey))
+            MemoryCache.TryRemove(oldKey, out _);
+    }
 
     public static void TryLoadAlbumThumbnail(Image image, Album album)
     {
@@ -136,6 +144,8 @@ public static class NasThumbnailLoader
                 .GetOrAdd(key, _ => DownloadAndCacheAsync(id, cacheKey, cancellationToken))
                 .WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
+            MemoryCacheOrder.Enqueue(key);
+            TrimMemoryCache();
             if (bytes == null || bytes.Length == 0 || cancellationToken.IsCancellationRequested)
                 return;
 
@@ -224,6 +234,8 @@ public static class NasThumbnailLoader
                 return null;
 
             await NasMediaCache.WriteThumbnailAsync(id, cacheKey, bytes).ConfigureAwait(false);
+            MemoryCacheOrder.Enqueue($"{id}:{cacheKey}");
+            TrimMemoryCache();
             return bytes;
         }
         catch (OperationCanceledException)

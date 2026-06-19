@@ -320,9 +320,9 @@ public partial class AlbumDetailPage : ContentPage
         try
         {
             var list = files.ToList();
-            var progress = new Progress<string>(msg => TitleLabel.Text = msg);
+            StatusLabel.IsVisible = true;
+            var progress = new Progress<string>(msg => StatusLabel.Text = msg);
             var uploaded = await AlbumPhotoUpload.UploadFilesAsync(_album, list, progress);
-            TitleLabel.Text = _album.Name;
 
             await ReloadPhotosAsync(retryAfterUpload: true);
             await DisplayAlert(_album.Name, $"已添加 {uploaded} 张照片。", "确定");
@@ -330,11 +330,12 @@ public partial class AlbumDetailPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error($"上传照片失败 {_album.Name}", ex);
-            TitleLabel.Text = _album.Name;
             await DisplayAlert(_album.Name, $"上传失败：{ex.Message}", "确定");
         }
         finally
         {
+            StatusLabel.IsVisible = false;
+            StatusLabel.Text = "";
             _uploading = false;
             AddPhotoButton.IsEnabled = true;
             BusyIndicator.IsRunning = false;

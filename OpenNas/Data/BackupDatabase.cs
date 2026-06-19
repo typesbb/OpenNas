@@ -87,6 +87,16 @@ public class BackupDatabase
         return rows.Select(BackupMediaKey).ToHashSet(StringComparer.Ordinal);
     }
 
+    public async Task<HashSet<string>> GetCompletedMediaKeysForRuleAsync(int ruleId)
+    {
+        var db = await GetDbAsync();
+        var rows = await db.Table<BackupRecord>()
+            .Where(r => r.RuleId == ruleId
+                && (r.Status == BackupItemStatus.Uploaded || r.Status == BackupItemStatus.LocalDeleted))
+            .ToListAsync();
+        return rows.Select(BackupMediaKey).ToHashSet(StringComparer.Ordinal);
+    }
+
     internal static string BackupMediaKey(BackupRecord r) =>
         $"{r.LocalMediaId}|{r.Size}|{r.DateModified}";
 

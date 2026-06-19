@@ -10,6 +10,13 @@ namespace OpenNas.Helpers;
 /// </summary>
 public static class NasMediaCache
 {
+    private const long MaxCacheSizeBytes = 500L * 1024 * 1024;
+    private static readonly object StatsLock = new();
+    private static long _approxTotalSize;
+    private static int _cachedFileCount;
+    private static long _cachedTotalBytes;
+    private static bool _statsValid;
+
     private static readonly string RootDir = Path.Combine(FileSystem.CacheDirectory, "nas-media");
     private static readonly string ThumbnailDir = Path.Combine(RootDir, "thumbnails");
     private static readonly string OriginalDir = Path.Combine(RootDir, "originals");
@@ -51,6 +58,9 @@ public static class NasMediaCache
         if (File.Exists(path))
             File.Delete(path);
         File.Move(temp, path);
+        Interlocked.Add(ref _approxTotalSize, bytes.Length);
+        InvalidateStats();
+        _ = EvictIfNeededAsync();
     }
 
     public static string GetOriginalFilePath(Photo photo)
@@ -94,49 +104,38 @@ public static class NasMediaCache
         if (File.Exists(path))
             File.Delete(path);
         File.Move(temp, path);
+        var fileSize = new FileInfo(path).Length;
+        Interlocked.Add(ref _approxTotalSize, fileSize);
+        InvalidateStats();
+        _ = EvictIfNeededAsync();
         return path;
     }
 
     public static int GetFileCount()
     {
-        if (!Directory.Exists(RootDir))
-            return 0;
-
-        try
+        lock (StatsLock)
         {
-            return Directory.EnumerateFiles(RootDir, "*", SearchOption.AllDirectories).Count();
-        }
-        catch
-        {
-            return 0;
+            if (!_statsValid)
+                RefreshStats();
+            return _cachedFileCount;
         }
     }
 
     public static long GetTotalSizeBytes()
     {
-        if (!Directory.Exists(RootDir))
-            return 0;
-
-        long total = 0;
-        foreach (var file in Directory.EnumerateFiles(RootDir, "*", SearchOption.AllDirectories))
+        lock (StatsLock)
         {
-            try
-            {
-                total += new FileInfo(file).Length;
-            }
-            catch
-            {
-                // ignore unreadable entries
-            }
+            if (!_statsValid)
+                RefreshStats();
+            return _cachedTotalBytes;
         }
-
-        return total;
     }
 
     public static Task ClearAllAsync()
     {
         NasThumbnailLoader.ClearMemoryCache();
         NasOriginalLoader.ClearMemoryCache();
+        InvalidateStats();
 
         if (!Directory.Exists(RootDir))
             return Task.CompletedTask;
@@ -163,6 +162,93 @@ public static class NasMediaCache
         if (bytes < 1024L * 1024 * 1024)
             return $"{bytes / (1024.0 * 1024):0.#} MB";
         return $"{bytes / (1024.0 * 1024 * 1024):0.#} GB";
+    }
+
+    private static void InvalidateStats()
+    {
+        lock (StatsLock)
+        {
+            _statsValid = false;
+            _approxTotalSize = 0;
+            _cachedFileCount = 0;
+            _cachedTotalBytes = 0;
+        }
+    }
+
+    private static void RefreshStats()
+    {
+        if (!Directory.Exists(RootDir))
+        {
+            _cachedFileCount = 0;
+            _cachedTotalBytes = 0;
+            _approxTotalSize = 0;
+            _statsValid = true;
+            return;
+        }
+
+        long total = 0;
+        var count = 0;
+        foreach (var file in Directory.EnumerateFiles(RootDir, "*", SearchOption.AllDirectories))
+        {
+            try
+            {
+                total += new FileInfo(file).Length;
+                count++;
+            }
+            catch { }
+        }
+
+        _cachedFileCount = count;
+        _cachedTotalBytes = total;
+        _approxTotalSize = total;
+        _statsValid = true;
+    }
+
+    private static async Task EvictIfNeededAsync()
+    {
+        if (Interlocked.Read(ref _approxTotalSize) < MaxCacheSizeBytes * 9 / 10)
+            return;
+
+        // scan and evict oldest files until under cap
+        List<(string Path, long Size, DateTime LastWrite)> files;
+        lock (StatsLock)
+        {
+            RefreshStats(); // exact count before eviction
+            if (_cachedTotalBytes < MaxCacheSizeBytes)
+                return;
+
+            files = Directory.EnumerateFiles(RootDir, "*", SearchOption.AllDirectories)
+                .Select(f =>
+                {
+                    try
+                    {
+                        var fi = new FileInfo(f);
+                        return (Path: f, Size: fi.Length, LastWrite: fi.LastWriteTime);
+                    }
+                    catch { return (Path: f, Size: 0L, LastWrite: DateTime.MinValue); }
+                })
+                .OrderBy(f => f.LastWrite)
+                .ToList();
+        }
+
+        var targetSize = MaxCacheSizeBytes * 85 / 100; // evict to 85% of cap
+        var currentSize = files.Sum(f => f.Size);
+        foreach (var file in files)
+        {
+            if (currentSize <= targetSize)
+                break;
+
+            try
+            {
+                File.Delete(file.Path);
+                Interlocked.Add(ref _approxTotalSize, -file.Size);
+                currentSize -= file.Size;
+            }
+            catch { }
+        }
+
+        lock (StatsLock)
+            RefreshStats();
     }
 
     private static void EnsureDirectories()
