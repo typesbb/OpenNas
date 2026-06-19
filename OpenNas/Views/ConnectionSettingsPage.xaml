@@ -2,9 +2,30 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.ConnectionSettingsPage"
-             Title="连接设置">
-    <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="16">
+             Title="连接设置"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0"
+              Padding="4,8,8,4"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="4">
+            <Button Grid.Column="0"
+                    Text="‹"
+                    FontSize="28"
+                    Style="{StaticResource ToolbarIconButton}"
+                    SemanticProperties.Hint="返回"
+                    Clicked="OnBackClicked" />
+            <Label Grid.Column="1"
+                   Text="连接设置"
+                   FontFamily="OpenSansSemibold"
+                   FontSize="18"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+        </Grid>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="16">
 
             <Label Text="NAS 地址" Style="{StaticResource SectionTitle}" />
 
@@ -43,7 +64,7 @@
             <!-- Auto-switch toggle -->
             <Border Style="{StaticResource CardBorder}" Padding="14">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                    <Switch x:Name="AutoSwitchToggle" Toggled="OnAutoSwitchToggled" VerticalOptions="Center" />
+                    <Switch x:Name="AutoSwitchToggle" Toggled="OnAutoSwitchToggled" VerticalOptions="Center" WidthRequest="52" HorizontalOptions="Start" />
                     <Label Grid.Column="1" Text="自动切换内/外网连接" VerticalOptions="Center" FontSize="15" />
                 </Grid>
             </Border>
@@ -52,5 +73,7 @@
 
             <Label x:Name="StatusLabel" Style="{StaticResource Caption}" HorizontalOptions="Center" Margin="0,0,0,0" />
         </VerticalStackLayout>
-    </ScrollView>
+        </ScrollView>
+    </Grid>
 </ContentPage>
+

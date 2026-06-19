@@ -131,6 +131,9 @@ public partial class ConnectionSettingsPage : ContentPage
         return $"{scheme}://{host}:{portText}";
     }
 
+    private async void OnBackClicked(object? sender, EventArgs e) =>
+        await Navigation.PopAsync();
+
     private void OnAutoSwitchToggled(object? sender, ToggledEventArgs e)
     {
         _connection.AutoSwitchEnabled = e.Value;

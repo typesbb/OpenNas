@@ -15,6 +15,9 @@ public partial class BackupSettingsPage : ContentPage
         ConfirmDeleteSwitch.IsToggled = _connection.GetConfirmBeforeDelete();
     }
 
+    private async void OnBackClicked(object? sender, EventArgs e) =>
+        await Navigation.PopAsync();
+
     private void OnWifiOnlyToggled(object? sender, ToggledEventArgs e) =>
         _connection.SetWifiOnly(e.Value);
 
