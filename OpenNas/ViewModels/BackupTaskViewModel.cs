@@ -60,6 +60,8 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 
     public async Task RefreshAsync()
     {
+        _engine.ProgressChanged -= OnEngineProgressChanged;
+        _engine.ProgressChanged += OnEngineProgressChanged;
         await LoadRulesAsync();
         _lastSummary = default;
         UpdateFromEngine(force: true);
@@ -190,11 +192,12 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!rule.DeleteAfterBackup)
             {
-                var ok = await page.DisplayAlertAsync(
-                    "备份后删除",
-                    "开启后，文件成功上传到 NAS 后将尝试删除手机本地副本。是否开启？",
-                    "开启", "取消");
-                if (!ok) return;
+                var confirmed = await page.DisplayAlertAsync(
+                    "⚠️ 风险确认",
+                    "开启后将删除手机本地文件，不可恢复。\n\n请确认你已理解此风险。",
+                    "确认开启", "取消");
+                if (!confirmed) return;
+                _connection.SetAcknowledgedDeleteRisk(true);
             }
             rule.DeleteAfterBackup = !rule.DeleteAfterBackup;
             await _db.SaveRuleAsync(rule);

@@ -671,6 +671,7 @@ public class BackupEngine
             record.Status = BackupItemStatus.DeleteFailed;
 
             await _db.UpsertRecordAsync(record);
+            BackupLog.Warn($"跳过删除（需先在「更多 → 连接设置」确认风险说明）{item.DisplayName}");
 
             return;
 

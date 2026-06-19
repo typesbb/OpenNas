@@ -54,6 +54,22 @@ public static class BackupRuleCreator
         var delete = await page.DisplayAlertAsync(
             "备份后删除", "是否在备份成功后删除手机上的原文件？", "是", "否");
 
+        if (delete)
+        {
+            var confirmed = await page.DisplayAlertAsync(
+                "⚠️ 风险确认",
+                "开启后将删除手机本地文件，不可恢复。\n\n请确认你已理解此风险。",
+                "确认开启", "取消");
+            if (!confirmed)
+                delete = false;
+        }
+
+        if (delete)
+        {
+            var conn = AppServices.GetRequired<ConnectionService>();
+            conn.SetAcknowledgedDeleteRisk(true);
+        }
+
         var rule = new BackupRule
         {
             LocalAlbumId = local.Id,
