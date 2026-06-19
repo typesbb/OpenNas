@@ -7,3 +7,7 @@ obj/
 
 ## Local NAS integration credentials (never commit)
 NSynology.Tests/nas.integration.local.json
+
+## Release signing (never commit)
+opennas-release.keystore
+.keystore-password.txt
