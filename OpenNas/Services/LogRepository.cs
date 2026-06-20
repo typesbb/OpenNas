@@ -1,4 +1,4 @@
-﻿using OpenNas.Data;
+using OpenNas.Core.Data;
 using SQLite;
 
 namespace OpenNas.Services;

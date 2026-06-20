@@ -3,6 +3,7 @@ using NSynology.Foto;
 using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
+using OpenNas.Core.Services;
 
 namespace OpenNas.Views;
 

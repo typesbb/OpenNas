@@ -1,4 +1,4 @@
-namespace OpenNas.Models;
+namespace OpenNas.Core.Models;
 
 public readonly record struct BackupSummarySnapshot(
     bool IsRunning,

@@ -73,7 +73,19 @@
                     </Grid>
                 </Border>
 
-                <Button Text="退出登录"
+                
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnThemeRowTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="外观" VerticalOptions="Center" FontSize="15" />
+                        <Label x:Name="ThemeLabel" Grid.Column="1"
+                               Style="{StaticResource Caption}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+<Button Text="退出登录"
                         Style="{StaticResource DangerTextButton}"
                         Margin="0,8,0,0"
                         Clicked="OnLogoutClicked" />

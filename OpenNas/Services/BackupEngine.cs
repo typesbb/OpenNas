@@ -3,11 +3,12 @@ using NSynology;
 
 using NSynology.Foto;
 
-using OpenNas.Data;
+using OpenNas.Core.Data;
 
 using OpenNas.Media;
 
-using OpenNas.Models;
+using OpenNas.Core.Models;
+using OpenNas.Core.Services;
 
 
 

@@ -1,6 +1,6 @@
-namespace OpenNas.Services;
+namespace OpenNas.Core.Services;
 
-internal static class NasUrlHelper
+public static class NasUrlHelper
 {
     /// <summary>
     /// DSM 管理端口 5001 默认走 HTTPS；误填 http 会导致 Android「Cleartext HTTP not permitted」崩溃。

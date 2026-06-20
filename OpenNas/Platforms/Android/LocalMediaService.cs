@@ -1,6 +1,6 @@
 using Android.Content;
 using Android.Provider;
-using OpenNas.Models;
+using OpenNas.Core.Models;
 using OpenNas.Services;
 
 namespace OpenNas.Media;

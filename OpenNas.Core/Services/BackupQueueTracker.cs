@@ -1,6 +1,6 @@
-using OpenNas.Models;
+using OpenNas.Core.Models;
 
-namespace OpenNas.Services;
+namespace OpenNas.Core.Services;
 
 public sealed class BackupQueueTracker
 {

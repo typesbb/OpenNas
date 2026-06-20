@@ -3,8 +3,8 @@ using OpenNas.Media;
 #endif
 using NSynology;
 using NSynology.Foto;
-using OpenNas.Data;
-using OpenNas.Models;
+using OpenNas.Core.Data;
+using OpenNas.Core.Models;
 using OpenNas.Services;
 
 namespace OpenNas.Helpers;

@@ -1,4 +1,4 @@
-using OpenNas.Models;
+using OpenNas.Core.Models;
 
 namespace OpenNas.Helpers;
 

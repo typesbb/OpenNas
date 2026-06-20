@@ -1,4 +1,4 @@
-using OpenNas.Helpers;
+﻿using OpenNas.Helpers;
 using OpenNas.Services;
 
 namespace OpenNas.Views;
@@ -6,7 +6,18 @@ namespace OpenNas.Views;
 public partial class ProfilePage : ContentPage
 {
     private const string LastUsernameKey = "last_username";
+    private const string ThemeKey = "app_theme";
+    private static readonly string[] ThemeLabels = ["跟随系统", "浅色", "深色"];
     private readonly ConnectionService _connection;
+
+    private int CurrentThemeIndex => Preferences.Default.Get(ThemeKey, 0);
+
+    private static AppTheme IndexToTheme(int i) => i switch
+    {
+        1 => AppTheme.Light,
+        2 => AppTheme.Dark,
+        _ => AppTheme.Unspecified
+    };
 
     public ProfilePage(ConnectionService connection)
     {
@@ -20,6 +31,7 @@ public partial class ProfilePage : ContentPage
         base.OnAppearing();
         RefreshProfile();
         RefreshCacheSize();
+        ThemeLabel.Text = ThemeLabels[CurrentThemeIndex];
     }
 
     private void RefreshProfile()
@@ -78,6 +90,7 @@ public partial class ProfilePage : ContentPage
         await NasMediaCache.ClearAllAsync();
         LogRepository.Instance.AppendOperation("清理缓存");
         RefreshCacheSize();
+        ThemeLabel.Text = ThemeLabels[CurrentThemeIndex];
         await UiFeedback.AlertAsync(this, "清理缓存", "缓存已清理。");
     }
 
@@ -90,5 +103,13 @@ public partial class ProfilePage : ContentPage
         await _connection.LogoutAsync();
         if (Application.Current?.Windows.Count > 0)
             Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+    }
+
+    private void OnThemeRowTapped(object? sender, TappedEventArgs e)
+    {
+        var next = (CurrentThemeIndex + 1) % 3;
+        Preferences.Default.Set(ThemeKey, next);
+        Application.Current!.UserAppTheme = IndexToTheme(next);
+        ThemeLabel.Text = ThemeLabels[next];
     }
 }

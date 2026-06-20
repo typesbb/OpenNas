@@ -1,13 +1,23 @@
-using OpenNas.Services;
+﻿using OpenNas.Services;
 using OpenNas.Views;
 
 namespace OpenNas;
 
 public partial class App : Application
 {
+    private const string ThemeKey = "app_theme";
+
     public App()
     {
         InitializeComponent();
+
+        var themeIndex = Preferences.Default.Get(ThemeKey, 0);
+        UserAppTheme = themeIndex switch
+        {
+            1 => AppTheme.Light,
+            2 => AppTheme.Dark,
+            _ => AppTheme.Unspecified
+        };
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {

@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using OpenNas.Models;
+using OpenNas.Core.Models;
 
 namespace OpenNas.ViewModels;
 

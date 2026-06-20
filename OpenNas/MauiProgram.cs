@@ -1,8 +1,9 @@
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using NSynology.Diagnostics;
-using OpenNas.Data;
+using OpenNas.Core.Data;
 using OpenNas.Services;
+using OpenNas.Core.Services;
 using OpenNas.ViewModels;
 using OpenNas.Views;
 
@@ -26,7 +27,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<ConnectionService>();
-        builder.Services.AddSingleton<BackupDatabase>();
+        builder.Services.AddSingleton(new BackupDatabase(Path.Combine(FileSystem.AppDataDirectory, "opennas_backup.db")));
         builder.Services.AddSingleton<BackupEngine>();
         builder.Services.AddSingleton<BackupTaskViewModel>();
         builder.Services.AddSingleton(LogRepository.Instance);

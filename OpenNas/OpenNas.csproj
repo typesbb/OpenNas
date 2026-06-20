@@ -90,6 +90,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\NSynology\NSynology.csproj" />
+	  <ProjectReference Include="..\OpenNas.Core\OpenNas.Core.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

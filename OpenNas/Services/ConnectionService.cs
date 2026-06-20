@@ -2,7 +2,8 @@ using System.Text.Json;
 using NSynology;
 using NSynology.Diagnostics;
 using OpenNas.Helpers;
-using OpenNas.Models;
+using OpenNas.Core.Models;
+using OpenNas.Core.Services;
 
 namespace OpenNas.Services;
 

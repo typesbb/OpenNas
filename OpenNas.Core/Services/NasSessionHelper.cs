@@ -1,4 +1,4 @@
-namespace OpenNas.Services;
+namespace OpenNas.Core.Services;
 
 public static class NasSessionHelper
 {

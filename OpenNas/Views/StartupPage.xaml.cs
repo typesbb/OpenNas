@@ -1,4 +1,4 @@
-using OpenNas.Data;
+using OpenNas.Core.Data;
 using OpenNas.Services;
 
 namespace OpenNas.Views;

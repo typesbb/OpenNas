@@ -1,6 +1,6 @@
-﻿using SQLite;
+using SQLite;
 
-namespace OpenNas.Data;
+namespace OpenNas.Core.Data;
 
 [Table("log_entries")]
 public class LogEntry

@@ -1,7 +1,7 @@
-using OpenNas.Models;
+using OpenNas.Core.Models;
 using SQLite;
 
-namespace OpenNas.Data;
+namespace OpenNas.Core.Data;
 
 [Table("backup_items")]
 public class BackupRecord

@@ -1,7 +1,7 @@
-using OpenNas.Models;
+using OpenNas.Core.Models;
 using SQLite;
 
-namespace OpenNas.Data;
+namespace OpenNas.Core.Data;
 
 public class BackupDatabase
 {
@@ -10,9 +10,14 @@ public class BackupDatabase
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _tablesReady;
 
-    public BackupDatabase()
+    public BackupDatabase(string dbPath)
     {
-        _dbPath = Path.Combine(FileSystem.AppDataDirectory, "opennas_backup.db");
+        _dbPath = dbPath;
+    }
+
+    [Obsolete("Use BackupDatabase(string dbPath) instead.")]
+    public BackupDatabase()
+    { _dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opennas_backup.db");
     }
 
     /// <summary>应用启动时调用，避免多页面并发访问时 CreateTable 尚未完成。</summary>
@@ -98,10 +103,10 @@ public class BackupDatabase
         return rows.Select(BackupMediaKey).ToHashSet(StringComparer.Ordinal);
     }
 
-    internal static string BackupMediaKey(BackupRecord r) =>
+    public static string BackupMediaKey(BackupRecord r) =>
         $"{r.LocalMediaId}|{r.Size}|{r.DateModified}";
 
-    internal static string BackupMediaKey(string localMediaId, long size, long dateModified) =>
+    public static string BackupMediaKey(string localMediaId, long size, long dateModified) =>
         $"{localMediaId}|{size}|{dateModified}";
 
     public async Task<BackupRecord?> FindOpenRecordAsync(string localMediaId, long size, long dateModified)
