@@ -50,6 +50,18 @@
 
                 <Border Style="{StaticResource SettingRowBorder}">
                     <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnLogClicked" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="日志" VerticalOptions="Center" FontSize="15" />
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnClearCacheClicked" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">

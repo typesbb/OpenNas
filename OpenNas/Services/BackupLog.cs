@@ -9,6 +9,7 @@ internal static class BackupLog
 #if ANDROID
         global::Android.Util.Log.Info(Tag, message);
 #endif
+        LogRepository.Instance.AppendOperation(message);
     }
 
     public static void Warn(string message)
@@ -24,5 +25,7 @@ internal static class BackupLog
         var text = ex == null ? message : $"{message}\n{AppLog.FormatException(ex)}";
         global::Android.Util.Log.Error(Tag, text);
 #endif
+        var summary = ex == null ? message : $"{message} — {ex.GetType().Name}: {ex.Message}";
+        LogRepository.Instance.AppendError(summary, ex);
     }
 }

@@ -29,12 +29,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<BackupDatabase>();
         builder.Services.AddSingleton<BackupEngine>();
         builder.Services.AddSingleton<BackupTaskViewModel>();
+        builder.Services.AddSingleton(LogRepository.Instance);
+        builder.Services.AddTransient<LogPageViewModel>();
 
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<AlbumsPage>();
         builder.Services.AddTransient<FilesPage>();
         builder.Services.AddTransient<TasksPage>();
         builder.Services.AddTransient<ProfilePage>();
+        builder.Services.AddTransient<LogPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

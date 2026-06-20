@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenNas.ViewModels"
+             xmlns:data="clr-namespace:OpenNas.Data"
+             x:Class="OpenNas.Views.LogPage"
+             Title="日志"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*" Padding="0">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,12,16,6">
+            <Label Grid.Column="0"
+                   Text="日志"
+                   Style="{StaticResource PageTitle}"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="1"
+                    Text="导出"
+                    Style="{StaticResource CompactSecondaryButton}"
+                    Clicked="OnExportClicked"
+                    VerticalOptions="Center" />
+        </Grid>
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding Entries}"
+                        RemainingItemsThreshold="5"
+                        RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
+                        SelectionMode="Single"
+                        SelectionChanged="OnEntrySelected"
+                        ItemsUpdatingScrollMode="KeepItemsInView">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="16,40" Spacing="6" HorizontalOptions="Center">
+                    <Label Text="暂无日志"
+                           FontSize="15"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                    <Label Text="操作或异常发生时会自动记录"
+                           Style="{StaticResource MicroCaption}"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="data:LogEntry">
+                    <Grid Padding="16,8" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" HeightRequest="36">
+                        <Border Grid.Column="0"
+                                Padding="6,2"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 4"
+                                VerticalOptions="Center"
+                                BackgroundColor="{StaticResource Success}">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border"
+                                             Binding="{Binding IsError}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource Error}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <Label Text="{Binding Category}"
+                                   FontSize="11"
+                                   TextColor="White" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="{Binding Message}"
+                               FontSize="13"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="1"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="2"
+                               Text="{Binding TimeText}"
+                               Style="{StaticResource MicroCaption}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <ActivityIndicator Grid.Row="1"
+                           IsVisible="{Binding IsLoading}"
+                           IsRunning="{Binding IsLoading}"
+                           VerticalOptions="End"
+                           Margin="0,0,0,16" />
+    </Grid>
+</ContentPage>

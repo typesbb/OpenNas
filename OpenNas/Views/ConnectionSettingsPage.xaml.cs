@@ -116,6 +116,7 @@ public partial class ConnectionSettingsPage : ContentPage
             active = lanProfile;
 
         await _connection.SetActiveProfileAsync(active);
+        LogRepository.Instance.AppendOperation("修改连接设置");
 
         StatusLabel.Text = $"当前：{active.BaseUrl}";
         await UiFeedback.ToastAsync("连接配置已保存");

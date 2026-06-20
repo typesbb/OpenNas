@@ -903,7 +903,7 @@ public class BackupEngine
         foreach (var ruleId in ruleIds)
         {
             try { await _db.DeleteLocalDeletedForRuleAsync(ruleId); }
-            catch (Exception ex) { BackupLog.Warn($"清理 LocalDeleted 记录失败 ruleId={ruleId}: {ex.Message}"); }
+            catch (Exception ex) { BackupLog.Warn($"清理 LocalDeleted 记录失败 ruleId={ruleId}: {ex.Message}"); BackupLog.Error($"清理 LocalDeleted 记录失败 ruleId={ruleId}", ex); }
         }
     }
 
@@ -928,6 +928,7 @@ public class BackupEngine
         catch (Exception ex)
         {
             BackupLog.Warn($"批量删除请求失败: {ex.Message}");
+            BackupLog.Error("批量删除请求失败", ex);
         }
 #endif
         await Task.CompletedTask;

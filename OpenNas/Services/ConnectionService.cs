@@ -276,6 +276,7 @@ public class ConnectionService
     public async Task OnLoginSuccessAsync()
     {
         await PersistSessionAsync();
+        LogRepository.Instance.AppendOperation("登录成功");
     }
 
     /// <summary>将 sid / SynoToken 写入 SecureStorage。</summary>
@@ -302,12 +303,14 @@ public class ConnectionService
         SynologyManager.Client.Sid = null;
         SynologyManager.Client.SynoToken = null;
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
+        LogRepository.Instance.AppendOperation("退出登录");
     }
 
     /// <summary>清除已过期的 sid，保留 NAS 连接配置与登录页用户名。</summary>
     public async Task InvalidateStoredSessionAsync(string reason)
     {
         AppLog.Warn(reason);
+        LogRepository.Instance.AppendOperation("NAS 会话已过期");
         if (ActiveProfile != null)
         {
             SecureStorage.Remove(SidKey(ActiveProfile.Id));

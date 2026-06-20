@@ -2,7 +2,7 @@ using System.Text;
 
 namespace OpenNas.Services;
 
-/// <summary>logcat 诊断：过滤 tag:OpenNas</summary>
+/// <summary>logcat 诊断 + 用户日志持久化</summary>
 internal static class AppLog
 {
     private const string Tag = "OpenNas";
@@ -14,6 +14,7 @@ internal static class AppLog
 #else
         System.Diagnostics.Debug.WriteLine($"{context}\n{FormatException(ex)}");
 #endif
+        LogRepository.Instance.AppendError(context, ex);
     }
 
     public static void Warn(string context, Exception? ex = null)
@@ -22,6 +23,8 @@ internal static class AppLog
         var msg = ex == null ? context : $"{context}\n{FormatException(ex)}";
         global::Android.Util.Log.Warn(Tag, msg);
 #endif
+        if (ex != null)
+            LogRepository.Instance.AppendError(context, ex);
     }
 
     public static void Debug(string context, Exception? ex = null)

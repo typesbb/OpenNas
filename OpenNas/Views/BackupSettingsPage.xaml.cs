@@ -18,11 +18,17 @@ public partial class BackupSettingsPage : ContentPage
     private async void OnBackClicked(object? sender, EventArgs e) =>
         await Navigation.PopAsync();
 
-    private void OnWifiOnlyToggled(object? sender, ToggledEventArgs e) =>
+    private void OnWifiOnlyToggled(object? sender, ToggledEventArgs e)
+    {
         _connection.SetWifiOnly(e.Value);
+        LogRepository.Instance.AppendOperation(e.Value ? "开启仅Wi-Fi备份" : "关闭仅Wi-Fi备份");
+    }
 
-    private void OnConfirmDeleteToggled(object? sender, ToggledEventArgs e) =>
+    private void OnConfirmDeleteToggled(object? sender, ToggledEventArgs e)
+    {
         _connection.SetConfirmBeforeDelete(e.Value);
+        LogRepository.Instance.AppendOperation(e.Value ? "开启删除确认" : "关闭删除确认");
+    }
 
     private async void OnAckDeleteRiskClicked(object? sender, EventArgs e)
     {
@@ -34,6 +40,7 @@ public partial class BackupSettingsPage : ContentPage
             return;
 
         _connection.SetAcknowledgedDeleteRisk(true);
+        LogRepository.Instance.AppendOperation("确认备份后删除风险");
         await UiFeedback.ToastAsync("已确认，可为规则开启「备份完成后删除」");
     }
 }

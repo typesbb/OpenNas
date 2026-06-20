@@ -45,12 +45,14 @@ public partial class ProfilePage : ContentPage
         CacheSizeLabel.Text = NasMediaCache.FormatBytes(bytes);
     }
 
-
     private async void OnConnectionClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(new ConnectionSettingsPage(_connection));
 
     private async void OnBackupSettingsClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(new BackupSettingsPage(_connection));
+
+    private async void OnLogClicked(object? sender, EventArgs e) =>
+        await ShellNavigation.PushAsync(AppServices.GetRequired<LogPage>());
 
     private async void OnClearCacheClicked(object? sender, EventArgs e)
     {
@@ -74,6 +76,7 @@ public partial class ProfilePage : ContentPage
             return;
 
         await NasMediaCache.ClearAllAsync();
+        LogRepository.Instance.AppendOperation("清理缓存");
         RefreshCacheSize();
         await UiFeedback.AlertAsync(this, "清理缓存", "缓存已清理。");
     }
@@ -89,4 +92,3 @@ public partial class ProfilePage : ContentPage
             Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
     }
 }
-

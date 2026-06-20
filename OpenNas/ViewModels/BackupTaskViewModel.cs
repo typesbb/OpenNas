@@ -178,6 +178,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 
             await LoadRulesAsync();
             await UiFeedback.ToastAsync("规则已添加");
+            LogRepository.Instance.AppendOperation("添加备份规则");
         }
         catch (Exception ex)
         {
@@ -196,11 +197,13 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             await _db.DeleteRuleAsync(rule.Id);
             await LoadRulesAsync();
             await UiFeedback.ToastAsync("规则已删除");
+            LogRepository.Instance.AppendOperation("删除备份规则");
         }
         else if (action == "切换启用")
         {
             rule.Enabled = !rule.Enabled;
             await _db.SaveRuleAsync(rule);
+            LogRepository.Instance.AppendOperation(rule.Enabled ? "启用备份规则" : "停用备份规则");
             await LoadRulesAsync();
         }
         else if (action == "切换备份完成后删除")
@@ -216,6 +219,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             }
             rule.DeleteAfterBackup = !rule.DeleteAfterBackup;
             await _db.SaveRuleAsync(rule);
+            LogRepository.Instance.AppendOperation(rule.DeleteAfterBackup ? "开启备份后删除本地" : "关闭备份后删除本地");
             await LoadRulesAsync();
         }
     }
