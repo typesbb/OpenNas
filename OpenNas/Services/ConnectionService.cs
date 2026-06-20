@@ -3,6 +3,7 @@ using NSynology;
 using NSynology.Diagnostics;
 using OpenNas.Helpers;
 using OpenNas.Core.Models;
+using System.IO;
 using OpenNas.Core.Services;
 
 namespace OpenNas.Services;
@@ -32,10 +33,10 @@ public class ConnectionService
 
     public bool AutoSwitchEnabled
     {
-        get => Preferences.Get(AutoSwitchEnabledKey, true);
+        get { try { return Preferences.Get(AutoSwitchEnabledKey, true); } catch { return true; } }
         set
         {
-            Preferences.Set(AutoSwitchEnabledKey, value);
+            try { Preferences.Set(AutoSwitchEnabledKey, value); } catch { }
             if (value)
                 _ = TryAutoSwitchAsync();
         }
@@ -63,7 +64,7 @@ public class ConnectionService
             return;
         }
 
-        var activeId = Preferences.Get(ActiveProfileKey, profiles[0].Id);
+        var activeId = (await LoadActiveProfileIdAsync()) ?? profiles[0].Id;
         ActiveProfile = profiles.FirstOrDefault(p => p.Id == activeId) ?? profiles[0];
         await ApplyActiveProfileAsync(restoreSid: true);
 
@@ -140,7 +141,7 @@ public class ConnectionService
             if (targetProfile == null) return;
 
             ActiveProfile = targetProfile;
-            Preferences.Set(ActiveProfileKey, targetProfile.Id);
+            await SaveActiveProfileIdAsync(targetProfile.Id);
             await ApplyActiveProfileAsync(restoreSid: true);
             ConnectionChanged?.Invoke(this, EventArgs.Empty);
 
@@ -177,24 +178,97 @@ public class ConnectionService
         }
     }
 
+    private static string ActiveProfileIdFilePath =>
+        Path.Combine(FileSystem.AppDataDirectory, "active_profile.txt");
+
+    private async Task<string?> LoadActiveProfileIdAsync()
+    {
+        try
+        {
+            if (!File.Exists(ActiveProfileIdFilePath))
+                return null;
+            var text = await File.ReadAllTextAsync(ActiveProfileIdFilePath);
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("读取活跃配置文件 ID 失败", ex);
+            return null;
+        }
+    }
+
+    private async Task SaveActiveProfileIdAsync(string profileId)
+    {
+        try
+        {
+            await File.WriteAllTextAsync(ActiveProfileIdFilePath, profileId);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("保存活跃配置文件 ID 失败", ex);
+        }
+    }
+
+    private static string ProfilesFilePath =>
+        Path.Combine(FileSystem.AppDataDirectory, "nas_profiles.json");
+
+    private static readonly SemaphoreSlim _profileFileLock = new(1, 1);
+
+    private async Task<List<NasProfile>> LoadProfilesFromFileAsync()
+    {
+        await _profileFileLock.WaitAsync();
+        try
+        {
+            if (!File.Exists(ProfilesFilePath))
+                return new List<NasProfile>();
+            var json = await File.ReadAllTextAsync(ProfilesFilePath);
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<NasProfile>();
+            return JsonSerializer.Deserialize<List<NasProfile>>(json) ?? new List<NasProfile>();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("读取 NAS 配置文件失败", ex);
+            return new List<NasProfile>();
+        }
+        finally
+        {
+            _profileFileLock.Release();
+        }
+    }
+
+    private async Task SaveProfilesToFileAsync(List<NasProfile> profiles)
+    {
+        await _profileFileLock.WaitAsync();
+        try
+        {
+            var json = JsonSerializer.Serialize(profiles);
+            await File.WriteAllTextAsync(ProfilesFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("保存 NAS 配置文件失败", ex);
+        }
+        finally
+        {
+            _profileFileLock.Release();
+        }
+    }
+
     public async Task<List<NasProfile>> LoadProfilesAsync()
     {
-        var json = Preferences.Get(ProfilesKey, "");
-        if (string.IsNullOrWhiteSpace(json)) return new List<NasProfile>();
-        return JsonSerializer.Deserialize<List<NasProfile>>(json) ?? new List<NasProfile>();
+        return await LoadProfilesFromFileAsync();
     }
 
-    public async Task SaveProfilesAsync(List<NasProfile> profiles)
+    public Task SaveProfilesAsync(List<NasProfile> profiles)
     {
-        Preferences.Set(ProfilesKey, JsonSerializer.Serialize(profiles));
-        await Task.CompletedTask;
+        return SaveProfilesToFileAsync(profiles);
     }
-
     public async Task SetActiveProfileAsync(NasProfile profile)
     {
         _manualSwitchCooldownUntil = DateTime.UtcNow.AddSeconds(30);
         ActiveProfile = profile;
-        Preferences.Set(ActiveProfileKey, profile.Id);
+        await SaveActiveProfileIdAsync(profile.Id);
         await ApplyActiveProfileAsync(restoreSid: true);
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -328,14 +402,14 @@ public class ConnectionService
         await Task.CompletedTask;
     }
 
-    public bool GetWifiOnly() => Preferences.Get(WifiOnlyKey, true);
-    public void SetWifiOnly(bool value) => Preferences.Set(WifiOnlyKey, value);
+    public bool GetWifiOnly() { try { return Preferences.Get(WifiOnlyKey, true); } catch { return true; } }
+    public void SetWifiOnly(bool value) { try { Preferences.Set(WifiOnlyKey, value); } catch { } }
 
-    public bool GetConfirmBeforeDelete() => Preferences.Get(ConfirmDeleteKey, true);
-    public void SetConfirmBeforeDelete(bool value) => Preferences.Set(ConfirmDeleteKey, value);
+    public bool GetConfirmBeforeDelete() { try { return Preferences.Get(ConfirmDeleteKey, true); } catch { return true; } }
+    public void SetConfirmBeforeDelete(bool value) { try { Preferences.Set(ConfirmDeleteKey, value); } catch { } }
 
-    public bool HasAcknowledgedDeleteRisk() => Preferences.Get(DeleteRiskAckKey, false);
-    public void SetAcknowledgedDeleteRisk(bool value) => Preferences.Set(DeleteRiskAckKey, value);
+    public bool HasAcknowledgedDeleteRisk() { try { return Preferences.Get(DeleteRiskAckKey, false); } catch { return false; } }
+    public void SetAcknowledgedDeleteRisk(bool value) { try { Preferences.Set(DeleteRiskAckKey, value); } catch { } }
 
     public static string SidKey(string profileId) => $"sid_{profileId}";
     public static string SynoTokenKey(string profileId) => $"synotoken_{profileId}";

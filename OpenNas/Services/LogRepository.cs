@@ -13,8 +13,8 @@ public class LogRepository
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _initialized;
 
-    private const int MaxEntries = 500;
-    private const int TrimThreshold = 600;
+    private const int MaxEntries = 200;
+    private const int TrimThreshold = 300;
 
     private LogRepository()
     {
@@ -107,6 +107,10 @@ public class LogRepository
     {
         var db = await GetDbAsync();
         return await db.Table<LogEntry>().CountAsync();
+    }    public async Task ClearAllAsync()
+    {
+        var db = await GetDbAsync();
+        await db.DeleteAllAsync<LogEntry>();
     }
 
     private async Task TrimIfNeededAsync(SQLiteAsyncConnection db)

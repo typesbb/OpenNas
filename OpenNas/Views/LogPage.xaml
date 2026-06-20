@@ -7,15 +7,22 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*" Padding="0">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,12,16,6">
-            <Label Grid.Column="0"
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="16,12,16,6">
+            <Button Grid.Column="0"
+                    Text="‹"
+                    FontSize="24"
+                    Style="{StaticResource ToolbarIconButton}"
+                    Clicked="OnBackClicked"
+                    VerticalOptions="Center" />
+            <Label Grid.Column="1"
                    Text="日志"
                    Style="{StaticResource PageTitle}"
+                   HorizontalOptions="Center"
                    VerticalOptions="Center" />
-            <Button Grid.Column="1"
-                    Text="导出"
+            <Button Grid.Column="2"
+                    Text="清理"
                     Style="{StaticResource CompactSecondaryButton}"
-                    Clicked="OnExportClicked"
+                    Clicked="OnClearClicked"
                     VerticalOptions="Center" />
         </Grid>
         <CollectionView Grid.Row="1"

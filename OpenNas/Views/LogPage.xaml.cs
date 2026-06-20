@@ -39,30 +39,16 @@ public partial class LogPage : ContentPage
         }
     }
 
-    private async void OnExportClicked(object? sender, EventArgs e)
+    private async void OnBackClicked(object? sender, EventArgs e) =>
+        await Navigation.PopAsync();
+
+    private async void OnClearClicked(object? sender, EventArgs e)
     {
-        var lines = new List<string>();
-        foreach (var entry in _vm.Entries)
-        {
-            var line = entry.IsError
-                ? $"[{entry.TimeText}] 异常 | {entry.Message} | {entry.ExceptionType}"
-                : $"[{entry.TimeText}] 操作 | {entry.Message}";
-            lines.Add(line);
-            if (entry.IsError && entry.StackTrace != null)
-                lines.Add($"  {entry.StackTrace}");
-        }
-
-        if (lines.Count == 0)
-        {
-            await DisplayAlertAsync("导出", "没有可导出的日志。", "确定");
-            return;
-        }
-
-        var text = string.Join("\n", lines);
-        await Share.RequestAsync(new ShareTextRequest
-        {
-            Text = text,
-            Title = "OpenNas 日志"
-        });
+        var ok = await DisplayAlert("清理日志", "确定清除所有日志记录？", "确定", "取消");
+        if (!ok) return;
+        await LogRepository.Instance.ClearAllAsync();
+        _vm.Entries.Clear();
+        await DisplayAlertAsync("清理日志", "日志已清除。", "确定");
     }
+
 }

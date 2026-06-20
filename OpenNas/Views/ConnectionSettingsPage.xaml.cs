@@ -19,7 +19,15 @@ public partial class ConnectionSettingsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await LoadCurrentConfigAsync();
+        try
+        {
+            await LoadCurrentConfigAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("加载连接配置页面失败", ex);
+            StatusLabel.Text = "加载配置失败，请重新输入连接信息。";
+        }
     }
 
     private async Task LoadCurrentConfigAsync()
@@ -62,6 +70,8 @@ public partial class ConnectionSettingsPage : ContentPage
 
     private async void OnSaveClicked(object sender, EventArgs e)
     {
+        try
+        {
         // Build LAN address
         var lanHost = LanHost.Text?.Trim();
         if (string.IsNullOrWhiteSpace(lanHost))
@@ -121,6 +131,12 @@ public partial class ConnectionSettingsPage : ContentPage
         StatusLabel.Text = $"当前：{active.BaseUrl}";
         await UiFeedback.ToastAsync("连接配置已保存");
         await Navigation.PopAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("保存连接配置失败", ex);
+            StatusLabel.Text = "保存配置失败，请重试。";
+        }
     }
 
     private static string BuildUrl(Picker protocol, string host, Entry port)
