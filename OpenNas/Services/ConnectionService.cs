@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using NSynology;
 using NSynology.Diagnostics;
 using OpenNas.Helpers;
@@ -296,6 +296,7 @@ public class ConnectionService
         {
             sid = await SecureStorage.GetAsync(SidKey(ActiveProfile.Id));
             synoToken = await SecureStorage.GetAsync(SynoTokenKey(ActiveProfile.Id));
+
         }
 
         if (!string.IsNullOrEmpty(sid))
@@ -304,6 +305,10 @@ public class ConnectionService
             {
                 SynologyManager.Init(baseUrl, sid, synoToken);
                 SynologyManager.Client.RestoreOfficialAppSessionCookies(sid);
+
+                var storedDid = await SecureStorage.GetAsync(DidKey(ActiveProfile.Id));
+                if (!string.IsNullOrEmpty(storedDid))
+                    SynologyManager.Client.ApplyOfficialAppDeviceId(storedDid);
 #if DEBUG
                 if (SynologyHttpTrace.IsEnabled)
                     SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
@@ -341,6 +346,7 @@ public class ConnectionService
             return;
 
         SecureStorage.Remove(SidKey(ActiveProfile.Id));
+        SecureStorage.Remove(DidKey(ActiveProfile.Id));
         SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
         SynologyManager.Init(ActiveProfile.BaseUrl);
         SynologyManager.Client.Sid = null;
@@ -359,6 +365,12 @@ public class ConnectionService
     {
         if (ActiveProfile == null) return;
         await SecureStorage.SetAsync(SidKey(ActiveProfile.Id), SynologyManager.Client.Sid ?? "");
+        var did = SynologyManager.Client.PhotosDeviceId
+                  ?? SynologyManager.Client.GetDidCookieValue();
+        if (!string.IsNullOrEmpty(did))
+        {
+            await SecureStorage.SetAsync(DidKey(ActiveProfile.Id), did);
+        }
         if (!string.IsNullOrEmpty(SynologyManager.Client.SynoToken))
             await SecureStorage.SetAsync(SynoTokenKey(ActiveProfile.Id), SynologyManager.Client.SynoToken);
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
@@ -369,6 +381,7 @@ public class ConnectionService
         if (ActiveProfile != null)
         {
             SecureStorage.Remove(SidKey(ActiveProfile.Id));
+            SecureStorage.Remove(DidKey(ActiveProfile.Id));
             SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
         }
 
@@ -376,6 +389,7 @@ public class ConnectionService
             await SynologyManager.Client.Auth.LogoutAsync();
 
         SynologyManager.Client.Sid = null;
+        SynologyManager.Client.PhotosDeviceId = null;
         SynologyManager.Client.SynoToken = null;
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
         LogRepository.Instance.AppendOperation("退出登录");
@@ -389,12 +403,14 @@ public class ConnectionService
         if (ActiveProfile != null)
         {
             SecureStorage.Remove(SidKey(ActiveProfile.Id));
+            SecureStorage.Remove(DidKey(ActiveProfile.Id));
             SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
         }
 
         if (SynologyManager.Client != null)
         {
             SynologyManager.Client.Sid = null;
+            SynologyManager.Client.PhotosDeviceId = null;
             SynologyManager.Client.SynoToken = null;
         }
 
@@ -412,6 +428,7 @@ public class ConnectionService
     public void SetAcknowledgedDeleteRisk(bool value) { try { Preferences.Set(DeleteRiskAckKey, value); } catch { } }
 
     public static string SidKey(string profileId) => $"sid_{profileId}";
+    public static string DidKey(string profileId) => $"did_{profileId}";
     public static string SynoTokenKey(string profileId) => $"synotoken_{profileId}";
 
     public string GetConnectionLabel()

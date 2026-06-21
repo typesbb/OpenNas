@@ -1,5 +1,27 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <linker>
+  <!-- 本应用程序集（完整保留） -->
+  <assembly fullname="OpenNas">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  <assembly fullname="NSynology">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  <assembly fullname="OpenNas.Core">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- SecureStorage 的 AndroidX 依赖（R8 可能剪掉 EncryptedSharedPreferences） -->
+  <assembly fullname="Xamarin.AndroidX.Security.SecurityCrypto">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- MAUI Essentials（SecureStorage 实现在此） -->
+  <assembly fullname="Microsoft.Maui.Essentials">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- AndroidX 触摸/手势回调类（原配置中的 ZoomableImageView 依赖） -->
   <assembly fullname="OpenNas">
     <type fullname="OpenNas.Platforms.Android.PhotoZoomTouchListener" preserve="all" />
     <type fullname="OpenNas.Platforms.Android.PhotoZoomScaleListener" preserve="all" />

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Configurations>Debug;Release</Configurations>
@@ -121,5 +121,6 @@
   </ItemGroup>
   <ItemGroup>
     <TrimmerRootAssembly Include="NSynology" />
+    <TrimmerRootDescriptor Include="Platforms\Android\LinkerPreserve.xml" />
   </ItemGroup>
 </Project>
