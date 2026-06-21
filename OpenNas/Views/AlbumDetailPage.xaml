@@ -4,7 +4,7 @@
              xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
              xmlns:helpers="clr-namespace:OpenNas.Helpers"
              xmlns:controls="clr-namespace:OpenNas.Controls"
-             x:Class="OpenNas.AlbumDetailPage"
+             x:Class="OpenNas.Views.AlbumDetailPage"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid>

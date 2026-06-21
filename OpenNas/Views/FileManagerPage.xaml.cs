@@ -1,4 +1,4 @@
-namespace OpenNas;
+namespace OpenNas.Views;
 
 public partial class FileManagerPage : ContentPage
 {

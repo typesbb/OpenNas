@@ -1,13 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using NSynology;
-using NSynology.Foto;
-using OpenNas;
 using OpenNas.Core.Data;
 using OpenNas.Helpers;
 using OpenNas.Core.Models;
 using OpenNas.Services;
+using OpenNas.Views;
 
 namespace OpenNas.ViewModels;
 

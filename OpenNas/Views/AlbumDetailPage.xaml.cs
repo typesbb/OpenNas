@@ -9,7 +9,7 @@ using OpenNas.Views;
 using OpenNas.Platforms.Android;
 #endif
 
-namespace OpenNas;
+namespace OpenNas.Views;
 
 public partial class AlbumDetailPage : ContentPage, IDisposable
 {

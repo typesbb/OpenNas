@@ -4,7 +4,7 @@ using NSynology.Foto;
 using OpenNas.Helpers;
 using OpenNas.Services;
 
-namespace OpenNas;
+namespace OpenNas.Views;
 
 public partial class AlbumPage : ContentPage
 {

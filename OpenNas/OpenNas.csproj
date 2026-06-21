@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Configurations>Debug;Release</Configurations>
@@ -102,16 +102,16 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <MauiXaml Update="AlbumDetailPage.xaml">
+	  <MauiXaml Update="Views\AlbumDetailPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="AlbumPage.xaml">
+	  <MauiXaml Update="Views\AlbumPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="FileManagerPage.xaml">
+	  <MauiXaml Update="Views\FileManagerPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="LoginPage.xaml">
+	  <MauiXaml Update="Views\LoginPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="TaskManagerPage.xaml">
