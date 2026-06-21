@@ -166,6 +166,7 @@ public class SynologyClient
             UseCookies = false,
             AutomaticDecompression = DecompressionMethods.All,
             ConnectTimeout = TimeSpan.FromMinutes(2),
+            MaxConnectionsPerServer = 1,
             PooledConnectionLifetime = TimeSpan.FromMinutes(10),
             SslOptions = new SslClientAuthenticationOptions
             {
@@ -1255,3 +1256,4 @@ public class SynologyClient
         await Task.CompletedTask;
     }
 }
+

@@ -39,7 +39,10 @@ public partial class AlbumPage : ContentPage
             }
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-            var albums = await SynologyManager.Client.Foto.GetAlbumsAsync(0, 100, cts.Token);
+            var client = SynologyManager.Client;
+            var albums = await Task.Run(
+                async () => await client.Foto.GetAlbumsAsync(0, 100, cts.Token),
+                cts.Token);
             _albums.Clear();
             foreach (var album in albums)
                 _albums.Add(album);
@@ -65,3 +68,4 @@ public partial class AlbumPage : ContentPage
         await ShellNavigation.PushAsync(new AlbumDetailPage(album));
     }
 }
+

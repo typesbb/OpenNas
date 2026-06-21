@@ -876,6 +876,10 @@ public class BackupEngine
 
         }
 
+        else
+        {
+            Progress.ActiveRuleId = _ruleIdFilter;
+        }
         Notify(force: true);
 
     }

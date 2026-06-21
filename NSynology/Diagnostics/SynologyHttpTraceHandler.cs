@@ -112,7 +112,7 @@ internal sealed class SynologyHttpTraceHandler(HttpMessageHandler innerHandler) 
 
     private static void ReplaceContent(HttpResponseMessage response, string text, string mediaType)
     {
-        var charset = response.Content?.Headers.ContentType?.CharSet ?? "utf-8";
+        var charset = (response.Content?.Headers.ContentType?.CharSet ?? "utf-8").Trim('"');
         Encoding encoding;
         try { encoding = Encoding.GetEncoding(charset); }
         catch { encoding = Encoding.UTF8; }

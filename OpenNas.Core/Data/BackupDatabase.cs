@@ -188,6 +188,13 @@ public class BackupDatabase
             ruleId, (int)BackupItemStatus.LocalDeleted);
     }
 
+    /// <summary>清空某条规则下的所有备份记录（强制下次全量上传）。</summary>
+    public async Task ClearRecordsForRuleAsync(int ruleId)
+    {
+        var db = await GetDbAsync();
+        await db.ExecuteAsync("DELETE FROM backup_items WHERE RuleId = ?", ruleId);
+    }
+
     public async Task<int> CountFailedByRuleAsync(int ruleId)
     {
         var db = await GetDbAsync();

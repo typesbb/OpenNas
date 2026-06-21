@@ -71,7 +71,8 @@ public partial class NasAlbumsView : ContentView
 
         try
         {
-            if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
+            var client = SynologyManager.Client;
+            if (client == null || string.IsNullOrEmpty(client.Sid))
             {
                 _albums.Clear();
                 AlbumsView.ItemsSource = null;
@@ -80,7 +81,10 @@ public partial class NasAlbumsView : ContentView
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             _albums.Clear();
-            _albums.AddRange(await SynologyManager.Client.Foto.GetAlbumsAsync(0, 100, cts.Token));
+            var albums = await Task.Run(
+                async () => await client.Foto.GetAlbumsAsync(0, 100, cts.Token),
+                cts.Token);
+            _albums.AddRange(albums);
             ApplySort();
         }
         catch (OperationCanceledException)
@@ -176,3 +180,4 @@ public partial class NasAlbumsView : ContentView
         return page == null ? Task.CompletedTask : page.DisplayAlertAsync("相册", message, "确定");
     }
 }
+

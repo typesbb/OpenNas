@@ -190,7 +190,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         var rule = item.Rule;
         var action = await page.DisplayActionSheetAsync(
-            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份完成后删除");
+            rule.LocalAlbumName, "取消", "删除规则", "切换启用", "切换备份完成后删除", "清空备份记录");
         if (action == "删除规则")
         {
             await _db.DeleteRuleAsync(rule.Id);
@@ -220,6 +220,19 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             await _db.SaveRuleAsync(rule);
             LogRepository.Instance.AppendOperation(rule.DeleteAfterBackup ? "开启备份后删除本地" : "关闭备份后删除本地");
             await LoadRulesAsync();
+        }
+        else if (action == "清空备份记录")
+        {
+            var confirmed = await page.DisplayAlertAsync(
+                "确认",
+                "清空后下次备份将重新上传该规则的所有文件。确定？",
+                "清空", "取消");
+            if (!confirmed) return;
+
+            await _db.ClearRecordsForRuleAsync(rule.Id);
+            await LoadRulesAsync();
+            await UiFeedback.ToastAsync("备份记录已清空");
+            LogRepository.Instance.AppendOperation("清空备份记录");
         }
     }
 
