@@ -23,6 +23,8 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         _client.SessionPassword = password;
         _client.CookieSessionSynoToken = null;
 
+        await TryAppApiInfoAsync(cancellationToken);
+
         if (!await TryLoginDsmAsync(username, password, cancellationToken))
             return false;
 
@@ -89,7 +91,24 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
                 Content = content
             };
             _client.ApplyAppApiHeaders(request);
-            await _client.HttpClient.SendAsync(request, cancellationToken);
+            var response = await _client.HttpClient.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("success", out var ok) && ok.GetBoolean()
+                && doc.RootElement.TryGetProperty("data", out var data))
+            {
+                var cache = new Dictionary<string, ApiInfo>();
+                foreach (var prop in data.EnumerateObject())
+                {
+                    var info = JsonSerializer.Deserialize<ApiInfo>(
+                        prop.Value.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (info != null)
+                        cache[prop.Name] = info;
+                }
+                _client.SetApiInfoCache(cache);
+            }
         }
         catch
         {
@@ -106,7 +125,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             [
                 new KeyValuePair<string, string>("api", "SYNO.API.Encryption"),
                 new KeyValuePair<string, string>("method", "getinfo"),
-                new KeyValuePair<string, string>("version", "1")
+                new KeyValuePair<string, string>("version", _client.GetMaxApiVersion("SYNO.API.Encryption", 1).ToString())
             ]);
             using var request = new HttpRequestMessage(HttpMethod.Post, _client.BuildApiUri(SynologyClient.DsmWebApiEntry))
             {
@@ -141,8 +160,12 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         if (encInfo == null)
             return false;
 
+        var maxFromApi = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+        var candidateVersions = maxFromApi > 1
+            ? new[] { maxFromApi }.Concat(new[] { 6, 7, 3 }.Where(v => v != maxFromApi)).ToArray()
+            : new[] { 6, 7, 3 };
         // SAZ 1406：加密登录无 enable_syno_token；带上会导致后续 Cookie POST 全部 119。
-        foreach (var version in new[] { 6, 7, 3 })
+        foreach (var version in candidateVersions)
         {
             var fields = new Dictionary<string, string>
             {
@@ -186,7 +209,11 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     {
         var preservedDid = _client.PhotosDeviceId ?? _client.GetDidCookieValue();
 
-        foreach (var version in new[] { 6, 3 })
+        var maxFromApi = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+        var candidateVersions = maxFromApi > 1
+            ? new[] { maxFromApi }.Concat(new[] { 6, 3 }.Where(v => v != maxFromApi)).ToArray()
+            : new[] { 6, 3 };
+        foreach (var version in candidateVersions)
         {
             var url =
                 $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version={version}&method=login" +
@@ -228,7 +255,11 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         if (string.IsNullOrEmpty(_client.SessionUsername) || string.IsNullOrEmpty(_client.SessionPassword))
             return;
 
-        foreach (var version in new[] { 6, 3 })
+        var maxFromApi = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+        var candidateVersions = maxFromApi > 1
+            ? new[] { maxFromApi }.Concat(new[] { 6, 3 }.Where(v => v != maxFromApi)).ToArray()
+            : new[] { 6, 3 };
+        foreach (var version in candidateVersions)
         {
             var url =
                 $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version={version}&method=login" +
@@ -270,7 +301,9 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             cts.CancelAfter(TimeSpan.FromSeconds(20));
 
             await _client.PostAppFormAsync(
-                "SYNO.Foto.UserInfo", 1, "me", cancellationToken: cts.Token);
+                "SYNO.Foto.UserInfo",
+                _client.GetMaxApiVersion("SYNO.Foto.UserInfo", 1),
+                "me", cancellationToken: cts.Token);
             return true;
         }
         catch (Exception ex) when (IsSessionRejected(ex))
@@ -308,7 +341,8 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         if (string.IsNullOrEmpty(_client.Sid))
             return;
 
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version=1&method=logout&{{0}}";
+        var version = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version={version}&method=logout&{{0}}";
         await _client.GetAsync<AuthResponse>(url, cancellationToken);
 
         _client.ClearHttpCookies();
@@ -325,10 +359,14 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     {
         foreach (var entry in new[] { SynologyClient.DsmWebApiEntry, SynologyClient.PhotoWebApiEntry })
         {
-            foreach (var session in new string?[] { null, "SynologyPhotos" })
-            {
-                foreach (var version in new[] { 6, 3 })
+                foreach (var session in new string?[] { null, "SynologyPhotos" })
                 {
+                    var maxFromApi = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+                    var authVersions = maxFromApi > 1
+                        ? new[] { maxFromApi }.Concat(new[] { 6, 3 }.Where(v => v != maxFromApi)).ToArray()
+                        : new[] { 6, 3 };
+                    foreach (var version in authVersions)
+                    {
                     var sessionPart = string.IsNullOrEmpty(session)
                         ? ""
                         : $"&session={Uri.EscapeDataString(session)}";
@@ -356,7 +394,11 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         CancellationToken cancellationToken)
     {
         _client.FileStationSid = null;
-        foreach (var version in new[] { 6, 3 })
+        var maxFromApi = _client.GetMaxApiVersion("SYNO.API.Auth", 1);
+        var candidateVersions = maxFromApi > 1
+            ? new[] { maxFromApi }.Concat(new[] { 6, 3 }.Where(v => v != maxFromApi)).ToArray()
+            : new[] { 6, 3 };
+        foreach (var version in candidateVersions)
         {
             var url =
                 $"{SynologyClient.DsmWebApiEntry}?api=SYNO.API.Auth&version={version}&method=login" +

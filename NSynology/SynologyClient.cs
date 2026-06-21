@@ -16,6 +16,7 @@ public class SynologyClient
     public const string DsmWebApiEntry = "webapi/entry.cgi";
     public const string PhotoWebApiEntry = "photo/webapi/entry.cgi";
 
+    private Dictionary<string, ApiInfo>? _apiInfoCache;
     public string BaseUrl { get; }
     private readonly CookieContainer _cookieContainer;
     internal HttpClient HttpClient { get; private set; }
@@ -49,6 +50,26 @@ public class SynologyClient
         Foto = new FotoApi(this);
         FileStation = new FileStationApi(this);
     }
+
+    // ---- API version resolution ------------------------------------------------
+
+    /// <summary>获取目标 NAS 上指定 API 的最高可用版本号，无缓存时返回 <paramref name="fallback"/>。</summary>
+    public int GetMaxApiVersion(string api, int fallback = 1)
+    {
+        if (_apiInfoCache != null && _apiInfoCache.TryGetValue(api, out var info))
+            return info.MaxVersion;
+        return fallback;
+    }
+
+    /// <summary>获取目标 NAS 上指定 API 的完整信息，无缓存时返回 <c>null</c>。</summary>
+    public ApiInfo? GetApiInfo(string api)
+    {
+        if (_apiInfoCache != null && _apiInfoCache.TryGetValue(api, out var info))
+            return info;
+        return null;
+    }
+
+    internal void SetApiInfoCache(Dictionary<string, ApiInfo> cache) => _apiInfoCache = cache;
 
     public SynologyClient(string baseUrl, string sid) : this(baseUrl) => Sid = sid;
 
@@ -344,7 +365,8 @@ public class SynologyClient
         string? existingToken,
         CancellationToken cancellationToken = default)
     {
-        var url = $"{entryPath}?api=SYNO.API.Auth&version=6&method=token&_sid={sid}";
+        var version = GetMaxApiVersion("SYNO.API.Auth", 6);
+        var url = $"{entryPath}?api=SYNO.API.Auth&version={version}&method=token&_sid={sid}";
         if (!string.IsNullOrEmpty(existingToken))
             url += $"&SynoToken={Uri.EscapeDataString(existingToken)}";
 
@@ -859,25 +881,34 @@ public class SynologyClient
     internal async Task RunAppPostLoginSequenceAsync(CancellationToken cancellationToken = default)
     {
         await TryPostAppFormAsync(
-            "SYNO.Foto.Setting.MobileCompatibility", 1, "get", cancellationToken: cancellationToken);
+            "SYNO.Foto.Setting.MobileCompatibility",
+            GetMaxApiVersion("SYNO.Foto.Setting.MobileCompatibility", 1),
+            "get", cancellationToken: cancellationToken);
 
+        var compoundJson = BuildBootstrapCompoundJson();
         await TryPostAppFormAsync(
             "SYNO.Entry.Request",
-            1,
+            GetMaxApiVersion("SYNO.Entry.Request", 1),
             "request",
             [
-                new KeyValuePair<string, string>("compound", AppCompoundRequests.BootstrapCompoundJson),
+                new KeyValuePair<string, string>("compound", compoundJson),
                 new KeyValuePair<string, string>("stop_when_error", "false")
             ],
             cancellationToken);
 
-        await TryPostAppFormAsync("SYNO.Foto.Setting.Wizard", 1, "get", cancellationToken: cancellationToken);
-        await TryPostAppFormAsync("SYNO.Foto.Browse.Diff", 5, "get_version", cancellationToken: cancellationToken);
-        await TryPostAppFormAsync("SYNO.Foto.Browse.Category", 1, "get", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Setting.Wizard",
+            GetMaxApiVersion("SYNO.Foto.Setting.Wizard", 1),
+            "get", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Browse.Diff",
+            GetMaxApiVersion("SYNO.Foto.Browse.Diff", 5),
+            "get_version", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Browse.Category",
+            GetMaxApiVersion("SYNO.Foto.Browse.Category", 1),
+            "get", cancellationToken: cancellationToken);
 
         await TryPostAppFormAsync(
             "SYNO.Foto.Browse.Album",
-            4,
+            GetMaxApiVersion("SYNO.Foto.Browse.Album", 4),
             "list",
             [
                 new KeyValuePair<string, string>("offset", "0"),
@@ -887,6 +918,18 @@ public class SynologyClient
                 new KeyValuePair<string, string>("accept_language", "chs")
             ],
             cancellationToken);
+    }
+
+    private string BuildBootstrapCompoundJson()
+    {
+        return "[{\"api\":\"SYNO.Foto.Setting.User\",\"method\":\"get\",\"version\":" +
+               GetMaxApiVersion("SYNO.Foto.Setting.User", 1) + "}," +
+               "{\"api\":\"SYNO.Foto.Setting.TeamSpace\",\"method\":\"get\",\"version\":" +
+               GetMaxApiVersion("SYNO.Foto.Setting.TeamSpace", 1) + "}," +
+               "{\"api\":\"SYNO.Foto.UserInfo\",\"method\":\"me\",\"version\":" +
+               GetMaxApiVersion("SYNO.Foto.UserInfo", 1) + "}," +
+               "{\"api\":\"SYNO.Foto.Setting.Admin\",\"method\":\"get\",\"version\":" +
+               GetMaxApiVersion("SYNO.Foto.Setting.Admin", 1) + "}]";
     }
 
     /// <summary>小于此值的文件可在内存中缓冲后上传；更大文件应走流式 multipart。</summary>
@@ -1047,7 +1090,7 @@ public class SynologyClient
         var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId, type = "photo" } });
         return await TryPostAppFormAsync(
             "SYNO.Foto.Browse.NormalAlbum",
-            1,
+            GetMaxApiVersion("SYNO.Foto.Browse.NormalAlbum", 1),
             "add_item",
             [
                 new KeyValuePair<string, string>("id", albumId.ToString()),

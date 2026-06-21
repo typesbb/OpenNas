@@ -12,7 +12,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
     {
         var parsed = await _client.PostAppFormAsync<ListObject<Album>>(
             "SYNO.Foto.Browse.Album",
-            4,
+            _client.GetMaxApiVersion("SYNO.Foto.Browse.Album", 4),
             "list",
             [
                 new KeyValuePair<string, string>("offset", offset.ToString()),
@@ -36,7 +36,8 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
 
     public async Task<Album> CreateNormalAlbumAsync(string name, CancellationToken cancellationToken = default)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Browse.NormalAlbum&version=2&method=create&name={Uri.EscapeDataString(name)}&{{0}}";
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Browse.NormalAlbum", 2);
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Browse.NormalAlbum&version={version}&method=create&name={Uri.EscapeDataString(name)}&{{0}}";
         var result = await _client.GetAsync<AlbumObject>(url, cancellationToken);
         return result.Album;
     }
@@ -47,7 +48,8 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         string size = "sm",
         CancellationToken cancellationToken = default)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Thumbnail&version=1&method=get&id={id}&size={size}&cache_key={cacheKey}&type=unit&{{0}}";
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Thumbnail", 1);
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Thumbnail&version={version}&method=get&id={id}&size={size}&cache_key={cacheKey}&type=unit&{{0}}";
         return await _client.GetStreamAsync(url, cancellationToken);
     }
 
@@ -64,7 +66,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
 
         var parsed = await _client.PostAppFormAsync<ListObject<Photo>>(
             "SYNO.Foto.Browse.Item",
-            5,
+            _client.GetMaxApiVersion("SYNO.Foto.Browse.Item", 5),
             "list",
             [
                 new KeyValuePair<string, string>("offset", offset.ToString()),
@@ -88,14 +90,16 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
 
     public async Task<Stream> GetDownloadPhotoAsync(Photo photo, CancellationToken cancellationToken = default)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Download&version=1&method=download&unit_id=[{photo.Id}]&{{0}}";
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Download", 1);
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Download&version={version}&method=download&unit_id=[{photo.Id}]&{{0}}";
         return await _client.GetStreamAsync(url, cancellationToken);
     }
 
     /// <summary>带会话参数的原始文件下载地址，供视频流式播放。</summary>
     public string GetDownloadUrl(Photo photo)
     {
-        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Download&version=1&method=download&unit_id=[{photo.Id}]&{{0}}";
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Download", 1);
+        var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Download&version={version}&method=download&unit_id=[{photo.Id}]&{{0}}";
         return _client.BuildApiUri(_client.BuildAuthenticatedApiUrl(url)).AbsoluteUri;
     }
 

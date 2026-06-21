@@ -125,7 +125,11 @@ public class FileStationApi(SynologyClient client)
         CancellationToken cancellationToken)
     {
         Exception? lastEx = null;
-        foreach (var version in new[] { 2, 3 })
+        var maxFromApi = _client.GetMaxApiVersion("SYNO.FileStation.Upload", 1);
+        var candidateVersions = maxFromApi > 1
+            ? new[] { maxFromApi }.Concat(new[] { 2, 3 }.Where(v => v != maxFromApi)).ToArray()
+            : new[] { 2, 3 };
+        foreach (var version in candidateVersions)
         {
             try
             {
@@ -207,8 +211,9 @@ public class FileStationApi(SynologyClient client)
     {
         var folderPath = Uri.EscapeDataString($"[\"{parentPath.TrimEnd('/')}\"]");
         var folderName = Uri.EscapeDataString($"[\"{name}\"]");
+        var version = _client.GetMaxApiVersion("SYNO.FileStation.CreateFolder", 2);
         var url = _client.AppendSession(
-            $"webapi/entry.cgi?api=SYNO.FileStation.CreateFolder&version=2&method=create" +
+            $"webapi/entry.cgi?api=SYNO.FileStation.CreateFolder&version={version}&method=create" +
             $"&folder_path={folderPath}&name={folderName}&force_parent=true");
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -310,8 +315,9 @@ public class FileStationApi(SynologyClient client)
     private async Task LoadPhotoSharePathsAsync(CancellationToken cancellationToken)
     {
         var additional = Uri.EscapeDataString("[\"real_path\"]");
+        var version = _client.GetMaxApiVersion("SYNO.FileStation.List", 2);
         var url = _client.AppendSession(
-            $"webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list_share&additional={additional}");
+            $"webapi/entry.cgi?api=SYNO.FileStation.List&version={version}&method=list_share&additional={additional}");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         _client.ApplySynoTokenHeader(request);
         var response = await _client.HttpClient.SendAsync(request, cancellationToken);
@@ -378,8 +384,9 @@ public class FileStationApi(SynologyClient client)
             return _cachedHomeRealPath;
 
         var additional = Uri.EscapeDataString("[\"real_path\"]");
+        var version = _client.GetMaxApiVersion("SYNO.FileStation.List", 2);
         var url = _client.AppendSession(
-            $"webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list_share&additional={additional}");
+            $"webapi/entry.cgi?api=SYNO.FileStation.List&version={version}&method=list_share&additional={additional}");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         _client.ApplySynoTokenHeader(request);
         var response = await _client.HttpClient.SendAsync(request, cancellationToken);
@@ -436,8 +443,9 @@ public class FileStationApi(SynologyClient client)
     {
         try
         {
+            var version = _client.GetMaxApiVersion("SYNO.FileStation.List", 2);
             var url = _client.AppendSession(
-                "webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list_share");
+                $"webapi/entry.cgi?api=SYNO.FileStation.List&version={version}&method=list_share");
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             _client.ApplySynoTokenHeader(request);
             var response = await _client.HttpClient.SendAsync(request, cancellationToken);
