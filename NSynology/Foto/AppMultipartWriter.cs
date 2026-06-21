@@ -17,7 +17,7 @@ internal sealed class MultipartWriteTracker(long totalLength, IProgress<double>?
 }
 
 /// <summary>官方相册 multipart 写入与 Content-Length 计算。</summary>
-internal static class OfficialAppMultipartWriter
+internal static class AppMultipartWriter
 {
     public static string NewBoundary() => Guid.NewGuid().ToString();
 

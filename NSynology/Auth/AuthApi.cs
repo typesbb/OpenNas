@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace NSynology.Auth;
 
 /// <summary>官方 Android App 启动时 compound 批量请求（抓包 SYNO.Entry.Request）。</summary>
-internal static class OfficialAppCompoundRequests
+internal static class AppCompoundRequests
 {
     public const string BootstrapCompoundJson =
         "[{\"api\":\"SYNO.Foto.Setting.User\",\"method\":\"get\",\"version\":1}," +
@@ -47,7 +47,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     /// <summary>
     /// 与官方 Synology Photos Android App 一致：保留 <c>did</c>、加密登录，获取 <c>id</c>+<c>did</c> Cookie。
     /// </summary>
-    public async Task<bool> LoginOfficialAppStyleAsync(
+    public async Task<bool> LoginAppStyleAsync(
         string username,
         string password,
         CancellationToken cancellationToken = default)
@@ -60,20 +60,20 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         var preservedDid = explicitDid ?? _client.LoadPersistedDeviceId();
         _client.ClearHttpCookiesPreservingDid(preservedDid);
 
-        await TryOfficialAppApiInfoAsync(cancellationToken);
+        await TryAppApiInfoAsync(cancellationToken);
 
         // 官方 App 抓包：优先 POST entry.cgi + __cIpHeRtExT 加密登录，响应 data.did + data.sid。
-        if (!await TryLoginOfficialEncryptedAsync(username, password, cancellationToken)
-            && !await TryLoginOfficialPlainAsync(username, password, cancellationToken))
+        if (!await TryLoginAppEncryptedAsync(username, password, cancellationToken)
+            && !await TryLoginAppPlainAsync(username, password, cancellationToken))
             return false;
 
         // 官方抓包：id/did 仅来自本次登录响应，不再额外刷新 SynoToken。
-        await EnsureOfficialAppBootstrapAsync(cancellationToken);
+        await EnsureAppBootstrapAsync(cancellationToken);
 
         return true;
     }
 
-    private async Task TryOfficialAppApiInfoAsync(CancellationToken cancellationToken)
+    private async Task TryAppApiInfoAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -88,7 +88,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             {
                 Content = content
             };
-            _client.ApplyOfficialAppApiHeaders(request);
+            _client.ApplyAppApiHeaders(request);
             await _client.HttpClient.SendAsync(request, cancellationToken);
         }
         catch
@@ -112,7 +112,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             {
                 Content = content
             };
-            _client.ApplyOfficialAppApiHeaders(request);
+            _client.ApplyAppApiHeaders(request);
             var response = await _client.HttpClient.SendAsync(request, cancellationToken);
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -132,7 +132,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         }
     }
 
-    private async Task<bool> TryLoginOfficialEncryptedAsync(
+    private async Task<bool> TryLoginAppEncryptedAsync(
         string username,
         string password,
         CancellationToken cancellationToken)
@@ -165,21 +165,21 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
                     new KeyValuePair<string, string>(cipherField, cipherPayload),
                     new KeyValuePair<string, string>("client_time", clientTime.ToString())
                 ],
-                useOfficialUserAgent: true,
+                useAppUserAgent: true,
                 cancellationToken: cancellationToken);
 
             if (auth == null || string.IsNullOrEmpty(auth.Sid))
                 continue;
 
-            _client.ApplyOfficialAppAuthResult(auth);
-            MarkOfficialEncryptedLogin();
+            _client.ApplyAppAuthResult(auth);
+            MarkAppEncryptedLogin();
             return true;
         }
 
         return false;
     }
 
-    private async Task<bool> TryLoginOfficialPlainAsync(
+    private async Task<bool> TryLoginAppPlainAsync(
         string username,
         string password,
         CancellationToken cancellationToken)
@@ -199,10 +199,10 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             if (auth == null || string.IsNullOrEmpty(auth.Sid))
                 continue;
 
-            _client.ApplyOfficialAppAuthResult(auth);
+            _client.ApplyAppAuthResult(auth);
             if (string.IsNullOrEmpty(auth.Did) && !string.IsNullOrEmpty(preservedDid))
-                _client.ApplyOfficialAppDeviceId(preservedDid);
-            MarkOfficialPlainLogin();
+                _client.ApplyAppDeviceId(preservedDid);
+            MarkAppPlainLogin();
             return true;
         }
 
@@ -213,17 +213,17 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     /// <summary>上次登录是否走加密 POST（SAZ 1406）。</summary>
     public bool LastLoginUsedEncryptedPost { get; private set; }
 
-    public async Task EnsureOfficialAppBootstrapAsync(CancellationToken cancellationToken = default) =>
-        await _client.RunOfficialAppPostLoginSequenceAsync(cancellationToken);
+    public async Task EnsureAppBootstrapAsync(CancellationToken cancellationToken = default) =>
+        await _client.RunAppPostLoginSequenceAsync(cancellationToken);
 
-    internal void MarkOfficialEncryptedLogin() => LastLoginUsedEncryptedPost = true;
+    internal void MarkAppEncryptedLogin() => LastLoginUsedEncryptedPost = true;
 
-    internal void MarkOfficialPlainLogin() => LastLoginUsedEncryptedPost = false;
+    internal void MarkAppPlainLogin() => LastLoginUsedEncryptedPost = false;
 
     /// <summary>
     /// 官方 Android App 上传前用 <c>session=SynologyPhotos</c> + <c>format=cookie</c> 刷新 <c>id</c>/<c>did</c> Cookie。
     /// </summary>
-    public async Task EnsureOfficialAppCookieSessionAsync(CancellationToken cancellationToken = default)
+    public async Task EnsureAppCookieSessionAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_client.SessionUsername) || string.IsNullOrEmpty(_client.SessionPassword))
             return;
@@ -241,15 +241,15 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             if (auth == null || string.IsNullOrEmpty(auth.Sid))
                 continue;
 
-            _client.ApplyOfficialAppAuthResult(auth);
+            _client.ApplyAppAuthResult(auth);
             return;
         }
     }
 
     public async Task<bool> ValidateAsync(string sid, CancellationToken cancellationToken = default)
     {
-        _client.RestoreOfficialAppSessionCookies(sid);
-        var validity = await TryValidateOfficialAppSessionAsync(cancellationToken);
+        _client.RestoreAppSessionCookies(sid);
+        var validity = await TryValidateAppSessionAsync(cancellationToken);
         return validity == true;
     }
 
@@ -257,7 +257,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     /// 用官方 Cookie 会话向 NAS 探测是否仍有效。
     /// <c>true</c> 有效，<c>false</c> 已失效，<c>null</c> 网络等原因暂无法判断。
     /// </summary>
-    public async Task<bool?> TryValidateOfficialAppSessionAsync(CancellationToken cancellationToken = default)
+    public async Task<bool?> TryValidateAppSessionAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_client.Sid))
             return false;
@@ -269,7 +269,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-            await _client.PostOfficialAppFormAsync(
+            await _client.PostAppFormAsync(
                 "SYNO.Foto.UserInfo", 1, "me", cancellationToken: cts.Token);
             return true;
         }

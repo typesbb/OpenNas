@@ -11,15 +11,15 @@
 ## 运行
 
 ```bash
-dotnet test NSynology.Tests/NSynology.Tests.csproj --filter "FullyQualifiedName~OfficialAppAlbumUploadTests"
+dotnet test NSynology.Tests/NSynology.Tests.csproj --filter "FullyQualifiedName~AppAlbumUploadTests"
 ```
 
 ## 用例
 
 | 测试 | 说明 |
 |------|------|
-| `Official_app_album_upload_request_matches_mobile_capture_contract` | **离线**：Mock HTTP，断言 v5/upload、`album_id`、`require_thumb_version`、multipart 字段符合官方 App 抓包 |
-| `Official_app_album_upload_v5_succeeds_on_real_nas_without_photos_subsession` | **集成**：Cookie `id`+`did` 主会话，上传到 `RemoteAlbumName` 相册 |
+| `App_album_upload_request_matches_mobile_capture_contract` | **离线**：Mock HTTP，断言 v5/upload、`album_id`、`require_thumb_version`、multipart 字段符合官方 App 抓包 |
+| `App_album_upload_v5_succeeds_on_real_nas_without_photos_subsession` | **集成**：Cookie `id`+`did` 主会话，上传到 `RemoteAlbumName` 相册 |
 
 ## 常见失败
 

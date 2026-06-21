@@ -9,11 +9,11 @@ using Xunit.Abstractions;
 namespace NSynology.Tests;
 
 [Collection(NasIntegrationCollection.Name)]
-public sealed class OfficialAppSessionProbeTests
+public sealed class AppSessionProbeTests
 {
     private readonly ITestOutputHelper _output;
 
-    public OfficialAppSessionProbeTests(ITestOutputHelper output) => _output = output;
+    public AppSessionProbeTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
     public async Task Probe_auth_version_matrix_for_cookie_post()
@@ -57,7 +57,7 @@ public sealed class OfficialAppSessionProbeTests
                         new KeyValuePair<string, string>(cipherField, cipherPayload),
                         new KeyValuePair<string, string>("client_time", clientTime.ToString())
                     ],
-                    useOfficialUserAgent: true);
+                    useAppUserAgent: true);
 
                 if (auth == null)
                 {
@@ -65,10 +65,10 @@ public sealed class OfficialAppSessionProbeTests
                     continue;
                 }
 
-                client.ApplyOfficialAppAuthResult(auth);
+                client.ApplyAppAuthResult(auth);
                 client.SynoToken = enableSynoToken ? auth.SynoToken : null;
 
-                var post = await client.PostOfficialAppFormRawAsync(
+                var post = await client.PostAppFormRawAsync(
                     "SYNO.Foto.Setting.MobileCompatibility", 1, "get");
                 using var doc = JsonDocument.Parse(post);
                 var ok = doc.RootElement.TryGetProperty("success", out var s) && s.GetBoolean();
@@ -91,7 +91,7 @@ public sealed class OfficialAppSessionProbeTests
         {
             Content = content
         };
-        client.ApplyOfficialAppApiHeaders(request);
+        client.ApplyAppApiHeaders(request);
         var response = await client.HttpClient.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
@@ -116,10 +116,10 @@ public sealed class OfficialAppSessionProbeTests
         if (!string.IsNullOrWhiteSpace(cfg.PhotosDeviceId))
             client.PhotosDeviceId = cfg.PhotosDeviceId.Trim();
 
-        Assert.True(await client.Auth.LoginOfficialAppStyleAsync(cfg.Username, cfg.Password));
+        Assert.True(await client.Auth.LoginAppStyleAsync(cfg.Username, cfg.Password));
 
         var fileInfo = new FileInfo(filePath);
-        var result = await client.UploadItemOfficialAlbumAsync(
+        var result = await client.UploadItemAppAlbumAsync(
             ct => Task.FromResult<Stream>(File.OpenRead(filePath)),
             "mmexport1780538292421.jpg",
             "image/jpeg",
@@ -150,8 +150,8 @@ public sealed class OfficialAppSessionProbeTests
         if (!string.IsNullOrWhiteSpace(cfg.PhotosDeviceId))
             client.PhotosDeviceId = cfg.PhotosDeviceId.Trim();
 
-        Assert.True(await client.Auth.LoginOfficialAppStyleAsync(cfg.Username, cfg.Password));
-        await client.WarmupOfficialAlbumBeforeUploadAsync(15);
+        Assert.True(await client.Auth.LoginAppStyleAsync(cfg.Username, cfg.Password));
+        await client.WarmupAppAlbumBeforeUploadAsync(15);
 
         using var content = new ByteArrayContent(body);
         content.Headers.TryAddWithoutValidation(
@@ -160,9 +160,9 @@ public sealed class OfficialAppSessionProbeTests
         {
             Content = content
         };
-        client.ApplyOfficialAppApiHeaders(request);
+        client.ApplyAppApiHeaders(request);
 
-        var response = await client.SendOfficialAppRequestAsync(request);
+        var response = await client.SendAppRequestAsync(request);
         var text = await response.Content.ReadAsStringAsync();
         _output.WriteLine($"replay-status={(int)response.StatusCode} body={text}");
         Assert.Contains("\"success\":true", text, StringComparison.OrdinalIgnoreCase);
@@ -188,7 +188,7 @@ public sealed class OfficialAppSessionProbeTests
     }
 
     [Fact]
-    public async Task Probe_official_post_vs_get_after_login()
+    public async Task Probe_app_post_vs_get_after_login()
     {
         var cfg = NasIntegrationSettings.Load();
         var client = new SynologyClient(cfg.BaseUrl);
@@ -196,7 +196,7 @@ public sealed class OfficialAppSessionProbeTests
             client.PhotosDeviceId = cfg.PhotosDeviceId.Trim();
         client.ConfigureHttpTrace(true, _output.WriteLine);
 
-        Assert.True(await client.Auth.LoginOfficialAppStyleAsync(cfg.Username, cfg.Password));
+        Assert.True(await client.Auth.LoginAppStyleAsync(cfg.Username, cfg.Password));
         _output.WriteLine($"encrypted-login={client.Auth.LastLoginUsedEncryptedPost}");
 
         // 对比：仅明文 GET 登录（非 SAZ 路径）
@@ -208,24 +208,24 @@ public sealed class OfficialAppSessionProbeTests
         _output.WriteLine($"plain-dsm-login={plainOk}");
         if (plainOk)
         {
-            var plainPost = await plainClient.PostOfficialAppFormRawAsync(
+            var plainPost = await plainClient.PostAppFormRawAsync(
                 "SYNO.Foto.Browse.Album", 4, "list",
                 [
                     new KeyValuePair<string, string>("offset", "0"),
                     new KeyValuePair<string, string>("limit", "5"),
                     new KeyValuePair<string, string>("category", "\"all\""),
-                    new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumListAdditional),
+                    new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumListAdditional),
                     new KeyValuePair<string, string>("accept_language", "chs")
                 ]);
             _output.WriteLine($"plain-login POST Browse: {plainPost}");
         }
         _output.WriteLine($"cookie-header={client.BuildCookieHeader()}");
 
-        var postCompat = await client.PostOfficialAppFormRawAsync(
+        var postCompat = await client.PostAppFormRawAsync(
             "SYNO.Foto.Setting.MobileCompatibility", 1, "get");
         _output.WriteLine($"POST MobileCompatibility: {postCompat}");
 
-        var postAlbum = await client.PostOfficialAppFormRawAsync(
+        var postAlbum = await client.PostAppFormRawAsync(
             "SYNO.Foto.Browse.Album",
             4,
             "list",
@@ -233,7 +233,7 @@ public sealed class OfficialAppSessionProbeTests
                 new KeyValuePair<string, string>("offset", "0"),
                 new KeyValuePair<string, string>("limit", "5"),
                 new KeyValuePair<string, string>("category", "\"all\""),
-                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumListAdditional),
+                new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumListAdditional),
                 new KeyValuePair<string, string>("accept_language", "chs")
             ]);
         _output.WriteLine($"POST Browse.Album list: {postAlbum}");
@@ -246,7 +246,7 @@ public sealed class OfficialAppSessionProbeTests
 
         var sid = client.Sid!;
         var postWithSidUrl = $"{SynologyClient.DsmWebApiEntry}?_sid={Uri.EscapeDataString(sid)}";
-        var postWithSidBody = await client.PostOfficialAppFormRawAsync(
+        var postWithSidBody = await client.PostAppFormRawAsync(
             "SYNO.Foto.Browse.Album",
             4,
             "list",
@@ -254,7 +254,7 @@ public sealed class OfficialAppSessionProbeTests
                 new KeyValuePair<string, string>("offset", "0"),
                 new KeyValuePair<string, string>("limit", "5"),
                 new KeyValuePair<string, string>("category", "\"all\""),
-                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumListAdditional),
+                new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumListAdditional),
                 new KeyValuePair<string, string>("accept_language", "chs")
             ]);
         _output.WriteLine($"POST Browse.Album (cookie only): already above");
@@ -268,7 +268,7 @@ public sealed class OfficialAppSessionProbeTests
             {
                 Content = content
             };
-            req.Headers.TryAddWithoutValidation("User-Agent", SynologyClient.OfficialPhotosAndroidUserAgent);
+            req.Headers.TryAddWithoutValidation("User-Agent", SynologyClient.AppPhotosAndroidUserAgent);
             req.Headers.TryAddWithoutValidation("Cookie", client.BuildCookieHeader());
             var resp = await client.HttpClient.SendAsync(req);
             _output.WriteLine($"POST Browse.Album (_sid+cookie): {await resp.Content.ReadAsStringAsync()}");

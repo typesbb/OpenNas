@@ -35,7 +35,7 @@ public class SynologyClient
     /// <summary>与 Cookie <c>id</c> 匹配的 CSRF token（Browse API 用）。</summary>
     internal string? CookieSessionSynoToken { get; set; }
 
-    private readonly HashSet<int> _warmedOfficialAlbumIds = new();
+    private readonly HashSet<int> _warmedAppAlbumIds = new();
     private readonly object _warmupLock = new();
 
     public AuthApi Auth { get; set; }
@@ -84,10 +84,10 @@ public class SynologyClient
         preservedDid ??= PhotosDeviceId ?? GetDidCookieValue();
         ClearHttpCookies();
         if (!string.IsNullOrEmpty(preservedDid))
-            ApplyOfficialAppDeviceId(preservedDid);
+            ApplyAppDeviceId(preservedDid);
     }
 
-    internal void ApplyOfficialAppDeviceId(string deviceId)
+    internal void ApplyAppDeviceId(string deviceId)
     {
         PhotosDeviceId = deviceId;
         AddCookie(new Uri(BaseUrl), "did", deviceId);
@@ -146,7 +146,7 @@ public class SynologyClient
         HttpClient = CreateHttpClient();
     }
 
-    internal Task<HttpResponseMessage> SendOfficialAppRequestAsync(
+    internal Task<HttpResponseMessage> SendAppRequestAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken = default)
     {
@@ -193,23 +193,23 @@ public class SynologyClient
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         return ParseAuthResponse(body, response);
     }
 
     internal async Task<AuthResponse?> LoginRawPostAsync(
         string entryPath,
         IEnumerable<KeyValuePair<string, string>> formFields,
-        bool useOfficialUserAgent = false,
+        bool useAppUserAgent = false,
         CancellationToken cancellationToken = default)
     {
-        using var content = CreateOfficialAppFormContent(formFields);
+        using var content = CreateAppFormContent(formFields);
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildApiUri(entryPath)) { Content = content };
-        if (useOfficialUserAgent)
+        if (useAppUserAgent)
         {
-            request.Headers.TryAddWithoutValidation("User-Agent", OfficialPhotosAndroidUserAgent);
+            request.Headers.TryAddWithoutValidation("User-Agent", AppPhotosAndroidUserAgent);
             request.Headers.TryAddWithoutValidation("Accept-Encoding", "gzip");
-            var didCookie = BuildOfficialAppCookieHeader();
+            var didCookie = BuildAppCookieHeader();
             if (!string.IsNullOrEmpty(didCookie))
                 request.Headers.TryAddWithoutValidation("Cookie", didCookie);
         }
@@ -218,7 +218,7 @@ public class SynologyClient
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         return ParseAuthResponse(body, response);
     }
 
@@ -287,7 +287,7 @@ public class SynologyClient
     /// <summary>
     /// 官方 App 加密登录响应：<c>data.sid</c> 即 Cookie <c>id</c>，<c>data.did</c> 即 Cookie <c>did</c>。
     /// </summary>
-    internal void ApplyOfficialAppAuthResult(AuthResponse auth)
+    internal void ApplyAppAuthResult(AuthResponse auth)
     {
         if (!string.IsNullOrEmpty(auth.Sid))
             Sid = auth.Sid;
@@ -301,7 +301,7 @@ public class SynologyClient
 
         if (!string.IsNullOrEmpty(auth.Did))
         {
-            ApplyOfficialAppDeviceId(auth.Did);
+            ApplyAppDeviceId(auth.Did);
             SavePersistedDeviceId(auth.Did);
         }
         else
@@ -315,7 +315,7 @@ public class SynologyClient
     /// <summary>
     /// 恢复已保存会话：本地 sid 即官方 App 的 Cookie <c>id</c>，并恢复持久化的 <c>did</c>。
     /// </summary>
-    public void RestoreOfficialAppSessionCookies(string sessionId)
+    public void RestoreAppSessionCookies(string sessionId)
     {
         if (string.IsNullOrWhiteSpace(sessionId))
             return;
@@ -330,7 +330,7 @@ public class SynologyClient
     {
         var did = LoadPersistedDeviceId();
         if (!string.IsNullOrWhiteSpace(did))
-            ApplyOfficialAppDeviceId(did);
+            ApplyAppDeviceId(did);
     }
 
     private void SetCookie(Uri uri, string name, string value)
@@ -584,10 +584,10 @@ public class SynologyClient
     /// POST <c>webapi/entry.cgi</c>（无 URL 查询参数），Cookie <c>did</c>+<c>id</c> 认证；
     /// multipart（SAZ 3017）：文本字段无 Content-Type；thumb 文件名为 xl/sm；含 raw_data。
     /// </summary>
-    public const string OfficialPhotosAndroidUserAgent =
+    public const string AppPhotosAndroidUserAgent =
         "Synology-Synology_Photos_2.2.0_rv:556_23127PN0CC_Android_36_(Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/BP2A.250605.031.A3))";
 
-    public async Task<UploadResult> UploadItemOfficialAlbumAsync(
+    public async Task<UploadResult> UploadItemAppAlbumAsync(
         UploadStreamFactory openStream,
         string fileName,
         string mimeType,
@@ -601,7 +601,7 @@ public class SynologyClient
             throw new ArgumentOutOfRangeException(nameof(albumId));
 
         await EnsureSidAsync();
-        return await PostOfficialAlbumUploadFromStreamAsync(
+        return await PostAppAlbumUploadFromStreamAsync(
             openStream,
             fileName,
             mimeType,
@@ -612,7 +612,7 @@ public class SynologyClient
             cancellationToken);
     }
 
-    public async Task<UploadResult> UploadItemOfficialAlbumFromBytesAsync(
+    public async Task<UploadResult> UploadItemAppAlbumFromBytesAsync(
         byte[] fileBytes,
         string fileName,
         string mimeType,
@@ -626,7 +626,7 @@ public class SynologyClient
             throw new ArgumentOutOfRangeException(nameof(albumId));
 
         await EnsureSidAsync();
-        return await PostOfficialAlbumUploadAsync(
+        return await PostAppAlbumUploadAsync(
             fileBytes,
             fileName,
             mimeType,
@@ -637,20 +637,20 @@ public class SynologyClient
             cancellationToken);
     }
 
-    private Uri BuildOfficialAlbumUploadUri() =>
+    private Uri BuildAppAlbumUploadUri() =>
         BuildApiUri(DsmWebApiEntry);
 
     /// <summary>上传前恢复官方 App Cookie 会话（<c>did</c> + <c>id</c>）。</summary>
-    public void PrepareOfficialAppUploadSession()
+    public void PrepareAppUploadSession()
     {
         RestorePersistedPhotosDeviceId();
-        EnsureOfficialAppDeviceCookie();
+        EnsureAppDeviceCookie();
         lock (_warmupLock)
-            _warmedOfficialAlbumIds.Clear();
+            _warmedAppAlbumIds.Clear();
     }
 
     /// <summary>官方 App 用 Cookie <c>did</c> 标识设备；登录后由 NAS 下发，勿覆盖。</summary>
-    internal void EnsureOfficialAppDeviceCookie()
+    internal void EnsureAppDeviceCookie()
     {
         var uri = new Uri(BaseUrl);
         var existing = _cookieContainer.GetCookies(uri)["did"]?.Value;
@@ -659,7 +659,7 @@ public class SynologyClient
     }
 
     /// <summary>官方 App 抓包仅带 <c>id</c>+<c>did</c>，移除网页浏览用的 View* Cookie。</summary>
-    internal void StripPhotosViewCookiesForOfficialUpload()
+    internal void StripPhotosViewCookiesForAppUpload()
     {
         var uri = new Uri(BaseUrl);
         foreach (var name in new[] { "ViewLibrary", "AutoSmartAlbumLibrary", "ViewType" })
@@ -671,7 +671,7 @@ public class SynologyClient
     }
 
     /// <summary>date 字段：官方 App 在 mtime（UTC 秒）基础上加本地时区偏移。</summary>
-    internal static long ToOfficialAppDateSeconds(long mtimeSec) =>
+    internal static long ToAppDateSeconds(long mtimeSec) =>
         mtimeSec + (long)TimeZoneInfo.Local.GetUtcOffset(DateTimeOffset.FromUnixTimeSeconds(mtimeSec)).TotalSeconds;
 
     private static async Task<byte[]> BufferUploadFileAsync(Stream stream, CancellationToken cancellationToken)
@@ -690,7 +690,7 @@ public class SynologyClient
         return buffer.ToArray();
     }
 
-    private string BuildOfficialAppCookieHeader()
+    private string BuildAppCookieHeader()
     {
         var uri = new Uri(BaseUrl);
         var id = _cookieContainer.GetCookies(uri)["id"]?.Value;
@@ -708,41 +708,41 @@ public class SynologyClient
         return parts.Count == 0 ? string.Empty : string.Join("; ", parts);
     }
 
-    private void ApplyOfficialAppAlbumUploadHeaders(HttpRequestMessage request)
+    private void ApplyAppAlbumUploadHeaders(HttpRequestMessage request)
     {
-        request.Headers.TryAddWithoutValidation("User-Agent", OfficialPhotosAndroidUserAgent);
+        request.Headers.TryAddWithoutValidation("User-Agent", AppPhotosAndroidUserAgent);
         request.Headers.TryAddWithoutValidation("Accept-Encoding", "gzip");
 
         // 实机：CookieContainer 对 POST entry.cgi 常不附带 id+did；须与官方抓包一样显式写入。
-        var cookieHeader = BuildOfficialAppCookieHeader();
+        var cookieHeader = BuildAppCookieHeader();
         if (!string.IsNullOrEmpty(cookieHeader))
             request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
     }
 
-    internal void ApplyOfficialAppApiHeaders(HttpRequestMessage request) =>
-        ApplyOfficialAppAlbumUploadHeaders(request);
+    internal void ApplyAppApiHeaders(HttpRequestMessage request) =>
+        ApplyAppAlbumUploadHeaders(request);
 
-    private Uri BuildOfficialAppApiUri() =>
+    private Uri BuildAppApiUri() =>
         BuildApiUri(DsmWebApiEntry);
 
-    internal async Task<string> PostOfficialAppFormRawAsync(
+    internal async Task<string> PostAppFormRawAsync(
         string api,
         int version,
         string method,
         IEnumerable<KeyValuePair<string, string>>? extraFields = null,
         CancellationToken cancellationToken = default)
     {
-        using var content = CreateOfficialAppFormContent(BuildOfficialAppFormFields(api, method, version, extraFields));
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAppApiUri()) { Content = content };
-        ApplyOfficialAppApiHeaders(request);
+        using var content = CreateAppFormContent(BuildAppFormFields(api, method, version, extraFields));
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildAppApiUri()) { Content = content };
+        ApplyAppApiHeaders(request);
 
-        var response = await SendOfficialAppRequestAsync(request, cancellationToken: cancellationToken);
+        var response = await SendAppRequestAsync(request, cancellationToken: cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         return body;
     }
 
-    private static IEnumerable<KeyValuePair<string, string>> BuildOfficialAppFormFields(
+    private static IEnumerable<KeyValuePair<string, string>> BuildAppFormFields(
         string api,
         string method,
         int version,
@@ -761,7 +761,7 @@ public class SynologyClient
     }
 
     /// <summary>SAZ：Content-Type 为 <c>application/x-www-form-urlencoded</c>（无 charset）。</summary>
-    private static ByteArrayContent CreateOfficialAppFormContent(
+    private static ByteArrayContent CreateAppFormContent(
         IEnumerable<KeyValuePair<string, string>> fields)
     {
         var body = string.Join("&", fields.Select(kv =>
@@ -771,7 +771,7 @@ public class SynologyClient
         return content;
     }
 
-    internal async Task<bool> TryPostOfficialAppFormAsync(
+    internal async Task<bool> TryPostAppFormAsync(
         string api,
         int version,
         string method,
@@ -780,7 +780,7 @@ public class SynologyClient
     {
         try
         {
-            await PostOfficialAppFormAsync(api, version, method, extraFields, cancellationToken);
+            await PostAppFormAsync(api, version, method, extraFields, cancellationToken);
             return true;
         }
         catch
@@ -789,20 +789,20 @@ public class SynologyClient
         }
     }
 
-    internal async Task<SynologyResponse<object>> PostOfficialAppFormAsync(
+    internal async Task<SynologyResponse<object>> PostAppFormAsync(
         string api,
         int version,
         string method,
         IEnumerable<KeyValuePair<string, string>>? extraFields = null,
         CancellationToken cancellationToken = default)
     {
-        using var content = CreateOfficialAppFormContent(BuildOfficialAppFormFields(api, method, version, extraFields));
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAppApiUri()) { Content = content };
-        ApplyOfficialAppApiHeaders(request);
+        using var content = CreateAppFormContent(BuildAppFormFields(api, method, version, extraFields));
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildAppApiUri()) { Content = content };
+        ApplyAppApiHeaders(request);
 
-        var response = await SendOfficialAppRequestAsync(request, cancellationToken: cancellationToken);
+        var response = await SendAppRequestAsync(request, cancellationToken: cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         response.EnsureSuccessStatusCode();
 
         var result = JsonSerializer.Deserialize<SynologyResponse<object>>(body,
@@ -811,14 +811,14 @@ public class SynologyClient
         return result;
     }
 
-    internal async Task<T?> PostOfficialAppFormAsync<T>(
+    internal async Task<T?> PostAppFormAsync<T>(
         string api,
         int version,
         string method,
         IEnumerable<KeyValuePair<string, string>>? extraFields = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await PostOfficialAppFormAsync(api, version, method, extraFields, cancellationToken);
+        var result = await PostAppFormAsync(api, version, method, extraFields, cancellationToken);
         if (result.Data is JsonElement el)
             return JsonSerializer.Deserialize<T>(el.GetRawText(),
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -826,7 +826,7 @@ public class SynologyClient
     }
 
     /// <summary>各响应 <c>Set-Cookie: id=</c> 与登录 <c>data.sid</c> 一致，须持续同步。</summary>
-    internal void RefreshOfficialAppCookiesFromResponse(HttpResponseMessage response)
+    internal void RefreshAppCookiesFromResponse(HttpResponseMessage response)
     {
         IEnumerable<string> setCookies;
         if (response.Headers.TryGetValues("Set-Cookie", out var headers))
@@ -853,33 +853,33 @@ public class SynologyClient
             }
             else if (name.Equals("did", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
             {
-                ApplyOfficialAppDeviceId(value);
+                ApplyAppDeviceId(value);
                 SavePersistedDeviceId(value);
             }
         }
     }
 
     /// <summary>SAZ 1407–1421：登录后官方 App 初始化（全程 Cookie + POST form，无 <c>_sid</c>）。</summary>
-    internal async Task RunOfficialAppPostLoginSequenceAsync(CancellationToken cancellationToken = default)
+    internal async Task RunAppPostLoginSequenceAsync(CancellationToken cancellationToken = default)
     {
-        await TryPostOfficialAppFormAsync(
+        await TryPostAppFormAsync(
             "SYNO.Foto.Setting.MobileCompatibility", 1, "get", cancellationToken: cancellationToken);
 
-        await TryPostOfficialAppFormAsync(
+        await TryPostAppFormAsync(
             "SYNO.Entry.Request",
             1,
             "request",
             [
-                new KeyValuePair<string, string>("compound", OfficialAppCompoundRequests.BootstrapCompoundJson),
+                new KeyValuePair<string, string>("compound", AppCompoundRequests.BootstrapCompoundJson),
                 new KeyValuePair<string, string>("stop_when_error", "false")
             ],
             cancellationToken);
 
-        await TryPostOfficialAppFormAsync("SYNO.Foto.Setting.Wizard", 1, "get", cancellationToken: cancellationToken);
-        await TryPostOfficialAppFormAsync("SYNO.Foto.Browse.Diff", 5, "get_version", cancellationToken: cancellationToken);
-        await TryPostOfficialAppFormAsync("SYNO.Foto.Browse.Category", 1, "get", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Setting.Wizard", 1, "get", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Browse.Diff", 5, "get_version", cancellationToken: cancellationToken);
+        await TryPostAppFormAsync("SYNO.Foto.Browse.Category", 1, "get", cancellationToken: cancellationToken);
 
-        await TryPostOfficialAppFormAsync(
+        await TryPostAppFormAsync(
             "SYNO.Foto.Browse.Album",
             4,
             "list",
@@ -887,70 +887,70 @@ public class SynologyClient
                 new KeyValuePair<string, string>("offset", "0"),
                 new KeyValuePair<string, string>("limit", "1000"),
                 new KeyValuePair<string, string>("category", "\"all\""),
-                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumListAdditional),
+                new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumListAdditional),
                 new KeyValuePair<string, string>("accept_language", "chs")
             ],
             cancellationToken);
     }
 
-    private static KeyValuePair<string, string>[] OfficialAlbumGetFields(int albumId) =>
+    private static KeyValuePair<string, string>[] AppAlbumGetFields(int albumId) =>
     [
         new KeyValuePair<string, string>("id", $"[{albumId}]"),
-        new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumGetAdditional),
+        new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumGetAdditional),
         new KeyValuePair<string, string>("accept_language", "chs")
     ];
 
-    private static KeyValuePair<string, string>[] OfficialAlbumItemListFields(int albumId, int offset = 0) =>
+    private static KeyValuePair<string, string>[] AppAlbumItemListFields(int albumId, int offset = 0) =>
     [
         new KeyValuePair<string, string>("offset", offset.ToString()),
         new KeyValuePair<string, string>("limit", "1000"),
         new KeyValuePair<string, string>("album_id", albumId.ToString()),
         new KeyValuePair<string, string>("sort_by", "\"takentime\""),
         new KeyValuePair<string, string>("sort_direction", "\"asc\""),
-        new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseItemListAdditional),
+        new KeyValuePair<string, string>("additional", AppCapture.BrowseItemListAdditional),
         new KeyValuePair<string, string>("geocoding_accept_language", "chs")
     ];
 
     /// <summary>SAZ 1450–1457：上传前预热（Item list → Album get × N → compound → Album get）。每相册每轮备份仅一次。</summary>
-    internal async Task WarmupOfficialAlbumBeforeUploadAsync(int albumId, CancellationToken cancellationToken = default)
+    internal async Task WarmupAppAlbumBeforeUploadAsync(int albumId, CancellationToken cancellationToken = default)
     {
         lock (_warmupLock)
         {
-            if (_warmedOfficialAlbumIds.Contains(albumId))
+            if (_warmedAppAlbumIds.Contains(albumId))
                 return;
         }
 
-        await TryPostOfficialAppFormAsync(
-            "SYNO.Foto.Browse.Item", 5, "list", OfficialAlbumItemListFields(albumId), cancellationToken);
+        await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Item", 5, "list", AppAlbumItemListFields(albumId), cancellationToken);
 
-        await TryPostOfficialAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", OfficialAlbumGetFields(albumId), cancellationToken);
-        await TryPostOfficialAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", OfficialAlbumGetFields(albumId), cancellationToken);
+        await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
+        await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
 
-        await TryPostOfficialAppFormAsync(
+        await TryPostAppFormAsync(
             "SYNO.Entry.Request",
             1,
             "request",
             [
-                new KeyValuePair<string, string>("compound", OfficialAppCompoundRequests.BootstrapCompoundJson),
+                new KeyValuePair<string, string>("compound", AppCompoundRequests.BootstrapCompoundJson),
                 new KeyValuePair<string, string>("stop_when_error", "false")
             ],
             cancellationToken);
 
-        await TryPostOfficialAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", OfficialAlbumGetFields(albumId), cancellationToken);
-        await TryPostOfficialAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", OfficialAlbumGetFields(albumId), cancellationToken);
+        await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
+        await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
 
         lock (_warmupLock)
-            _warmedOfficialAlbumIds.Add(albumId);
+            _warmedAppAlbumIds.Add(albumId);
     }
 
     /// <summary>小于此值的文件可在内存中缓冲后上传；更大文件应走流式 multipart。</summary>
     internal const int InMemoryUploadMaxBytes = 16 * 1024 * 1024;
 
-    private static async Task<byte[]> ReadOfficialUploadFileBytesAsync(
+    private static async Task<byte[]> ReadAppUploadFileBytesAsync(
         UploadStreamFactory openStream,
         long hintedSize,
         CancellationToken cancellationToken)
@@ -965,7 +965,7 @@ public class SynologyClient
         return ms.ToArray();
     }
 
-    private async Task<UploadResult> PostOfficialAlbumUploadFromStreamAsync(
+    private async Task<UploadResult> PostAppAlbumUploadFromStreamAsync(
         UploadStreamFactory openStream,
         string fileName,
         string mimeType,
@@ -975,39 +975,39 @@ public class SynologyClient
         IProgress<double>? uploadProgress,
         CancellationToken cancellationToken)
     {
-        EnsureOfficialAppDeviceCookie();
-        StripPhotosViewCookiesForOfficialUpload();
+        EnsureAppDeviceCookie();
+        StripPhotosViewCookiesForAppUpload();
 
         var mtimeSec = ToMtimeSeconds(mtimeUnix);
-        await WarmupOfficialAlbumBeforeUploadAsync(albumId, cancellationToken);
+        await WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
         var idCookie = GetSessionIdCookieValue();
         if (!string.IsNullOrEmpty(idCookie))
             Sid = idCookie;
 
-        var dateSec = ToOfficialAppDateSeconds(mtimeSec);
-        var (thumbXl, thumbSm) = await OfficialAppThumbnailGenerator.CreateForUploadAsync(
+        var dateSec = ToAppDateSeconds(mtimeSec);
+        var (thumbXl, thumbSm) = await AppThumbnailGenerator.CreateForUploadAsync(
             mimeType, openStream, cancellationToken);
 
         var fileBytesLength = await ResolveUploadFileBytesLengthAsync(openStream, fileSize, cancellationToken);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAlbumUploadUri());
-        request.Content = new OfficialAppMultipartUploadContent(
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildAppAlbumUploadUri());
+        request.Content = new AppMultipartUploadContent(
             fileName,
             albumId,
             mtimeSec,
             dateSec,
             thumbXl,
             thumbSm,
-            OfficialAppCapture.UploadRawDataJson,
+            AppCapture.UploadRawDataJson,
             openStream,
             fileBytesLength,
             uploadProgress);
-        ApplyOfficialAppAlbumUploadHeaders(request);
+        ApplyAppAlbumUploadHeaders(request);
 
-        var response = await SendOfficialAppRequestAsync(request, cancellationToken);
+        var response = await SendAppRequestAsync(request, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         if (!response.IsSuccessStatusCode)
         {
             throw new SynologyUploadException(
@@ -1017,7 +1017,7 @@ public class SynologyClient
         }
 
         var parsed = ParseUploadResponse(responseBody);
-        return await FinalizeOfficialAlbumUploadAsync(
+        return await FinalizeAppAlbumUploadAsync(
             parsed,
             albumId,
             fileName,
@@ -1040,7 +1040,7 @@ public class SynologyClient
         throw new InvalidOperationException("无法确定文件大小，无法计算 multipart Content-Length。");
     }
 
-    private async Task<UploadResult> PostOfficialAlbumUploadAsync(
+    private async Task<UploadResult> PostAppAlbumUploadAsync(
         byte[] fileBytes,
         string fileName,
         string mimeType,
@@ -1050,21 +1050,21 @@ public class SynologyClient
         IProgress<double>? uploadProgress,
         CancellationToken cancellationToken)
     {
-        EnsureOfficialAppDeviceCookie();
-        StripPhotosViewCookiesForOfficialUpload();
+        EnsureAppDeviceCookie();
+        StripPhotosViewCookiesForAppUpload();
 
         var mtimeSec = ToMtimeSeconds(mtimeUnix);
-        await WarmupOfficialAlbumBeforeUploadAsync(albumId, cancellationToken);
+        await WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
         var idCookie = GetSessionIdCookieValue();
         if (!string.IsNullOrEmpty(idCookie))
             Sid = idCookie;
 
-        var dateSec = ToOfficialAppDateSeconds(mtimeSec);
-        var (thumbXl, thumbSm) = await OfficialAppThumbnailGenerator.CreateForUploadFromBytesAsync(
+        var dateSec = ToAppDateSeconds(mtimeSec);
+        var (thumbXl, thumbSm) = await AppThumbnailGenerator.CreateForUploadFromBytesAsync(
             mimeType, fileBytes, cancellationToken);
 
-        var (body, boundary) = OfficialAppMultipartBuilder.BuildAlbumUpload(
+        var (body, boundary) = AppMultipartBuilder.BuildAlbumUpload(
             fileBytes,
             fileName,
             albumId,
@@ -1072,17 +1072,17 @@ public class SynologyClient
             dateSec,
             thumbXl,
             thumbSm,
-            OfficialAppCapture.UploadRawDataJson);
+            AppCapture.UploadRawDataJson);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildOfficialAlbumUploadUri());
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildAppAlbumUploadUri());
         request.Content = new ProgressByteArrayContent(body, uploadProgress);
         request.Content.Headers.TryAddWithoutValidation(
             "Content-Type", $"multipart/form-data; boundary={boundary}");
-        ApplyOfficialAppAlbumUploadHeaders(request);
+        ApplyAppAlbumUploadHeaders(request);
 
-        var response = await SendOfficialAppRequestAsync(request, cancellationToken);
+        var response = await SendAppRequestAsync(request, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        RefreshOfficialAppCookiesFromResponse(response);
+        RefreshAppCookiesFromResponse(response);
         if (!response.IsSuccessStatusCode)
         {
             throw new SynologyUploadException(
@@ -1092,7 +1092,7 @@ public class SynologyClient
         }
 
         var parsed = ParseUploadResponse(responseBody);
-        return await FinalizeOfficialAlbumUploadAsync(
+        return await FinalizeAppAlbumUploadAsync(
             parsed,
             albumId,
             fileName,
@@ -1106,7 +1106,7 @@ public class SynologyClient
         CancellationToken cancellationToken = default)
     {
         var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId, type = "photo" } });
-        return await TryPostOfficialAppFormAsync(
+        return await TryPostAppFormAsync(
             "SYNO.Foto.Browse.NormalAlbum",
             1,
             "add_item",
@@ -1117,7 +1117,7 @@ public class SynologyClient
             cancellationToken);
     }
 
-    private async Task<UploadResult> FinalizeOfficialAlbumUploadAsync(
+    private async Task<UploadResult> FinalizeAppAlbumUploadAsync(
         UploadResult result,
         int albumId,
         string fileName,

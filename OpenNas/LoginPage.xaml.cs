@@ -129,7 +129,7 @@ public partial class LoginPage : ContentPage
                 SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
 #endif
 
-            if (await SynologyManager.Client.Auth.LoginOfficialAppStyleAsync(username, password))
+            if (await SynologyManager.Client.Auth.LoginAppStyleAsync(username, password))
             {
                 Preferences.Default.Set(LastUsernameKey, username.Trim());
                 await _connection.OnLoginSuccessAsync();

@@ -12,7 +12,7 @@ internal static class AndroidUploadThumbnailFactory
 
     public static void Register()
     {
-        OfficialAppThumbnailGenerator.UploadThumbnailFromBytesFactory = CreateAsync;
+        AppThumbnailGenerator.UploadThumbnailFromBytesFactory = CreateAsync;
     }
 
     private static Task<(byte[] Xl, byte[] Sm)> CreateAsync(
@@ -30,14 +30,14 @@ internal static class AndroidUploadThumbnailFactory
     private static (byte[] Xl, byte[] Sm) CreateFromImageBytes(byte[] data)
     {
         if (!LooksLikeJpeg(data))
-            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
         try
         {
             var bounds = new BitmapFactory.Options { InJustDecodeBounds = true };
             BitmapFactory.DecodeByteArray(data, 0, data.Length, bounds);
             if (bounds.OutWidth <= 0 || bounds.OutHeight <= 0)
-                return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
             var decodeOpts = new BitmapFactory.Options
             {
@@ -45,7 +45,7 @@ internal static class AndroidUploadThumbnailFactory
             };
             var bitmap = BitmapFactory.DecodeByteArray(data, 0, data.Length, decodeOpts);
             if (bitmap is null)
-                return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
             var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
             var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
@@ -54,14 +54,14 @@ internal static class AndroidUploadThumbnailFactory
         }
         catch
         {
-            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
         }
     }
 
     private static (byte[] Xl, byte[] Sm) CreateFromVideoBytes(byte[] data)
     {
         if (data.Length == 0)
-            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
         var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"opennas_vid_{Guid.NewGuid():N}.bin");
         try
@@ -73,7 +73,7 @@ internal static class AndroidUploadThumbnailFactory
             var bitmap = retriever.GetFrameAtTime(1_000_000, (int)Option.ClosestSync)
                          ?? retriever.GetFrameAtTime(0, (int)Option.ClosestSync);
             if (bitmap is null)
-                return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
             var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
             var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
@@ -82,7 +82,7 @@ internal static class AndroidUploadThumbnailFactory
         }
         catch
         {
-            return (OfficialAppThumbnailGenerator.MinimalJpeg, OfficialAppThumbnailGenerator.MinimalJpeg);
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
         }
         finally
         {

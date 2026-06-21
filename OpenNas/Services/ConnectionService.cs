@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using NSynology;
 using NSynology.Diagnostics;
 using OpenNas.Helpers;
@@ -304,16 +304,16 @@ public class ConnectionService
             try
             {
                 SynologyManager.Init(baseUrl, sid, synoToken);
-                SynologyManager.Client.RestoreOfficialAppSessionCookies(sid);
+                SynologyManager.Client.RestoreAppSessionCookies(sid);
 
                 var storedDid = await SecureStorage.GetAsync(DidKey(ActiveProfile.Id));
                 if (!string.IsNullOrEmpty(storedDid))
-                    SynologyManager.Client.ApplyOfficialAppDeviceId(storedDid);
+                    SynologyManager.Client.ApplyAppDeviceId(storedDid);
 #if DEBUG
                 if (SynologyHttpTrace.IsEnabled)
                     SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
 #endif
-                var validity = await SynologyManager.Client.Auth.TryValidateOfficialAppSessionAsync();
+                var validity = await SynologyManager.Client.Auth.TryValidateAppSessionAsync();
                 if (validity == false)
                 {
                     await InvalidateStoredSessionAsync("NAS 会话已过期，请重新登录。");
@@ -327,7 +327,7 @@ public class ConnectionService
             {
                 AppLog.Warn("恢复 NAS 会话失败（保留本地会话，稍后重试）", ex);
                 SynologyManager.Init(baseUrl, sid, synoToken);
-                SynologyManager.Client.RestoreOfficialAppSessionCookies(sid);
+                SynologyManager.Client.RestoreAppSessionCookies(sid);
             }
             finally
             {

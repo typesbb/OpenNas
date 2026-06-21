@@ -4,7 +4,7 @@ using System.Text;
 namespace NSynology.Foto;
 
 /// <summary>流式 multipart 上传，通过预先计算 Content-Length 避免 HttpClient 整包缓冲。</summary>
-internal sealed class OfficialAppMultipartUploadContent : HttpContent
+internal sealed class AppMultipartUploadContent : HttpContent
 {
     private readonly string _boundary;
     private readonly string _fileName;
@@ -19,7 +19,7 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
     private readonly long _totalLength;
     private readonly IProgress<double>? _progress;
 
-    public OfficialAppMultipartUploadContent(
+    public AppMultipartUploadContent(
         string fileName,
         int albumId,
         long mtimeSec,
@@ -34,7 +34,7 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
         if (fileBytesLength < 0)
             throw new ArgumentOutOfRangeException(nameof(fileBytesLength));
 
-        _boundary = OfficialAppMultipartWriter.NewBoundary();
+        _boundary = AppMultipartWriter.NewBoundary();
         _fileName = fileName;
         _albumId = albumId;
         _mtimeSec = mtimeSec;
@@ -45,7 +45,7 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
         _openFileStream = openFileStream;
         _fileBytesLength = fileBytesLength;
         _progress = progress;
-        _totalLength = OfficialAppMultipartWriter.ComputeAlbumUploadLength(
+        _totalLength = AppMultipartWriter.ComputeAlbumUploadLength(
             _boundary,
             fileName,
             albumId,
@@ -67,7 +67,7 @@ internal sealed class OfficialAppMultipartUploadContent : HttpContent
     protected override async Task SerializeToStreamAsync(Stream target, TransportContext? context)
     {
         var tracker = _progress is null ? null : new MultipartWriteTracker(_totalLength, _progress);
-        await OfficialAppMultipartWriter.WriteAlbumUploadAsync(
+        await AppMultipartWriter.WriteAlbumUploadAsync(
             target,
             _boundary,
             _fileName,

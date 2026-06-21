@@ -12,10 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Foto\OfficialAppUploadRawData.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="NSynology.Tests" />
     <InternalsVisibleTo Include="OpenNas" />
   </ItemGroup>

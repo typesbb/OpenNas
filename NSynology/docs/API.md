@@ -26,11 +26,11 @@ sequenceDiagram
 | 预热 | `SYNO.Foto.Browse.Album` | 上传前访问目标相册，建立 Photos 应用上下文 |
 | 上传 | `SYNO.Foto.Upload.Item` **v5** `upload` | `album_id`、`require_thumb_version=true`、附带 `thumb_xl`/`thumb_sm` |
 
-上传入口：`FotoApi.UploadToAlbumAsync` → `SynologyClient.UploadItemOfficialAlbumAsync` → `PostOfficialAlbumUploadAsync`。
+上传入口：`FotoApi.UploadToAlbumAsync` → `SynologyClient.UploadItemAppAlbumAsync` → `PostAppAlbumUploadAsync`。
 
 ## Multipart 字段（SAZ 3017）
 
-手工拼装（`OfficialAppMultipartBuilder`），避免 `MultipartFormDataContent` 给文件 part 多加 `Content-Type` 导致 **108**。
+手工拼装（`AppMultipartBuilder`），避免 `MultipartFormDataContent` 给文件 part 多加 `Content-Type` 导致 **108**。
 
 | 字段 | 值 |
 |------|-----|
@@ -54,11 +54,11 @@ sequenceDiagram
 | 平台 | 实现 | 尺寸 |
 |------|------|------|
 | Android | `AndroidUploadThumbnailFactory`（`BitmapFactory`） | xl 最长边 1920，sm 最长边 360 |
-| 桌面 / 其他 | `OfficialAppThumbnailGenerator`（ImageSharp） | 同上 |
+| 桌面 / 其他 | `AppThumbnailGenerator`（ImageSharp） | 同上 |
 
 Android 在 `MauiProgram` 启动时注册 factory，避免 ImageSharp 在 Android 上阻塞主线程。
 
-上传前先 `ReadOfficialUploadFileBytesAsync` 读入完整文件，再生成缩略图，再拼装 multipart（单文件上限 96MB）。
+上传前先 `ReadAppUploadFileBytesAsync` 读入完整文件，再生成缩略图，再拼装 multipart（单文件上限 96MB）。
 
 ## 已解决问题
 
@@ -86,7 +86,7 @@ Android 在 `MauiProgram` 启动时注册 factory，避免 ImageSharp 在 Androi
 | 现象 | 原因 | 处理 |
 |------|------|------|
 | HTTP 119 | 登录带了 `enable_syno_token` 或 Cookie 会话损坏 | 用官方加密登录；确认 `id`/`did` 有效 |
-| JSON 108 | multipart 格式或会话不符合 Photos App | 对照 `OfficialAppMultipartBuilder`；确认 Cookie 认证 |
+| JSON 108 | multipart 格式或会话不符合 Photos App | 对照 `AppMultipartBuilder`；确认 Cookie 认证 |
 | JSON 105/160 | DSM 权限 | 为用户启用 Synology Photos 个人空间与上传权限 |
 | 缩略图灰块 | 上传了占位 `MinimalJpeg` | 确认 Android factory 已注册、log 中 xl/sm 大小正常 |
 
@@ -109,11 +109,11 @@ Android logcat 标签：`NSynology`、`OpenNasBackup`。
 | `NSynology/Auth/AuthApi.cs` | 加密登录、Cookie 会话 |
 | `NSynology/SynologyClient.cs` | 官方相册上传、预热、Cookie 管理 |
 | `NSynology/Foto/FotoApi.cs` | `UploadToAlbumAsync`、`WarmupAlbumForBackupAsync` |
-| `NSynology/Foto/OfficialAppMultipartBuilder.cs` | multipart 手工拼装 |
-| `NSynology/Foto/OfficialAppThumbnailGenerator.cs` | 缩略图生成 + 平台 factory 注入 |
+| `NSynology/Foto/AppMultipartBuilder.cs` | multipart 手工拼装 |
+| `NSynology/Foto/AppThumbnailGenerator.cs` | 缩略图生成 + 平台 factory 注入 |
 | `OpenNas/Platforms/Android/AndroidUploadThumbnailFactory.cs` | Android 缩略图 |
 | `OpenNas/Services/BackupEngine.cs` | 备份引擎（串行上传，`MaxParallelUploads = 1`） |
 
 ## 集成测试
 
-见 `NSynology.Tests/README.md`。核心用例：`OfficialAppAlbumUploadTests`（离线契约 + 真机 NAS 上传）。
+见 `NSynology.Tests/README.md`。核心用例：`AppAlbumUploadTests`（离线契约 + 真机 NAS 上传）。

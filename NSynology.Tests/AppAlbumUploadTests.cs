@@ -11,15 +11,15 @@ namespace NSynology.Tests;
 /// 对照官方 Synology Android App 抓包：<c>SYNO.Foto.Upload.Item v5 method=upload</c> + <c>album_id</c>。
 /// </summary>
 [Collection(NasIntegrationCollection.Name)]
-public sealed class OfficialAppAlbumUploadTests
+public sealed class AppAlbumUploadTests
 {
     private readonly ITestOutputHelper _output;
 
-    public OfficialAppAlbumUploadTests(ITestOutputHelper output) => _output = output;
+    public AppAlbumUploadTests(ITestOutputHelper output) => _output = output;
 
     /// <summary>离线：加密登录 JSON 中 data.sid 即 Cookie id，data.did 即 Cookie did。</summary>
     [Fact]
-    public void Official_app_login_response_maps_sid_to_id_cookie()
+    public void App_login_response_maps_sid_to_id_cookie()
     {
         const string body =
             """{"data":{"did":"NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw","is_portal_port":false,"sid":"pAKVbw9oBEpMD5oZNQ9Y-gipUvYnaKBBcO6O1jYMrVoTeRZ4mQv1NFryo1iypDKBcCsMESe8eHIj66za8bFOAM"},"success":true}""";
@@ -30,14 +30,14 @@ public sealed class OfficialAppAlbumUploadTests
         Assert.Equal("NoRE8tXwJKrq_dSzkRVjkvsVEN9Mkn1xAJLSKUlsaLHK8ppAe3URrQSiXZhBgqkKihIaavqTwAG3ZqLKMaGkNw", auth.Did);
 
         var client = new SynologyClient("https://192.168.0.2:5001/");
-        client.ApplyOfficialAppAuthResult(auth);
+        client.ApplyAppAuthResult(auth);
         Assert.Equal(auth.Sid, client.GetSessionIdCookieValue());
         Assert.Equal(auth.Did, client.GetDidCookieValue());
     }
 
     /// <summary>离线契约：URL 与 multipart 字段与官方抓包一致（不访问 NAS）。</summary>
     [Fact]
-    public async Task Official_app_album_upload_request_matches_mobile_capture_contract()
+    public async Task App_album_upload_request_matches_mobile_capture_contract()
     {
         const int albumId = 15;
         const string fileName = "capture-contract.jpg";
@@ -50,10 +50,10 @@ public sealed class OfficialAppAlbumUploadTests
             SynoToken = "main-syno-token",
             PhotosDeviceId = "capture-device-id"
         };
-        client.EnsureOfficialAppDeviceCookie();
+        client.EnsureAppDeviceCookie();
 
         var jpegBytes = MinimalJpegBytes();
-        var result = await client.UploadItemOfficialAlbumFromBytesAsync(
+        var result = await client.UploadItemAppAlbumFromBytesAsync(
             jpegBytes,
             fileName,
             "image/jpeg",
@@ -105,24 +105,24 @@ public sealed class OfficialAppAlbumUploadTests
 
     /// <summary>集成：仅主 DSM 会话（无 Photos 子会话 / _SSID）上传到 NAS 相册。</summary>
     [Fact]
-    public async Task Official_app_album_upload_v5_succeeds_on_real_nas_without_photos_subsession()
+    public async Task App_album_upload_v5_succeeds_on_real_nas_without_photos_subsession()
     {
         var cfg = NasIntegrationSettings.Load();
         var imagePath = cfg.PickLocalImagePath();
-        var fileName = $"opennas-official-album-{DateTime.UtcNow:yyyyMMddHHmmss}.jpg";
+        var fileName = $"opennas-app-album-{DateTime.UtcNow:yyyyMMddHHmmss}.jpg";
 
         var client = new SynologyClient(cfg.BaseUrl);
         if (!string.IsNullOrWhiteSpace(cfg.PhotosDeviceId))
             client.PhotosDeviceId = cfg.PhotosDeviceId.Trim();
 
-        Assert.True(await client.Auth.LoginOfficialAppStyleAsync(cfg.Username, cfg.Password),
+        Assert.True(await client.Auth.LoginAppStyleAsync(cfg.Username, cfg.Password),
                 "官方相册上传应使用 SynologyPhotos 加密登录");
 
             _output.WriteLine(
-                $"official-login id={client.GetSessionIdCookieValue()} sid={client.Sid} " +
+                $"app-login id={client.GetSessionIdCookieValue()} sid={client.Sid} " +
                 $"did={client.GetDidCookieValue()} match={client.GetSessionIdCookieValue() == client.Sid}");
 
-            var albums = (await client.Foto.ListOfficialAlbumsAsync(0, 50)).ToList();
+            var albums = (await client.Foto.ListAppAlbumsAsync(0, 50)).ToList();
             var album = albums.FirstOrDefault(a =>
                 string.Equals(a.Name, cfg.RemoteAlbumName, StringComparison.OrdinalIgnoreCase));
             Assert.NotNull(album);
@@ -134,7 +134,7 @@ public sealed class OfficialAppAlbumUploadTests
             UploadResult result;
             try
             {
-                result = await client.UploadItemOfficialAlbumAsync(
+                result = await client.UploadItemAppAlbumAsync(
                     ct => Task.FromResult<Stream>(File.OpenRead(imagePath)),
                     fileName,
                     GuessMime(Path.GetExtension(imagePath)),

@@ -5,12 +5,12 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
     private readonly SynologyClient _client = synologyClient;
 
     /// <summary>SAZ 1421：官方 App 列相册（Cookie + POST form，无 <c>_sid</c>）。</summary>
-    public async Task<IEnumerable<Album>> ListOfficialAlbumsAsync(
+    public async Task<IEnumerable<Album>> ListAppAlbumsAsync(
         int offset,
         int limit,
         CancellationToken cancellationToken = default)
     {
-        var parsed = await _client.PostOfficialAppFormAsync<ListObject<Album>>(
+        var parsed = await _client.PostAppFormAsync<ListObject<Album>>(
             "SYNO.Foto.Browse.Album",
             4,
             "list",
@@ -18,7 +18,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
                 new KeyValuePair<string, string>("offset", offset.ToString()),
                 new KeyValuePair<string, string>("limit", limit.ToString()),
                 new KeyValuePair<string, string>("category", "\"all\""),
-                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseAlbumListAdditional),
+                new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumListAdditional),
                 new KeyValuePair<string, string>("accept_language", "chs")
             ],
             cancellationToken);
@@ -26,13 +26,13 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
     }
 
     public async Task<IEnumerable<Album>> GetAlbumsAsync(int offset, int limit, CancellationToken cancellationToken = default) =>
-        await ListOfficialAlbumsAsync(offset, limit, cancellationToken);
+        await ListAppAlbumsAsync(offset, limit, cancellationToken);
 
-    public async Task<IEnumerable<Album>> GetOfficialAlbumsAsync(
+    public async Task<IEnumerable<Album>> GetAppAlbumsAsync(
         int offset,
         int limit,
         CancellationToken cancellationToken = default) =>
-        await ListOfficialAlbumsAsync(offset, limit, cancellationToken);
+        await ListAppAlbumsAsync(offset, limit, cancellationToken);
 
     public async Task<Album> CreateNormalAlbumAsync(string name, CancellationToken cancellationToken = default)
     {
@@ -62,7 +62,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         var apiSortBy = MapSortField(sortField);
         var direction = sortDescending ? "desc" : "asc";
 
-        var parsed = await _client.PostOfficialAppFormAsync<ListObject<Photo>>(
+        var parsed = await _client.PostAppFormAsync<ListObject<Photo>>(
             "SYNO.Foto.Browse.Item",
             5,
             "list",
@@ -72,7 +72,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
                 new KeyValuePair<string, string>("album_id", album.Id.ToString()),
                 new KeyValuePair<string, string>("sort_by", $"\"{apiSortBy}\""),
                 new KeyValuePair<string, string>("sort_direction", $"\"{direction}\""),
-                new KeyValuePair<string, string>("additional", OfficialAppCapture.BrowseItemListAdditional),
+                new KeyValuePair<string, string>("additional", AppCapture.BrowseItemListAdditional),
                 new KeyValuePair<string, string>("geocoding_accept_language", "chs")
             ],
             cancellationToken);
@@ -101,7 +101,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
 
     /// <summary>备份开始前按相册预热官方 App 会话（每相册每轮仅一次）。</summary>
     public Task WarmupAlbumForBackupAsync(int albumId, CancellationToken cancellationToken = default) =>
-        _client.WarmupOfficialAlbumBeforeUploadAsync(albumId, cancellationToken);
+        _client.WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
     /// <summary>
     /// 仅官方 Synology Photos Android App 抓包路径：<c>SYNO.Foto.Upload.Item v5 upload</c> + <c>album_id</c>。
@@ -116,7 +116,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         IProgress<double>? uploadProgress = null,
         string? remoteAlbumName = null,
         CancellationToken cancellationToken = default) =>
-        _client.UploadItemOfficialAlbumAsync(
+        _client.UploadItemAppAlbumAsync(
             openStream,
             fileName,
             mimeType,
@@ -135,7 +135,7 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         long dateModifiedUnix = 0,
         IProgress<double>? uploadProgress = null,
         CancellationToken cancellationToken = default) =>
-        _client.UploadItemOfficialAlbumFromBytesAsync(
+        _client.UploadItemAppAlbumFromBytesAsync(
             fileBytes,
             fileName,
             mimeType,

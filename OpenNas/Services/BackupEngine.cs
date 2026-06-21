@@ -136,7 +136,7 @@ public class BackupEngine
                 throw new InvalidOperationException("请先登录 NAS（会话已过期时请从「我的」退出后重新登录）。");
 
 #if ANDROID
-            SynologyManager.Client.PrepareOfficialAppUploadSession();
+            SynologyManager.Client.PrepareAppUploadSession();
 #endif
             BackupLog.Info($"备份开始 retryFailed={_retryFailedOnly}");
 

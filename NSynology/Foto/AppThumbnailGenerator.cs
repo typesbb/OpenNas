@@ -5,7 +5,7 @@ using SixLabors.ImageSharp.Processing;
 namespace NSynology.Foto;
 
 /// <summary>按官方 App 上传要求从原图生成 <c>thumb_xl</c> / <c>thumb_sm</c> JPEG。</summary>
-internal static class OfficialAppThumbnailGenerator
+internal static class AppThumbnailGenerator
 {
     private const int XlMaxEdge = 1920;
     private const int SmMaxEdge = 360;

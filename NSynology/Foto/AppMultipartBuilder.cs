@@ -3,7 +3,7 @@ using System.Text;
 namespace NSynology.Foto;
 
 /// <summary>按 SAZ 3017 手工拼装 multipart（避免 <see cref="MultipartFormDataContent"/> 额外 Content-Type）。</summary>
-internal static class OfficialAppMultipartBuilder
+internal static class AppMultipartBuilder
 {
     public static (byte[] Body, string Boundary) BuildAlbumUpload(
         byte[] fileBytes,
