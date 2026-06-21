@@ -899,9 +899,9 @@ public class SynologyClient
         new KeyValuePair<string, string>("accept_language", "chs")
     ];
 
-    private static KeyValuePair<string, string>[] OfficialAlbumItemListFields(int albumId) =>
+    private static KeyValuePair<string, string>[] OfficialAlbumItemListFields(int albumId, int offset = 0) =>
     [
-        new KeyValuePair<string, string>("offset", "0"),
+        new KeyValuePair<string, string>("offset", offset.ToString()),
         new KeyValuePair<string, string>("limit", "1000"),
         new KeyValuePair<string, string>("album_id", albumId.ToString()),
         new KeyValuePair<string, string>("sort_by", "\"takentime\""),
@@ -1099,19 +1099,6 @@ public class SynologyClient
             cancellationToken);
     }
 
-    internal async Task<IReadOnlyList<FotoItemSummary>> ListOfficialAlbumItemsAsync(
-        int albumId,
-        CancellationToken cancellationToken = default)
-    {
-        var parsed = await PostOfficialAppFormAsync<ListObject<FotoItemSummary>>(
-            "SYNO.Foto.Browse.Item",
-            5,
-            "list",
-            OfficialAlbumItemListFields(albumId),
-            cancellationToken);
-        return parsed?.List?.ToList() ?? [];
-    }
-
     internal async Task<bool> TryAddPhotoToNormalAlbumAsync(
         int albumId,
         int photoId,
@@ -1129,20 +1116,6 @@ public class SynologyClient
             cancellationToken);
     }
 
-    private async Task<bool> IsPhotoInOfficialAlbumAsync(
-        int albumId,
-        int photoId,
-        string fileName,
-        long fileSize,
-        CancellationToken cancellationToken)
-    {
-        var items = await ListOfficialAlbumItemsAsync(albumId, cancellationToken);
-        return items.Any(i =>
-            i.Id == photoId
-            || (string.Equals(i.Filename, fileName, StringComparison.Ordinal)
-                && i.FileSize == fileSize));
-    }
-
     private async Task<UploadResult> FinalizeOfficialAlbumUploadAsync(
         UploadResult result,
         int albumId,
@@ -1150,45 +1123,23 @@ public class SynologyClient
         long fileSize,
         CancellationToken cancellationToken)
     {
-        if (!result.Success)
+        if (!result.Success || result.PhotoId <= 0)
         {
             result.VerifiedOnServer = false;
             return result;
         }
 
-        if (result.PhotoId <= 0)
-        {
-            result.VerifiedOnServer = false;
-            return result;
-        }
-
-        if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
-        {
-            result.VerifiedOnServer = true;
-            result.SkippedAsDuplicate = !string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase);
-            return result;
-        }
-
+        // Upload response already tells us if it's a duplicate
         if (!string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase))
         {
-            await TryAddPhotoToNormalAlbumAsync(albumId, result.PhotoId, cancellationToken);
-            if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
-            {
-                result.VerifiedOnServer = true;
-                result.SkippedAsDuplicate = true;
-                return result;
-            }
-        }
-
-        await Task.Delay(800, cancellationToken);
-        if (await IsPhotoInOfficialAlbumAsync(albumId, result.PhotoId, fileName, fileSize, cancellationToken))
-        {
             result.VerifiedOnServer = true;
-            result.SkippedAsDuplicate = !string.Equals(result.Action, "new", StringComparison.OrdinalIgnoreCase);
+            result.SkippedAsDuplicate = true;
             return result;
         }
 
-        result.VerifiedOnServer = false;
+        // New upload: add to album and verify
+        result.VerifiedOnServer = await TryAddPhotoToNormalAlbumAsync(
+            albumId, result.PhotoId, cancellationToken);
         return result;
     }
 

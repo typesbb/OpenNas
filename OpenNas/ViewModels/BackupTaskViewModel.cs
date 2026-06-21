@@ -20,7 +20,6 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     private bool _wasRunning;
     private bool _isRunning;
     private bool _isPaused;
-    private bool _updateScheduled;
     private bool _lastKnownPaused;
     private BackupSummarySnapshot _lastSummary;
     private bool _rulesLoaded;
@@ -257,13 +256,8 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnEngineProgressChanged(object? sender, EventArgs e)
     {
-        if (_updateScheduled)
-            return;
-
-        _updateScheduled = true;
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            _updateScheduled = false;
             UpdateFromEngine();
         });
     }

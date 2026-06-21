@@ -558,6 +558,7 @@ public class BackupEngine
             await _db.UpsertRecordAsync(record);
 
             Progress.IncrementCompleted();
+            Notify(force: true);
             BackupLog.Info(
                 $"上传成功 {item.DisplayName} photoId={result.PhotoId} action={result.Action} skipped={result.SkippedAsDuplicate}");
 
@@ -573,6 +574,7 @@ public class BackupEngine
             record.LastError = "会话已过期，请重新登录";
             await _db.UpsertRecordAsync(record);
             Progress.IncrementFailed();
+            Notify(force: true);
             lock (Progress) { Progress.LastError = record.LastError; }
             BackupLog.Warn($"会话错误 {item.DisplayName}: {ex.Message}");
         }
@@ -582,6 +584,7 @@ public class BackupEngine
             record.LastError = "上传已取消";
             await _db.UpsertRecordAsync(record);
             Progress.IncrementFailed();
+            Notify(force: true);
             BackupLog.Warn($"上传取消 {item.DisplayName}: {ex.Message}");
         }
         catch (Exception ex)
@@ -592,6 +595,7 @@ public class BackupEngine
                 : FormatUploadError(ex);
             await _db.UpsertRecordAsync(record);
             Progress.IncrementFailed();
+            Notify(force: true);
             lock (Progress) { Progress.LastError = record.LastError; }
             BackupLog.Warn($"上传失败 {item.DisplayName}: {record.LastError}");
         }
