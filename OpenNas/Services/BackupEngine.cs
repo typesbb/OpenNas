@@ -114,7 +114,7 @@ public class BackupEngine
 
         if (!await _runLock.WaitAsync(0))
         {
-            BackupLog.Warn("备份已在运行，忽略重复启动");
+            BackupLog.Info("备份已在运行，忽略重复启动");
             return;
         }
 
@@ -176,9 +176,7 @@ public class BackupEngine
             Notify(force: true);
 
             await RunSlotWorkersAsync(work, mediaService, token);
-
-            BackupLog.Info(
-                $"备份完成 合计={Progress.Total} 成功={Progress.Completed} 失败={Progress.Failed}");
+            BackupLog.Info($"备份完成 合计={Progress.Total} 成功={Progress.Completed} 失败={Progress.Failed}");
             await CleanupLocalDeletedAsync(activeRuleIds);
             await FlushPendingDeletesAsync();
             if (Progress.Failed > 0)
@@ -688,7 +686,7 @@ public class BackupEngine
             record.Status = BackupItemStatus.DeleteFailed;
 
             await _db.UpsertRecordAsync(record);
-            BackupLog.Warn($"跳过删除（需先在「更多 → 连接设置」确认风险说明）{item.DisplayName}");
+            BackupLog.Info($"跳过删除（需先在「更多 → 连接设置」确认风险说明）{item.DisplayName}");
 
             return;
 
@@ -756,7 +754,7 @@ public class BackupEngine
         }
         catch (Exception ex)
         {
-            BackupLog.Warn($"无法通过 ContentResolver 获取文件大小: {ex.Message}");
+            BackupLog.Info($"无法通过 ContentResolver 获取文件大小: {ex.Message}");
         }
 
         return Task.FromResult(0L);

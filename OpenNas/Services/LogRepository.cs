@@ -71,6 +71,30 @@ public class LogRepository
         });
     }
 
+
+    public void AppendWarning(string message)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var db = await GetDbAsync();
+                var entry = new LogEntry
+                {
+                    Timestamp = DateTime.UtcNow,
+                    Category = "警告",
+                    Message = message
+                };
+                await db.InsertAsync(entry);
+                await TrimIfNeededAsync(db);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LogRepository] AppendWarning 失败: {ex}");
+            }
+        });
+    }
+
     public void AppendError(string message, Exception? ex)
     {
         _ = Task.Run(async () =>

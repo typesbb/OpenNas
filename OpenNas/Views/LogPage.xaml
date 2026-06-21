@@ -58,6 +58,11 @@
                                              Value="True">
                                     <Setter Property="BackgroundColor" Value="{StaticResource Error}" />
                                 </DataTrigger>
+                                <DataTrigger TargetType="Border"
+                                             Binding="{Binding IsWarning}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource Warning}" />
+                                </DataTrigger>
                             </Border.Triggers>
                             <Label Text="{Binding Category}"
                                    FontSize="11"

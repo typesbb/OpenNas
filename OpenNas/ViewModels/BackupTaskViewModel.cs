@@ -295,10 +295,17 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
         {
             ClearAllRuleQueues();
             _ = RefreshRulesAfterBackupAsync();
+            if (p.Failed > 0)
+            {
+                _ = UiFeedback.ToastAsync(
+                    $"备份完成：{p.Completed}/{p.Total} 成功，{p.Failed} 失败",
+                    CommunityToolkit.Maui.Core.ToastDuration.Long);
+            }
+            else if (p.Total > 0)
+            {
+                _ = UiFeedback.ToastAsync($"备份完成：{p.Total} 项全部成功");
+            }
         }
-        else if (force)
-            SyncQueuesFromEngine();
-
         _wasRunning = p.IsRunning;
     }
 

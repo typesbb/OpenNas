@@ -22,4 +22,5 @@ public class LogEntry
     public string TimeText => Timestamp.ToLocalTime().ToString("MM-dd HH:mm:ss");
 
     public bool IsError => Category == "异常";
+    public bool IsWarning => Category == "警告";
 }

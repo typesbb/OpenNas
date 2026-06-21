@@ -58,7 +58,13 @@
                                            LineBreakMode="TailTruncation" />
                                     <Label Text="{Binding MetaLine}"
                                            Style="{StaticResource MicroCaption}"
-                                           LineBreakMode="TailTruncation" />
+                                           LineBreakMode="TailTruncation">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding HasFailures}" Value="True">
+                                                <Setter Property="TextColor" Value="{StaticResource Error}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                 </VerticalStackLayout>
                                 <Label Grid.Column="1"
                                        Text="{Binding ProgressPercentText}"

@@ -38,7 +38,8 @@ public class BackupRuleItemViewModel : INotifyPropertyChanged
     public string SummaryLine => $"{Rule.LocalAlbumName} → {Rule.RemoteAlbumName}";
 
     public string MetaLine =>
-        $"{(Rule.Enabled ? "已启用" : "已停用")} · {(Rule.DeleteAfterBackup ? "备份完成后删本地" : "保留本地")}";
+        $"{(Rule.Enabled ? "已启用" : "已停用")} · {(Rule.DeleteAfterBackup ? "备份完成后删本地" : "保留本地")}{(FailedCount > 0 ? $" · 失败{FailedCount}" : "")}";
+
 
     public int FailedCount
     {
@@ -48,12 +49,16 @@ public class BackupRuleItemViewModel : INotifyPropertyChanged
             if (_failedCount == value) return;
             _failedCount = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(MetaLine));
+            OnPropertyChanged(nameof(HasFailures));
             OnPropertyChanged(nameof(ShowRetry));
         }
     }
 
     public bool ShowRetry => FailedCount > 0 && !_isActiveRun;
 
+
+    public bool HasFailures => FailedCount > 0;
     public double Progress
     {
         get => _progress;

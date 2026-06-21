@@ -17,7 +17,7 @@ internal static class BackupLog
 #if ANDROID
         global::Android.Util.Log.Warn(Tag, message);
 #endif
-        LogRepository.Instance.AppendOperation(message);
+        LogRepository.Instance.AppendWarning(message);
     }
 
     public static void Error(string message, Exception? ex = null)
