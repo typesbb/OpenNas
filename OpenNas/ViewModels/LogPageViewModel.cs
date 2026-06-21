@@ -56,7 +56,7 @@ public class LogPageViewModel : INotifyPropertyChanged
         IsLoading = true;
         try
         {
-            var page = await _repo.GetPageAsync(_loadedCount, PageSize);
+            var page = await _repo.GetPageLiteAsync(_loadedCount, PageSize);
             foreach (var entry in page)
                 Entries.Add(entry);
             _loadedCount += page.Count;
@@ -75,6 +75,18 @@ public class LogPageViewModel : INotifyPropertyChanged
     private async Task RefreshAsync()
     {
         await LoadInitialAsync();
+    }
+
+    public async Task LoadEntryDetailAsync(LogEntry entry)
+    {
+        if (entry.StackTrace != null) return;
+        if (!entry.IsError) return;
+        var full = await _repo.GetEntryAsync(entry.Id);
+        if (full is not null)
+        {
+            entry.StackTrace = full.StackTrace;
+            entry.ExceptionType = full.ExceptionType;
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

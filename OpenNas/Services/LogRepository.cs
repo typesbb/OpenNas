@@ -15,6 +15,7 @@ public class LogRepository
 
     private const int MaxEntries = 200;
     private const int TrimThreshold = 300;
+    private int _writeCount;
 
     private LogRepository()
     {
@@ -31,6 +32,8 @@ public class LogRepository
             _dbPath = Path.Combine(FileSystem.AppDataDirectory, "opennas_log.db");
             _db = new SQLiteAsyncConnection(_dbPath);
             await _db.CreateTableAsync<LogEntry>();
+            await _db.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS idx_log_timestamp ON log_entries(\"Timestamp\")");
             _initialized = true;
         }
         finally
@@ -103,6 +106,20 @@ public class LogRepository
             .ToListAsync();
     }
 
+    public async Task<List<LogEntry>> GetPageLiteAsync(int skip, int take)
+    {
+        var db = await GetDbAsync();
+        const string sql =
+            "SELECT Id, Timestamp, Category, Message, ExceptionType FROM log_entries ORDER BY Id DESC LIMIT ? OFFSET ?";
+        return await db.QueryAsync<LogEntry>(sql, take, skip);
+    }
+
+    public async Task<LogEntry?> GetEntryAsync(int id)
+    {
+        var db = await GetDbAsync();
+        return await db.FindAsync<LogEntry>(id);
+    }
+
     public async Task<int> GetCountAsync()
     {
         var db = await GetDbAsync();
@@ -115,9 +132,13 @@ public class LogRepository
 
     private async Task TrimIfNeededAsync(SQLiteAsyncConnection db)
     {
+        if (Interlocked.Increment(ref _writeCount) % 10 != 0)
+            return;
+
         var count = await db.Table<LogEntry>().CountAsync();
         if (count <= TrimThreshold) return;
         var excess = count - MaxEntries;
+        _writeCount = 0;
         await db.ExecuteAsync(
             "DELETE FROM log_entries WHERE Id IN (SELECT Id FROM log_entries ORDER BY Id ASC LIMIT ?)",
             excess);

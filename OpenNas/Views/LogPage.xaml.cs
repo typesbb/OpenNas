@@ -1,6 +1,7 @@
 using OpenNas.Core.Data;
 using OpenNas.Services;
 using OpenNas.ViewModels;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
 
 namespace OpenNas.Views;
 
@@ -18,6 +19,8 @@ public partial class LogPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // 让出 UI 线程先完成页面渲染，再开始加载数据
+        await Task.Yield();
         await _vm.LoadInitialAsync();
     }
 
@@ -28,14 +31,19 @@ public partial class LogPage : ContentPage
 
         if (entry.IsError)
         {
+            await _vm.LoadEntryDetailAsync(entry);
             var detail = entry.ExceptionType != null
                 ? $"{entry.Message}\n\n{entry.ExceptionType}\n{entry.StackTrace ?? ""}"
                 : entry.Message;
-            await DisplayAlertAsync("异常详情", detail, "关闭");
+            var copy = await DisplayAlertAsync("异常详情", detail, "复制", "关闭");
+            if (copy)
+                await Clipboard.Default.SetTextAsync(detail);
         }
         else
         {
-            await DisplayAlertAsync("操作详情", entry.Message, "关闭");
+            var copy = await DisplayAlertAsync("操作详情", entry.Message, "复制", "关闭");
+            if (copy)
+                await Clipboard.Default.SetTextAsync(entry.Message);
         }
     }
 

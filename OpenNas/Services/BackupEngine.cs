@@ -362,11 +362,11 @@ public class BackupEngine
                 }
                 catch (Exception ex) when (IsSessionError(ex))
                 {
-                    BackupLog.Warn($"会话错误 {workItem.Media.DisplayName}: {ex.Message}");
+                    BackupLog.Error($"{workItem.Media.DisplayName} 处理失败: 会话错误", ex);
                 }
                 catch (Exception ex)
                 {
-                    BackupLog.Warn($"处理失败 {workItem.Media.DisplayName}: {ex.Message}");
+                    BackupLog.Error($"{workItem.Media.DisplayName} 处理失败", ex);
                     Progress.IncrementFailed();
                 }
                 finally
@@ -568,7 +568,7 @@ public class BackupEngine
             Progress.IncrementFailed();
             Notify(force: true);
             lock (Progress) { Progress.LastError = record.LastError; }
-            BackupLog.Warn($"会话错误 {item.DisplayName}: {ex.Message}");
+            BackupLog.Error($"{item.DisplayName} 上传失败: 会话错误", ex);
         }
         catch (OperationCanceledException ex)
         {
@@ -589,7 +589,7 @@ public class BackupEngine
             Progress.IncrementFailed();
             Notify(force: true);
             lock (Progress) { Progress.LastError = record.LastError; }
-            BackupLog.Warn($"上传失败 {item.DisplayName}: {record.LastError}");
+            BackupLog.Error($"{item.DisplayName} 上传失败", ex);
         }
     }
 

@@ -796,15 +796,8 @@ public class SynologyClient
         IEnumerable<KeyValuePair<string, string>>? extraFields = null,
         CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await PostAppFormAsync(api, version, method, extraFields, cancellationToken);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        var result = await PostAppFormAsync(api, version, method, extraFields, cancellationToken);
+        return result.Success;
     }
 
     internal async Task<SynologyResponse<object>> PostAppFormAsync(
@@ -1087,7 +1080,7 @@ public class SynologyClient
         int photoId,
         CancellationToken cancellationToken = default)
     {
-        var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId, type = "photo" } });
+        var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId } });
         return await TryPostAppFormAsync(
             "SYNO.Foto.Browse.NormalAlbum",
             GetMaxApiVersion("SYNO.Foto.Browse.NormalAlbum", 1),
