@@ -36,7 +36,6 @@ public static class AlbumPhotoUpload
         if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
             throw new InvalidOperationException("未连接 NAS，请重新登录。");
 
-        await SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(album.Id, cancellationToken);
 
         var total = files.Count;
         var uploaded = 0;

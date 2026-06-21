@@ -6,8 +6,6 @@ internal static class AppCapture
 {    public const string BrowseAlbumListAdditional =
         "[\"thumbnail\",\"sharing_info\",\"access_permission\",\"provider_count\"]";
 
-    public const string BrowseAlbumGetAdditional =
-        "[\"thumbnail\",\"sharing_info\",\"access_permission\",\"condition_object\",\"provider_count\"]";
 
     /// <summary>Session 3006 <c>Browse.Item list</c>（上传前预热）。</summary>
     public const string BrowseItemListAdditional =

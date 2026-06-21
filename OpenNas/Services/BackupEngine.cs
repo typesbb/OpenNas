@@ -156,14 +156,6 @@ public class BackupEngine
                     BackupLog.Info("没有待备份的新文件。");
             }
 
-#if ANDROID
-            foreach (var albumId in work.Select(w => w.Rule.RemoteAlbumId).Distinct())
-            {
-                token.ThrowIfCancellationRequested();
-                BackupLog.Info($"预热 NAS 相册 id={albumId}…");
-                await SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(albumId, token);
-            }
-#endif
 
             Progress.Total = work.Count + previouslyCompleted;
 

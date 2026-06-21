@@ -99,9 +99,6 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         return _client.BuildApiUri(_client.BuildAuthenticatedApiUrl(url)).AbsoluteUri;
     }
 
-    /// <summary>备份开始前按相册预热官方 App 会话（每相册每轮仅一次）。</summary>
-    public Task WarmupAlbumForBackupAsync(int albumId, CancellationToken cancellationToken = default) =>
-        _client.WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
     /// <summary>
     /// 仅官方 Synology Photos Android App 抓包路径：<c>SYNO.Foto.Upload.Item v5 upload</c> + <c>album_id</c>。

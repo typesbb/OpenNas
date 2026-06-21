@@ -35,9 +35,6 @@ public class SynologyClient
     /// <summary>与 Cookie <c>id</c> 匹配的 CSRF token（Browse API 用）。</summary>
     internal string? CookieSessionSynoToken { get; set; }
 
-    private readonly HashSet<int> _warmedAppAlbumIds = new();
-    private readonly object _warmupLock = new();
-
     public AuthApi Auth { get; set; }
     public FotoApi Foto { get; set; }
     public FileStationApi FileStation { get; set; }
@@ -601,6 +598,7 @@ public class SynologyClient
             throw new ArgumentOutOfRangeException(nameof(albumId));
 
         await EnsureSidAsync();
+
         return await PostAppAlbumUploadFromStreamAsync(
             openStream,
             fileName,
@@ -645,8 +643,6 @@ public class SynologyClient
     {
         RestorePersistedPhotosDeviceId();
         EnsureAppDeviceCookie();
-        lock (_warmupLock)
-            _warmedAppAlbumIds.Clear();
     }
 
     /// <summary>官方 App 用 Cookie <c>did</c> 标识设备；登录后由 NAS 下发，勿覆盖。</summary>
@@ -893,60 +889,6 @@ public class SynologyClient
             cancellationToken);
     }
 
-    private static KeyValuePair<string, string>[] AppAlbumGetFields(int albumId) =>
-    [
-        new KeyValuePair<string, string>("id", $"[{albumId}]"),
-        new KeyValuePair<string, string>("additional", AppCapture.BrowseAlbumGetAdditional),
-        new KeyValuePair<string, string>("accept_language", "chs")
-    ];
-
-    private static KeyValuePair<string, string>[] AppAlbumItemListFields(int albumId, int offset = 0) =>
-    [
-        new KeyValuePair<string, string>("offset", offset.ToString()),
-        new KeyValuePair<string, string>("limit", "1000"),
-        new KeyValuePair<string, string>("album_id", albumId.ToString()),
-        new KeyValuePair<string, string>("sort_by", "\"takentime\""),
-        new KeyValuePair<string, string>("sort_direction", "\"asc\""),
-        new KeyValuePair<string, string>("additional", AppCapture.BrowseItemListAdditional),
-        new KeyValuePair<string, string>("geocoding_accept_language", "chs")
-    ];
-
-    /// <summary>SAZ 1450–1457：上传前预热（Item list → Album get × N → compound → Album get）。每相册每轮备份仅一次。</summary>
-    internal async Task WarmupAppAlbumBeforeUploadAsync(int albumId, CancellationToken cancellationToken = default)
-    {
-        lock (_warmupLock)
-        {
-            if (_warmedAppAlbumIds.Contains(albumId))
-                return;
-        }
-
-        await TryPostAppFormAsync(
-            "SYNO.Foto.Browse.Item", 5, "list", AppAlbumItemListFields(albumId), cancellationToken);
-
-        await TryPostAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
-        await TryPostAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
-
-        await TryPostAppFormAsync(
-            "SYNO.Entry.Request",
-            1,
-            "request",
-            [
-                new KeyValuePair<string, string>("compound", AppCompoundRequests.BootstrapCompoundJson),
-                new KeyValuePair<string, string>("stop_when_error", "false")
-            ],
-            cancellationToken);
-
-        await TryPostAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
-        await TryPostAppFormAsync(
-            "SYNO.Foto.Browse.Album", 4, "get", AppAlbumGetFields(albumId), cancellationToken);
-
-        lock (_warmupLock)
-            _warmedAppAlbumIds.Add(albumId);
-    }
-
     /// <summary>小于此值的文件可在内存中缓冲后上传；更大文件应走流式 multipart。</summary>
     internal const int InMemoryUploadMaxBytes = 16 * 1024 * 1024;
 
@@ -959,11 +901,10 @@ public class SynologyClient
         using var ms = new MemoryStream(
             hintedSize is > 0 and <= InMemoryUploadMaxBytes ? (int)hintedSize : 256 * 1024);
         await stream.CopyToAsync(ms, cancellationToken);
-        if (ms.Length > InMemoryUploadMaxBytes)
-            throw new InvalidOperationException(
-                $"文件过大（{ms.Length} 字节），请使用流式上传（上限 {InMemoryUploadMaxBytes}）。");
         return ms.ToArray();
     }
+
+
 
     private async Task<UploadResult> PostAppAlbumUploadFromStreamAsync(
         UploadStreamFactory openStream,
@@ -979,7 +920,6 @@ public class SynologyClient
         StripPhotosViewCookiesForAppUpload();
 
         var mtimeSec = ToMtimeSeconds(mtimeUnix);
-        await WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
         var idCookie = GetSessionIdCookieValue();
         if (!string.IsNullOrEmpty(idCookie))
@@ -1054,7 +994,6 @@ public class SynologyClient
         StripPhotosViewCookiesForAppUpload();
 
         var mtimeSec = ToMtimeSeconds(mtimeUnix);
-        await WarmupAppAlbumBeforeUploadAsync(albumId, cancellationToken);
 
         var idCookie = GetSessionIdCookieValue();
         if (!string.IsNullOrEmpty(idCookie))

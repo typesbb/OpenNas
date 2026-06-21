@@ -84,7 +84,6 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             _photos.Clear();
             ClearDisplay();
             await SyncAlbumCountAsync();
-            await Task.Run(() => SynologyManager.Client.Foto.WarmupAlbumForBackupAsync(_album.Id));
 
             var maxAttempts = retryAfterUpload ? 4 : 1;
             for (var attempt = 0; attempt < maxAttempts; attempt++)

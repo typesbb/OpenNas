@@ -151,7 +151,6 @@ public sealed class AppSessionProbeTests
             client.PhotosDeviceId = cfg.PhotosDeviceId.Trim();
 
         Assert.True(await client.Auth.LoginAppStyleAsync(cfg.Username, cfg.Password));
-        await client.WarmupAppAlbumBeforeUploadAsync(15);
 
         using var content = new ByteArrayContent(body);
         content.Headers.TryAddWithoutValidation(
