@@ -1,5 +1,6 @@
 using OpenNas.Helpers;
 using OpenNas.Services;
+using OpenNas.Core.Models;
 using OpenNas.Views;
 
 namespace OpenNas.Views;
@@ -43,13 +44,14 @@ public partial class ProfilePage : ContentPage
         var profile = _connection.ActiveProfile;
         if (profile == null)
         {
-            ProfileNameLabel.Text = "未配置 NAS";
-            ProfileUrlLabel.Text = "";
+            ConnectionDetailLabel.Text = "未配置 NAS";
+            SwitchButton.IsVisible = false;
             return;
         }
 
-        ProfileNameLabel.Text = NasProfileDisplay.FormatTitle(profile);
-        ProfileUrlLabel.Text = profile.BaseUrl;
+        var kind = NasProfileDisplay.KindLabel(profile.NetworkKind);
+        ConnectionDetailLabel.Text = $"{kind}  {profile.BaseUrl}";
+        SwitchButton.IsVisible = true;
     }
 
     private void RefreshCacheSize()
@@ -60,6 +62,20 @@ public partial class ProfilePage : ContentPage
 
     private async void OnConnectionClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(new ConnectionSettingsPage(_connection));
+
+    private async void OnSwitchClicked(object? sender, EventArgs e)
+    {
+        var profiles = await _connection.LoadProfilesAsync();
+        var names = profiles.Select(NasProfileDisplay.FormatTitle).ToArray();
+        var pick = await DisplayActionSheetAsync("切换连接", "取消", null, names);
+        if (pick == null || pick == "取消") return;
+        var idx = Array.IndexOf(names, pick);
+        if (idx >= 0)
+        {
+            await _connection.SetActiveProfileAsync(profiles[idx]);
+            await UiFeedback.ToastAsync("已切换连接");
+        }
+    }
 
     private async void OnBackupSettingsClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(new BackupSettingsPage(_connection));

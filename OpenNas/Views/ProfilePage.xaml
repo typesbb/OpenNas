@@ -12,16 +12,17 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="16" Spacing="12">
                 <Border Style="{StaticResource CardBorder}">
-                    <VerticalStackLayout Spacing="4">
-                        <Label x:Name="UsernameLabel"
-                               FontSize="17"
-                               FontFamily="OpenSansSemibold" />
-                        <Label x:Name="ProfileNameLabel"
-                               FontSize="15" />
-                        <Label x:Name="ProfileUrlLabel"
-                               Style="{StaticResource Caption}"
-                               LineBreakMode="TailTruncation" />
-                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="1" ColumnSpacing="8" Padding="0">
+                        <Label x:Name="UsernameLabel" Grid.Row="0" Grid.Column="0"
+                               FontSize="17" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                        <Button x:Name="SwitchButton" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                                Text="切换" Style="{StaticResource SecondaryButton}"
+                                FontSize="12" Padding="10,6" MinimumHeightRequest="32"
+                                VerticalOptions="Center" Clicked="OnSwitchClicked" />
+                        <Label x:Name="ConnectionDetailLabel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                               Style="{StaticResource Caption}" LineBreakMode="TailTruncation"
+                               VerticalOptions="Center" />
+                    </Grid>
                 </Border>
 
                 <Border Style="{StaticResource SettingRowBorder}">
