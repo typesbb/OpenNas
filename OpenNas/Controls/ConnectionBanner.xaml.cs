@@ -33,15 +33,17 @@ public partial class ConnectionBanner : ContentView
         StatusLabel.Text = _connection.GetConnectionLabel();
         UrlLabel.Text = _connection.ActiveProfile.BaseUrl;
 
-        if (_connection.ActiveProfile.NetworkKind == NetworkKind.Wan)
+        // 状态色基于连接状态而非网络类型
+        var connected = !string.IsNullOrEmpty(NSynology.SynologyManager.Client?.Sid);
+        if (connected)
         {
-            StatusLabel.TextColor = GetThemeColor("Warning", Colors.Orange);
-            StatusStripe.Color = GetThemeColor("Warning", Colors.Orange);
+            StatusLabel.TextColor = GetThemeColor("TextPrimary", Colors.Black);
+            StatusStripe.Color = GetThemeColor("Success", Colors.Green);
         }
         else
         {
             StatusLabel.TextColor = GetThemeColor("TextPrimary", Colors.Black);
-            StatusStripe.Color = GetThemeColor("Success", Colors.Green);
+            StatusStripe.Color = GetThemeColor("Warning", Colors.Orange);
         }
     }
 

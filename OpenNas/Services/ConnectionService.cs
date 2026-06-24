@@ -10,7 +10,6 @@ namespace OpenNas.Services;
 
 public class ConnectionService
 {
-    private const string ProfilesKey = "nas_profiles";
     private const string ActiveProfileKey = "active_profile_id";
     private const string WifiOnlyKey = "backup_wifi_only";
     private const string ConfirmDeleteKey = "backup_confirm_delete";
@@ -20,7 +19,10 @@ public class ConnectionService
     private CancellationTokenSource? _autoSwitchCts;
     private readonly SemaphoreSlim _autoSwitchLock = new(1, 1);
     private DateTime _manualSwitchCooldownUntil = DateTime.MinValue;
+    private DateTime _lastConnectivityEventUtc = DateTime.MinValue;
     private bool _networkMonitoringStarted;
+    private List<NasProfile> _cachedProfiles = new();
+    private string? _serverKey;
 
     public NasProfile? ActiveProfile { get; private set; }
 
@@ -41,6 +43,37 @@ public class ConnectionService
                 _ = TryAutoSwitchAsync();
         }
     }
+
+    // ============================================================
+    //  服务器维度会话 key（LAN / WAN 共用同一套 SID / DID / SynoToken）
+    // ============================================================
+
+    /// <summary>从 LAN Profile 的 hostname 推导稳定的服务器标识。</summary>
+    private async Task<string> GetServerKeyAsync()
+    {
+        if (_serverKey != null)
+            return _serverKey;
+
+        var profiles = _cachedProfiles.Count > 0 ? _cachedProfiles : await LoadProfilesAsync();
+        var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
+        var hostProfile = lanProfile ?? profiles.FirstOrDefault();
+        if (hostProfile != null && Uri.TryCreate(hostProfile.BaseUrl, UriKind.Absolute, out var uri))
+            _serverKey = uri.Host.Replace('.', '_').Replace(':', '_');
+        else
+            _serverKey = "unknown";
+
+        return _serverKey;
+    }
+
+    private void InvalidateServerKey() => _serverKey = null;
+
+    private async Task<string> SidKeyAsync() => $"sid_{await GetServerKeyAsync()}";
+    private async Task<string> DidKeyAsync() => $"did_{await GetServerKeyAsync()}";
+    private async Task<string> SynoTokenKeyAsync() => $"synotoken_{await GetServerKeyAsync()}";
+
+    // ============================================================
+    //  Initialize
+    // ============================================================
 
     public async Task InitializeAsync()
     {
@@ -68,9 +101,16 @@ public class ConnectionService
         ActiveProfile = profiles.FirstOrDefault(p => p.Id == activeId) ?? profiles[0];
         await ApplyActiveProfileAsync(restoreSid: true);
 
+        // 0 或 1 个 Profile：不需要自动切换
+        if (profiles.Count <= 1) return;
+
         StartNetworkMonitoring();
         _ = TryAutoSwitchAsync();
     }
+
+    // ============================================================
+    //  Network monitoring（30s 去抖）
+    // ============================================================
 
     private void StartNetworkMonitoring()
     {
@@ -82,6 +122,11 @@ public class ConnectionService
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
         if (Connectivity.Current.NetworkAccess == NetworkAccess.None) return;
+
+        var now = DateTime.UtcNow;
+        if ((now - _lastConnectivityEventUtc).TotalSeconds < 30)
+            return;
+        _lastConnectivityEventUtc = now;
 
         _autoSwitchCts?.Cancel();
         _autoSwitchCts?.Dispose();
@@ -105,49 +150,73 @@ public class ConnectionService
         }, token);
     }
 
+    // ============================================================
+    //  Auto-switch
+    // ============================================================
+
     private async Task TryAutoSwitchAsync(CancellationToken cancellationToken = default)
     {
         if (!AutoSwitchEnabled) return;
         if (DateTime.UtcNow < _manualSwitchCooldownUntil) return;
+
+        var profiles = _cachedProfiles.Count > 0
+            ? _cachedProfiles.ToList()
+            : await LoadProfilesAsync();
+        if (profiles.Count <= 1) return;
+
+        var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
+        var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
+        if (lanProfile == null) return;
 
         await _autoSwitchLock.WaitAsync(cancellationToken);
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (AppServices.GetRequired<BackupEngine>().Progress.IsRunning) return;
-
-            var profiles = await LoadProfilesAsync();
-            var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
-            var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
-
-            if (lanProfile == null) return;
-
-            var isLanReachable = await IsLanReachableAsync(lanProfile.BaseUrl);
+            // 内网优先
+            var isLanReachable = await IsUrlReachableAsync(lanProfile.BaseUrl);
             cancellationToken.ThrowIfCancellationRequested();
 
             NasProfile? targetProfile = null;
             if (isLanReachable)
             {
-                if (ActiveProfile?.Id != lanProfile.Id)
-                    targetProfile = lanProfile;
+                targetProfile = lanProfile;
             }
             else if (wanProfile != null)
             {
-                if (ActiveProfile?.Id != wanProfile.Id)
+                var isWanReachable = await IsUrlReachableAsync(wanProfile.BaseUrl);
+                if (isWanReachable)
                     targetProfile = wanProfile;
             }
 
-            if (targetProfile == null) return;
+            // 同 BaseUrl 跳过重建
+            var currentUrl = SynologyManager.Client?.BaseUrl?.TrimEnd('/');
+            var targetUrl = targetProfile?.BaseUrl?.TrimEnd('/');
+            if (targetProfile != null && currentUrl != null
+                && string.Equals(currentUrl, targetUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Debug($"AutoSwitch: same URL, skip (LAN reachable={isLanReachable})");
+                return;
+            }
+
+            if (targetProfile == null)
+            {
+                AppLog.Warn(
+                    $"AutoSwitch: LAN reachable={isLanReachable}, WAN={wanProfile != null}, all unreachable");
+                return;
+            }
+
+            var toKind = NasProfileDisplay.KindLabel(targetProfile.NetworkKind);
+            AppLog.Debug(
+                $"AutoSwitch: {ActiveProfile?.BaseUrl ?? "-"} -> {targetProfile.BaseUrl}, LAN reachable={isLanReachable}");
 
             ActiveProfile = targetProfile;
             await SaveActiveProfileIdAsync(targetProfile.Id);
             await ApplyActiveProfileAsync(restoreSid: true);
             ConnectionChanged?.Invoke(this, EventArgs.Empty);
 
-            var kindLabel = NasProfileDisplay.KindLabel(targetProfile.NetworkKind);
             MainThread.BeginInvokeOnMainThread(async () =>
-                await UiFeedback.ToastAsync($"已切换到{kindLabel}"));
+                await UiFeedback.ToastAsync($"已切换到{toKind}"));
         }
         finally
         {
@@ -155,7 +224,8 @@ public class ConnectionService
         }
     }
 
-    private static async Task<bool> IsLanReachableAsync(string baseUrl)
+    /// <summary>轻量 HEAD 探测（1.5s 超时）。</summary>
+    private static async Task<bool> IsUrlReachableAsync(string baseUrl)
     {
         try
         {
@@ -163,7 +233,7 @@ public class ConnectionService
             {
                 ServerCertificateCustomValidationCallback = (_, _, _, _) => true
             };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(3) };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(1.5) };
             using var request = new HttpRequestMessage(HttpMethod.Head, baseUrl);
             await client.SendAsync(request);
             return true;
@@ -177,6 +247,233 @@ public class ConnectionService
             return false;
         }
     }
+
+    // ============================================================
+    //  Apply active profile
+    // ============================================================
+
+    public async Task SetActiveProfileAsync(NasProfile profile)
+    {
+        _manualSwitchCooldownUntil = DateTime.UtcNow.AddSeconds(30);
+        ActiveProfile = profile;
+        await SaveActiveProfileIdAsync(profile.Id);
+        await ApplyActiveProfileAsync(restoreSid: true);
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task ApplyActiveProfileAsync(bool restoreSid)
+    {
+        if (ActiveProfile == null || string.IsNullOrWhiteSpace(ActiveProfile.BaseUrl)) return;
+
+        var baseUrl = NasUrlHelper.NormalizeBaseUrl(ActiveProfile.BaseUrl);
+        if (!string.Equals(baseUrl, ActiveProfile.BaseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            ActiveProfile.BaseUrl = baseUrl;
+            var all = await LoadProfilesAsync();
+            var idx = all.FindIndex(p => p.Id == ActiveProfile.Id);
+            if (idx >= 0)
+            {
+                all[idx] = ActiveProfile;
+                await SaveProfilesAsync(all);
+            }
+        }
+
+        // 当前 Client 已使用同一 BaseUrl → 无需重建
+        if (SynologyManager.IsInitializedFor(baseUrl))
+            return;
+
+        string? sid = null;
+        string? synoToken = null;
+        string? did = null;
+        if (restoreSid)
+        {
+            sid = await SecureStorage.GetAsync(await SidKeyAsync());
+            synoToken = await SecureStorage.GetAsync(await SynoTokenKeyAsync());
+            did = await SecureStorage.GetAsync(await DidKeyAsync());
+        }
+
+        if (!string.IsNullOrEmpty(sid))
+        {
+            try
+            {
+                SynologyManager.Init(baseUrl, sid, synoToken);
+                SynologyManager.Client.RestoreAppSessionCookies(sid);
+
+                if (!string.IsNullOrEmpty(did))
+                    SynologyManager.Client.ApplyAppDeviceId(did);
+#if DEBUG
+                if (SynologyHttpTrace.IsEnabled)
+                    SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
+#endif
+                var validity = await SynologyManager.Client.Auth.TryValidateAppSessionAsync();
+                if (validity == false)
+                {
+                    AppLog.Warn("AutoSwitch: session validation returned false, keeping stored SID");
+                    return;
+                }
+
+                if (validity == true)
+                    await PersistSessionAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn("恢复 NAS 会话失败（保留本地会话，稍后重试）", ex);
+                SynologyManager.Init(baseUrl, sid, synoToken);
+                SynologyManager.Client.RestoreAppSessionCookies(sid);
+                if (!string.IsNullOrEmpty(did))
+                    SynologyManager.Client.ApplyAppDeviceId(did);
+            }
+            finally
+            {
+                ConnectionChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            return;
+        }
+
+        SynologyManager.Init(baseUrl);
+    }
+
+    // ============================================================
+    //  Credential management
+    // ============================================================
+
+    public async Task ClearStoredCredentialsAsync()
+    {
+        var sidKey = await SidKeyAsync();
+        var didKey = await DidKeyAsync();
+        var tokenKey = await SynoTokenKeyAsync();
+        SecureStorage.Remove(sidKey);
+        SecureStorage.Remove(didKey);
+        SecureStorage.Remove(tokenKey);
+
+        if (ActiveProfile != null)
+            SynologyManager.Init(ActiveProfile.BaseUrl);
+        else
+            SynologyManager.Client.Sid = null;
+
+        SynologyManager.Client.SynoToken = null;
+        await Task.CompletedTask;
+    }
+
+    public async Task OnLoginSuccessAsync()
+    {
+        await PersistSessionAsync();
+        LogRepository.Instance.AppendOperation("登录成功");
+    }
+
+    public async Task PersistSessionAsync()
+    {
+        var sidKey = await SidKeyAsync();
+        var didKey = await DidKeyAsync();
+        var tokenKey = await SynoTokenKeyAsync();
+
+        await SecureStorage.SetAsync(sidKey, SynologyManager.Client.Sid ?? "");
+        var did = SynologyManager.Client.PhotosDeviceId
+                  ?? SynologyManager.Client.GetDidCookieValue();
+        if (!string.IsNullOrEmpty(did))
+            await SecureStorage.SetAsync(didKey, did);
+        if (!string.IsNullOrEmpty(SynologyManager.Client.SynoToken))
+            await SecureStorage.SetAsync(tokenKey, SynologyManager.Client.SynoToken);
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task LogoutAsync()
+    {
+        var sidKey = await SidKeyAsync();
+        var didKey = await DidKeyAsync();
+        var tokenKey = await SynoTokenKeyAsync();
+        SecureStorage.Remove(sidKey);
+        SecureStorage.Remove(didKey);
+        SecureStorage.Remove(tokenKey);
+
+        if (!string.IsNullOrEmpty(SynologyManager.Client.Sid))
+            await SynologyManager.Client.Auth.LogoutAsync();
+
+        SynologyManager.Client.Sid = null;
+        SynologyManager.Client.PhotosDeviceId = null;
+        SynologyManager.Client.SynoToken = null;
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+        LogRepository.Instance.AppendOperation("退出登录");
+    }
+
+    public async Task InvalidateStoredSessionAsync(string reason)
+    {
+        AppLog.Warn(reason);
+        LogRepository.Instance.AppendOperation("NAS 会话已过期");
+
+        var sidKey = await SidKeyAsync();
+        var didKey = await DidKeyAsync();
+        var tokenKey = await SynoTokenKeyAsync();
+        SecureStorage.Remove(sidKey);
+        SecureStorage.Remove(didKey);
+        SecureStorage.Remove(tokenKey);
+
+        if (SynologyManager.Client != null)
+        {
+            SynologyManager.Client.Sid = null;
+            SynologyManager.Client.PhotosDeviceId = null;
+            SynologyManager.Client.SynoToken = null;
+        }
+
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+        await Task.CompletedTask;
+    }
+
+    // ============================================================
+    //  Profile management（含内存缓存）
+    // ============================================================
+
+    public async Task<List<NasProfile>> LoadProfilesAsync()
+    {
+        var profiles = await LoadProfilesFromFileAsync();
+        _cachedProfiles = profiles;
+        return profiles;
+    }
+
+    public async Task SaveProfilesAsync(List<NasProfile> profiles)
+    {
+        _cachedProfiles = profiles;
+        InvalidateServerKey();
+        await SaveProfilesToFileAsync(profiles);
+    }
+
+    /// <summary>删除 Profile 并清理对应会话凭证。</summary>
+    public async Task DeleteProfileAsync(string profileId)
+    {
+        var profiles = await LoadProfilesAsync();
+        var toRemove = profiles.FirstOrDefault(p => p.Id == profileId);
+        if (toRemove == null) return;
+
+        profiles.Remove(toRemove);
+        await SaveProfilesAsync(profiles);
+
+        if (profiles.Count == 0)
+        {
+            var sidKey = await SidKeyAsync();
+            var didKey = await DidKeyAsync();
+            var tokenKey = await SynoTokenKeyAsync();
+            SecureStorage.Remove(sidKey);
+            SecureStorage.Remove(didKey);
+            SecureStorage.Remove(tokenKey);
+        }
+
+        if (ActiveProfile?.Id == profileId)
+        {
+            ActiveProfile = profiles.FirstOrDefault();
+            if (ActiveProfile != null)
+            {
+                await SaveActiveProfileIdAsync(ActiveProfile.Id);
+                await ApplyActiveProfileAsync(restoreSid: true);
+            }
+        }
+
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ============================================================
+    //  File I/O
+    // ============================================================
 
     private static string ActiveProfileIdFilePath =>
         Path.Combine(FileSystem.AppDataDirectory, "active_profile.txt");
@@ -255,168 +552,9 @@ public class ConnectionService
         }
     }
 
-    public async Task<List<NasProfile>> LoadProfilesAsync()
-    {
-        return await LoadProfilesFromFileAsync();
-    }
-
-    public Task SaveProfilesAsync(List<NasProfile> profiles)
-    {
-        return SaveProfilesToFileAsync(profiles);
-    }
-    public async Task SetActiveProfileAsync(NasProfile profile)
-    {
-        _manualSwitchCooldownUntil = DateTime.UtcNow.AddSeconds(30);
-        ActiveProfile = profile;
-        await SaveActiveProfileIdAsync(profile.Id);
-        await ApplyActiveProfileAsync(restoreSid: true);
-        ConnectionChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public async Task ApplyActiveProfileAsync(bool restoreSid)
-    {
-        if (ActiveProfile == null || string.IsNullOrWhiteSpace(ActiveProfile.BaseUrl)) return;
-
-        var baseUrl = NasUrlHelper.NormalizeBaseUrl(ActiveProfile.BaseUrl);
-        if (!string.Equals(baseUrl, ActiveProfile.BaseUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            ActiveProfile.BaseUrl = baseUrl;
-            var all = await LoadProfilesAsync();
-            var idx = all.FindIndex(p => p.Id == ActiveProfile.Id);
-            if (idx >= 0)
-            {
-                all[idx] = ActiveProfile;
-                await SaveProfilesAsync(all);
-            }
-        }
-
-        string? sid = null;
-        string? synoToken = null;
-        if (restoreSid)
-        {
-            sid = await SecureStorage.GetAsync(SidKey(ActiveProfile.Id));
-            synoToken = await SecureStorage.GetAsync(SynoTokenKey(ActiveProfile.Id));
-
-        }
-
-        if (!string.IsNullOrEmpty(sid))
-        {
-            try
-            {
-                SynologyManager.Init(baseUrl, sid, synoToken);
-                SynologyManager.Client.RestoreAppSessionCookies(sid);
-
-                var storedDid = await SecureStorage.GetAsync(DidKey(ActiveProfile.Id));
-                if (!string.IsNullOrEmpty(storedDid))
-                    SynologyManager.Client.ApplyAppDeviceId(storedDid);
-#if DEBUG
-                if (SynologyHttpTrace.IsEnabled)
-                    SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
-#endif
-                var validity = await SynologyManager.Client.Auth.TryValidateAppSessionAsync();
-                if (validity == false)
-                {
-                    await InvalidateStoredSessionAsync("NAS 会话已过期，请重新登录。");
-                    return;
-                }
-
-                if (validity == true)
-                    await PersistSessionAsync();
-            }
-            catch (Exception ex)
-            {
-                AppLog.Warn("恢复 NAS 会话失败（保留本地会话，稍后重试）", ex);
-                SynologyManager.Init(baseUrl, sid, synoToken);
-                SynologyManager.Client.RestoreAppSessionCookies(sid);
-            }
-            finally
-            {
-                ConnectionChanged?.Invoke(this, EventArgs.Empty);
-            }
-
-            return;
-        }
-
-        SynologyManager.Init(baseUrl);
-    }
-
-    public async Task ClearStoredCredentialsAsync()
-    {
-        if (ActiveProfile == null)
-            return;
-
-        SecureStorage.Remove(SidKey(ActiveProfile.Id));
-        SecureStorage.Remove(DidKey(ActiveProfile.Id));
-        SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
-        SynologyManager.Init(ActiveProfile.BaseUrl);
-        SynologyManager.Client.Sid = null;
-        SynologyManager.Client.SynoToken = null;
-        await Task.CompletedTask;
-    }
-
-    public async Task OnLoginSuccessAsync()
-    {
-        await PersistSessionAsync();
-        LogRepository.Instance.AppendOperation("登录成功");
-    }
-
-    /// <summary>将 sid / SynoToken 写入 SecureStorage。</summary>
-    public async Task PersistSessionAsync()
-    {
-        if (ActiveProfile == null) return;
-        await SecureStorage.SetAsync(SidKey(ActiveProfile.Id), SynologyManager.Client.Sid ?? "");
-        var did = SynologyManager.Client.PhotosDeviceId
-                  ?? SynologyManager.Client.GetDidCookieValue();
-        if (!string.IsNullOrEmpty(did))
-        {
-            await SecureStorage.SetAsync(DidKey(ActiveProfile.Id), did);
-        }
-        if (!string.IsNullOrEmpty(SynologyManager.Client.SynoToken))
-            await SecureStorage.SetAsync(SynoTokenKey(ActiveProfile.Id), SynologyManager.Client.SynoToken);
-        ConnectionChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public async Task LogoutAsync()
-    {
-        if (ActiveProfile != null)
-        {
-            SecureStorage.Remove(SidKey(ActiveProfile.Id));
-            SecureStorage.Remove(DidKey(ActiveProfile.Id));
-            SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
-        }
-
-        if (!string.IsNullOrEmpty(SynologyManager.Client.Sid))
-            await SynologyManager.Client.Auth.LogoutAsync();
-
-        SynologyManager.Client.Sid = null;
-        SynologyManager.Client.PhotosDeviceId = null;
-        SynologyManager.Client.SynoToken = null;
-        ConnectionChanged?.Invoke(this, EventArgs.Empty);
-        LogRepository.Instance.AppendOperation("退出登录");
-    }
-
-    /// <summary>清除已过期的 sid，保留 NAS 连接配置与登录页用户名。</summary>
-    public async Task InvalidateStoredSessionAsync(string reason)
-    {
-        AppLog.Warn(reason);
-        LogRepository.Instance.AppendOperation("NAS 会话已过期");
-        if (ActiveProfile != null)
-        {
-            SecureStorage.Remove(SidKey(ActiveProfile.Id));
-            SecureStorage.Remove(DidKey(ActiveProfile.Id));
-            SecureStorage.Remove(SynoTokenKey(ActiveProfile.Id));
-        }
-
-        if (SynologyManager.Client != null)
-        {
-            SynologyManager.Client.Sid = null;
-            SynologyManager.Client.PhotosDeviceId = null;
-            SynologyManager.Client.SynoToken = null;
-        }
-
-        ConnectionChanged?.Invoke(this, EventArgs.Empty);
-        await Task.CompletedTask;
-    }
+    // ============================================================
+    //  Settings
+    // ============================================================
 
     public bool GetWifiOnly() { try { return Preferences.Get(WifiOnlyKey, true); } catch { return true; } }
     public void SetWifiOnly(bool value) { try { Preferences.Set(WifiOnlyKey, value); } catch { } }
@@ -426,10 +564,6 @@ public class ConnectionService
 
     public bool HasAcknowledgedDeleteRisk() { try { return Preferences.Get(DeleteRiskAckKey, false); } catch { return false; } }
     public void SetAcknowledgedDeleteRisk(bool value) { try { Preferences.Set(DeleteRiskAckKey, value); } catch { } }
-
-    public static string SidKey(string profileId) => $"sid_{profileId}";
-    public static string DidKey(string profileId) => $"did_{profileId}";
-    public static string SynoTokenKey(string profileId) => $"synotoken_{profileId}";
 
     public string GetConnectionLabel()
     {
