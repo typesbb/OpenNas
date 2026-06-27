@@ -16,7 +16,7 @@ public class AlbumGridPhotoView : Image
 
     private void OnBindingContextChanged(object? sender, EventArgs e)
     {
-        var photoId = (BindingContext as Photo)?.Id ?? 0;
+        var photoId = ResolvePhoto(BindingContext)?.Id ?? 0;
         if (photoId == _lastPhotoId)
             return; // 同一张照片重新绑定，保持已有缩略图，不触发任何加载
 
@@ -24,6 +24,13 @@ public class AlbumGridPhotoView : Image
         Source = null; // 清除回收 cell 上残留的旧缩略图
         ScheduleLoad();
     }
+
+    private static Photo? ResolvePhoto(object? context) => context switch
+    {
+        Photo photo => photo,
+        SelectablePhoto selectable => selectable.Photo,
+        _ => null
+    };
 
     private void ScheduleLoad()
     {
@@ -37,7 +44,8 @@ public class AlbumGridPhotoView : Image
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
 
-        if (BindingContext is not Photo photo)
+        var photo = ResolvePhoto(BindingContext);
+        if (photo == null)
         {
             if (Source != null)
                 Source = null;
@@ -49,8 +57,7 @@ public class AlbumGridPhotoView : Image
             this,
             photo,
             () => !token.IsCancellationRequested
-                  && BindingContext is Photo bound
-                  && bound.Id == photoId,
+                  && ResolvePhoto(BindingContext)?.Id == photoId,
             token);
     }
 }

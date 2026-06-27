@@ -1075,16 +1075,33 @@ public class SynologyClient
             cancellationToken);
     }
 
-    internal async Task<bool> TryAddPhotoToNormalAlbumAsync(
+    public async Task<bool> AddPhotosToNormalAlbumAsync(
         int albumId,
-        int photoId,
+        IEnumerable<int> photoIds,
         CancellationToken cancellationToken = default)
     {
-        var itemJson = JsonSerializer.Serialize(new[] { new { id = photoId } });
+        var itemJson = JsonSerializer.Serialize(photoIds);
         return await TryPostAppFormAsync(
             "SYNO.Foto.Browse.NormalAlbum",
             GetMaxApiVersion("SYNO.Foto.Browse.NormalAlbum", 1),
             "add_item",
+            [
+                new KeyValuePair<string, string>("id", albumId.ToString()),
+                new KeyValuePair<string, string>("item", itemJson)
+            ],
+            cancellationToken);
+    }
+
+    public async Task<bool> RemovePhotosFromNormalAlbumAsync(
+        int albumId,
+        IEnumerable<int> photoIds,
+        CancellationToken cancellationToken = default)
+    {
+        var itemJson = JsonSerializer.Serialize(photoIds);
+        return await TryPostAppFormAsync(
+            "SYNO.Foto.Browse.NormalAlbum",
+            GetMaxApiVersion("SYNO.Foto.Browse.NormalAlbum", 1),
+            "delete_item",
             [
                 new KeyValuePair<string, string>("id", albumId.ToString()),
                 new KeyValuePair<string, string>("item", itemJson)
@@ -1114,8 +1131,8 @@ public class SynologyClient
         }
 
         // New upload: add to album and verify
-        result.VerifiedOnServer = await TryAddPhotoToNormalAlbumAsync(
-            albumId, result.PhotoId, cancellationToken);
+        result.VerifiedOnServer = await AddPhotosToNormalAlbumAsync(
+            albumId, [result.PhotoId], cancellationToken);
         return result;
     }
 

@@ -127,6 +127,26 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
             uploadProgress,
             cancellationToken);
 
+    /// <summary>向指定相册批量添加照片。</summary>
+    public async Task<bool> AddPhotosToAlbumAsync(
+        int albumId,
+        IEnumerable<Photo> photos,
+        CancellationToken cancellationToken = default)
+    {
+        return await _client.AddPhotosToNormalAlbumAsync(
+            albumId, photos.Select(p => p.Id), cancellationToken);
+    }
+
+    /// <summary>从相册移除照片（仅移除关联，不删除文件）。</summary>
+    public async Task<bool> RemovePhotosFromAlbumAsync(
+        int albumId,
+        IEnumerable<Photo> photos,
+        CancellationToken cancellationToken = default)
+    {
+        return await _client.RemovePhotosFromNormalAlbumAsync(
+            albumId, photos.Select(p => p.Id), cancellationToken);
+    }
+
     public Task<UploadResult> UploadToAlbumFromBytesAsync(
         byte[] fileBytes,
         string fileName,

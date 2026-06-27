@@ -59,6 +59,17 @@ public partial class DropdownMenuOverlay : ContentView
             (Color)Application.Current!.Resources["TextPrimary"],
             (Color)Application.Current.Resources["TextPrimaryDark"]);
 
+        if (!item.IsEnabled)
+        {
+            label.SetAppThemeColor(Label.TextColorProperty,
+                (Color)Application.Current.Resources["TextSecondary"],
+                (Color)Application.Current.Resources["TextSecondaryDark"]);
+            grid.Opacity = 0.45;
+            Grid.SetColumn(label, 0);
+            grid.Children.Add(label);
+            return grid;
+        }
+
         if (item.IsSelected)
             label.SetAppThemeColor(Label.TextColorProperty,
                 (Color)Application.Current.Resources["BrandPrimary"],

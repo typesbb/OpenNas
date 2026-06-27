@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using NSynology;
 using NSynology.Foto;
+using OpenNas.Behaviors;
 using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
@@ -11,15 +14,15 @@ using OpenNas.Platforms.Android;
 
 namespace OpenNas.Views;
 
-public partial class AlbumDetailPage : ContentPage, IDisposable
+public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDisposable
 {
-
     private const int PageSize = 30;
 
     private readonly Album _album;
     private readonly List<Photo> _photos = [];
-    private readonly ObservableCollection<PhotoDateGroup> _groups = [];
-    private ObservableCollection<Photo> _flatPhotos = [];
+    private readonly ObservableCollection<SelectablePhotoGroup> _groups = [];
+    private readonly Dictionary<int, SelectablePhoto> _selectableById = [];
+    private ObservableCollection<SelectablePhoto> _flatPhotos = [];
     private readonly SemaphoreSlim _loadGate = new(1, 1);
 
     private int _offset;
@@ -28,9 +31,27 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
     private bool _uploading;
     private CancellationTokenSource? _uploadCts;
     private bool _hasMore = true;
+    private bool _isSelecting;
+    private bool _suppressNextTap;
+
+    public bool IsSelecting
+    {
+        get => _isSelecting;
+        private set
+        {
+            if (_isSelecting == value)
+                return;
+            _isSelecting = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public void Dispose()
     {
+        LongPressBehavior.LongPressed -= OnPhotoLongPressBehavior;
+        ClearSelectableRegistry();
         _loadGate?.Dispose();
         _uploadCts?.Cancel();
         _uploadCts?.Dispose();
@@ -43,6 +64,7 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         _album = album;
         TitleLabel.Text = album.Name;
         PhotosRefreshView.Refreshing += OnPullRefreshing;
+        LongPressBehavior.LongPressed += OnPhotoLongPressBehavior;
         ApplyViewMode();
     }
 
@@ -52,10 +74,11 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
 #if ANDROID
         AlbumGridUiHelper.TryOptimize(PhotosView);
 #endif
+        LongPressBehavior.DetectionEnabled = !IsSelecting;
+        UpdateSelectionUi();
         if (_photos.Count == 0)
             await ReloadPhotosAsync();
     }
-
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
@@ -81,7 +104,9 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
 
             _offset = 0;
             _hasMore = true;
+            ExitSelectionMode();
             _photos.Clear();
+            ClearSelectableRegistry();
             ClearDisplay();
             await SyncAlbumCountAsync();
 
@@ -146,7 +171,7 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         var photos = await Task.Run(async () =>
         {
             return (await SynologyManager.Client.Foto.GetPhotosAsync(
-            _album, _offset, PageSize, _sortField, _sortDescending, cts.Token)).ToList();
+                _album, _offset, PageSize, _sortField, _sortDescending, cts.Token)).ToList();
         });
 
         if (photos.Count == 0)
@@ -191,6 +216,24 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
         _flatPhotos.Clear();
     }
 
+    private void ClearSelectableRegistry()
+    {
+        foreach (var item in _selectableById.Values)
+            item.PropertyChanged -= OnSelectablePhotoPropertyChanged;
+        _selectableById.Clear();
+    }
+
+    private SelectablePhoto Wrap(Photo photo)
+    {
+        if (!_selectableById.TryGetValue(photo.Id, out var item))
+        {
+            item = new SelectablePhoto(photo);
+            item.PropertyChanged += OnSelectablePhotoPropertyChanged;
+            _selectableById[photo.Id] = item;
+        }
+        return item;
+    }
+
     private void AppendToDisplay(List<Photo> page)
     {
         if (page.Count == 0)
@@ -200,8 +243,8 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             AppendToGroups(page);
         else
         {
-            _flatPhotos = new ObservableCollection<Photo>(
-                _flatPhotos.Concat(page));
+            foreach (var photo in page)
+                _flatPhotos.Add(Wrap(photo));
             PhotosView.ItemsSource = _flatPhotos;
         }
     }
@@ -216,15 +259,16 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
 
         foreach (var photo in page)
         {
+            var item = Wrap(photo);
             var dateLabel = PhotoDateHelper.FormatGroupLabel(photo.Time);
             if (_groups.Count > 0 && _groups[^1].DateLabel == dateLabel)
             {
                 var last = _groups[^1];
-                _groups[^1] = new PhotoDateGroup(dateLabel, last.Append(photo));
+                _groups[^1] = new SelectablePhotoGroup(dateLabel, last.Append(item));
                 continue;
             }
 
-            _groups.Add(new PhotoDateGroup(dateLabel, [photo]));
+            _groups.Add(new SelectablePhotoGroup(dateLabel, [item]));
         }
     }
 
@@ -236,7 +280,7 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             : PhotoDateHelper.GroupByDate(_photos, _sortDescending);
 
         foreach (var group in groups)
-            _groups.Add(group);
+            _groups.Add(new SelectablePhotoGroup(group.DateLabel, group.Select(Wrap)));
     }
 
     private IReadOnlyList<DropdownMenuItem> BuildSortMenuItems() =>
@@ -262,13 +306,25 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
 
     private async void OnPhotoTapped(object? sender, TappedEventArgs e)
     {
-        if (sender is not BindableObject bindable || bindable.BindingContext is not Photo photo)
+        if (sender is not BindableObject bindable || bindable.BindingContext is not SelectablePhoto item)
             return;
 
         if (_photos.Count == 0)
             return;
 
-        var index = _photos.FindIndex(p => p.Id == photo.Id);
+        if (_suppressNextTap)
+        {
+            _suppressNextTap = false;
+            return;
+        }
+
+        if (IsSelecting)
+        {
+            item.IsSelected = !item.IsSelected;
+            return;
+        }
+
+        var index = _photos.FindIndex(p => p.Id == item.Id);
         if (index < 0)
             index = 0;
 
@@ -279,16 +335,242 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
 
     private async void OnMenuClicked(object? sender, EventArgs e)
     {
-        var selected = await Dropdown.ShowAsync(BuildSortMenuItems(), topMargin: 52, rightMargin: 8);
+        var items = BuildMenuItems();
+        var selected = await Dropdown.ShowAsync(items, topMargin: 52, rightMargin: 8);
         if (string.IsNullOrEmpty(selected))
             return;
 
-        if (selected is not ("time" or "name" or "size"))
+        switch (selected)
+        {
+            case "time" or "name" or "size":
+                UpdateSortSelection(selected);
+                ApplyViewMode();
+                await ReloadPhotosAsync();
+                break;
+        }
+    }
+
+    private IReadOnlyList<DropdownMenuItem> BuildMenuItems() => BuildSortMenuItems();
+
+    private void OnPhotoLongPressBehavior(object? sender, LongPressBehavior.LongPressEventArgs e)
+    {
+        if (e.Context is not SelectablePhoto item || IsSelecting)
             return;
 
-        UpdateSortSelection(selected);
-        ApplyViewMode();
-        await ReloadPhotosAsync();
+        EnterSelectionMode(item, suppressNextTap: true);
+    }
+
+    private void OnSelectAllTapped(object? sender, TappedEventArgs e) => ToggleSelectAll();
+
+    private void OnGroupHeaderCheckTapped(object? sender, TappedEventArgs e)
+    {
+        if (!IsSelecting)
+            return;
+
+        if ((sender as BindableObject)?.BindingContext is SelectablePhotoGroup group)
+            ToggleGroup(group);
+    }
+
+    private void OnCancelSelectionClicked(object? sender, EventArgs e) => ExitSelectionMode();
+
+    private async void OnMoveSelectedClicked(object? sender, EventArgs e) => await MoveSelectedAsync();
+
+    private async void OnDeleteSelectedClicked(object? sender, EventArgs e) => await DeleteSelectedAsync();
+
+    private void EnterSelectionMode(SelectablePhoto item, bool suppressNextTap = false)
+    {
+        IsSelecting = true;
+        foreach (var selectable in _selectableById.Values)
+            selectable.IsSelected = false;
+        item.IsSelected = true;
+        _suppressNextTap = suppressNextTap;
+        LongPressBehavior.DetectionEnabled = false;
+        UpdateSelectionUi();
+    }
+
+    private void ExitSelectionMode()
+    {
+        IsSelecting = false;
+        foreach (var selectable in _selectableById.Values)
+            selectable.IsSelected = false;
+        _suppressNextTap = false;
+        LongPressBehavior.DetectionEnabled = true;
+        UpdateSelectionUi();
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (!IsSelecting || _selectableById.Count == 0)
+            return;
+
+        var selectAll = ComputeAllCheckState() != SelectionCheckState.Checked;
+        foreach (var item in _selectableById.Values)
+            item.IsSelected = selectAll;
+    }
+
+    private void ToggleGroup(SelectablePhotoGroup group)
+    {
+        var selectAll = group.CheckState != SelectionCheckState.Checked;
+        foreach (var item in group)
+            item.IsSelected = selectAll;
+        group.RefreshCheckState();
+    }
+
+    private void OnSelectablePhotoPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SelectablePhoto.IsSelected))
+            return;
+
+        RefreshGroupCheckStates();
+        UpdateSelectionUi();
+    }
+
+    private void RefreshGroupCheckStates()
+    {
+        foreach (var group in _groups)
+            group.RefreshCheckState();
+    }
+
+    private void UpdateSelectionUi()
+    {
+        var count = GetSelectedCount();
+        var hasSelection = count > 0;
+
+        SelectedCountLabel.Text = $"已选 {count}";
+        SelectAllCheckbox.CheckState = ComputeAllCheckState();
+
+        BackButton.IsVisible = !IsSelecting;
+        TitleArea.IsVisible = !IsSelecting;
+        MoreButton.IsVisible = !IsSelecting;
+
+        CancelSelectionButton.IsVisible = IsSelecting;
+        SelectedCountLabel.IsVisible = IsSelecting;
+        SelectAllArea.IsVisible = IsSelecting;
+        SelectionActionBar.IsVisible = IsSelecting;
+
+        AddPhotoButton.IsVisible = !IsSelecting;
+        MoveSelectedButton.IsEnabled = hasSelection;
+        DeleteSelectedButton.IsEnabled = hasSelection;
+    }
+
+    private int GetSelectedCount() =>
+        _selectableById.Values.Count(x => x.IsSelected);
+
+    private List<Photo> GetSelectedPhotos() =>
+        _selectableById.Values.Where(x => x.IsSelected).Select(x => x.Photo).ToList();
+
+    private SelectionCheckState ComputeAllCheckState()
+    {
+        if (_selectableById.Count == 0)
+            return SelectionCheckState.Unchecked;
+
+        var selected = GetSelectedCount();
+        if (selected == 0)
+            return SelectionCheckState.Unchecked;
+        if (selected == _selectableById.Count)
+            return SelectionCheckState.Checked;
+        return SelectionCheckState.Partial;
+    }
+
+    private async Task MoveSelectedAsync()
+    {
+        var selected = GetSelectedPhotos();
+        if (selected.Count == 0)
+            return;
+
+        if (SynologyManager.Client == null)
+        {
+            await DisplayAlertAsync(_album.Name, "未连接 NAS，请重新登录。", "确定");
+            return;
+        }
+
+        var allAlbums = await Task.Run(async () =>
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            return await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cts.Token);
+        });
+        var otherAlbums = allAlbums.Where(a => a.Id != _album.Id).ToList();
+
+        if (otherAlbums.Count == 0)
+        {
+            await DisplayAlertAsync(_album.Name, "没有其他相册可供移动。", "确定");
+            return;
+        }
+
+        var targetName = await DisplayActionSheetAsync("移动到相册", "取消", null,
+            otherAlbums.Select(a => a.Name).ToArray());
+
+        var target = otherAlbums.FirstOrDefault(a => a.Name == targetName);
+        if (target == null)
+            return;
+
+        BusyIndicator.IsVisible = true;
+        BusyIndicator.IsRunning = true;
+        try
+        {
+            var added = await SynologyManager.Client.Foto.AddPhotosToAlbumAsync(target.Id, selected);
+            if (!added)
+                throw new InvalidOperationException("添加到目标相册失败。");
+
+            var removed = await SynologyManager.Client.Foto.RemovePhotosFromAlbumAsync(_album.Id, selected);
+            if (!removed)
+                throw new InvalidOperationException("从当前相册移除失败。");
+
+            ExitSelectionMode();
+            await ReloadPhotosAsync();
+            await DisplayAlertAsync(_album.Name, $"已将 {selected.Count} 张照片移动到 {target.Name}。", "确定");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"移动照片失败 {_album.Name}", ex);
+            await DisplayAlertAsync(_album.Name, $"移动失败：{ex.Message}", "确定");
+        }
+        finally
+        {
+            BusyIndicator.IsRunning = false;
+            BusyIndicator.IsVisible = false;
+        }
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        var selected = GetSelectedPhotos();
+        if (selected.Count == 0)
+            return;
+
+        if (SynologyManager.Client == null)
+        {
+            await DisplayAlertAsync(_album.Name, "未连接 NAS，请重新登录。", "确定");
+            return;
+        }
+
+        var confirm = await DisplayAlertAsync(_album.Name,
+            $"确定要从 {_album.Name} 中移除 {selected.Count} 张照片？", "移除", "取消");
+
+        if (!confirm)
+            return;
+
+        BusyIndicator.IsVisible = true;
+        BusyIndicator.IsRunning = true;
+        try
+        {
+            var removed = await SynologyManager.Client.Foto.RemovePhotosFromAlbumAsync(_album.Id, selected);
+            if (!removed)
+                throw new InvalidOperationException("从相册移除照片失败。");
+
+            ExitSelectionMode();
+            await ReloadPhotosAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"删除照片失败 {_album.Name}", ex);
+            await DisplayAlertAsync(_album.Name, $"删除失败：{ex.Message}", "确定");
+        }
+        finally
+        {
+            BusyIndicator.IsRunning = false;
+            BusyIndicator.IsVisible = false;
+        }
     }
 
     private async void OnAddPhotoClicked(object? sender, EventArgs e)
@@ -378,4 +660,7 @@ public partial class AlbumDetailPage : ContentPage, IDisposable
             BusyIndicator.IsVisible = false;
         }
     }
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

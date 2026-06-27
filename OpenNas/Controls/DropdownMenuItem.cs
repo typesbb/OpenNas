@@ -1,9 +1,19 @@
 namespace OpenNas.Controls;
 
-public sealed class DropdownMenuItem(string key, string text, bool isSelected = false, string? trailingIcon = null)
+public sealed class DropdownMenuItem
 {
-    public string Key { get; } = key;
-    public string Text { get; } = text;
-    public bool IsSelected { get; } = isSelected;
-    public string? TrailingIcon { get; } = trailingIcon;
+    public string Key { get; }
+    public string Text { get; }
+    public bool IsSelected { get; }
+    public bool IsEnabled { get; }
+    public string? TrailingIcon { get; }
+
+    public DropdownMenuItem(string key, string text, bool isSelected = false, string? trailingIcon = null, bool isEnabled = true)
+    {
+        Key = key;
+        Text = text;
+        IsSelected = isSelected;
+        TrailingIcon = trailingIcon;
+        IsEnabled = isEnabled;
+    }
 }

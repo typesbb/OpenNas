@@ -1,137 +1,451 @@
 <?xml version="1.0" encoding="utf-8" ?>
+
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
+
              xmlns:helpers="clr-namespace:OpenNas.Helpers"
+
              xmlns:controls="clr-namespace:OpenNas.Controls"
+
+             xmlns:behaviors="clr-namespace:OpenNas.Behaviors"
+
              x:Class="OpenNas.Views.AlbumDetailPage"
+
+             x:Name="ThisPage"
+
              Shell.NavBarIsVisible="False"
+
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
-    <Grid>
-        <Grid RowDefinitions="Auto,*">
-            <Grid Grid.Row="0"
-                  Padding="4,8,8,4"
-                  ColumnDefinitions="Auto,*,Auto"
-                  ColumnSpacing="4">
-                <Button Grid.Column="0"
-                        Text="‹"
-                        FontSize="28"
-                        Style="{StaticResource ToolbarIconButton}"
-                        SemanticProperties.Hint="返回"
-                        Clicked="OnBackClicked" />
-                <VerticalStackLayout Grid.Column="1"
-                                     VerticalOptions="Center"
-                                     HorizontalOptions="Center"
-                                     Spacing="2">
-                    <Label x:Name="TitleLabel"
-                           FontFamily="OpenSansSemibold"
-                           FontSize="18"
-                           HorizontalOptions="Center"
-                           LineBreakMode="TailTruncation"
-                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                    <Label x:Name="StatusLabel"
-                           FontSize="12"
-                           HorizontalOptions="Center"
-                           IsVisible="False"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                    <HorizontalStackLayout x:Name="UploadProgressArea"
-                                           IsVisible="False"
-                                           HorizontalOptions="Center"
-                                           Spacing="8"
-                                           Margin="0,4,0,0">
-                        <ProgressBar x:Name="UploadProgressBar"
-                                     Progress="0"
-                                     ProgressColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
-                                     WidthRequest="100"
-                                     VerticalOptions="Center" />
-                        <Button x:Name="CancelUploadButton"
-                                Text="✕"
-                                FontSize="14"
-                                WidthRequest="32"
-                                HeightRequest="32"
-                                CornerRadius="16"
-                                Padding="0"
-                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
-                                Clicked="OnCancelUploadClicked" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
-                <Button x:Name="MoreButton"
-                        Grid.Column="2"
-                        Text="⋮"
-                        Style="{StaticResource ToolbarIconButton}"
-                        SemanticProperties.Hint="更多"
-                        Clicked="OnMenuClicked" />
-            </Grid>
 
-            <Grid Grid.Row="1">
-                <RefreshView x:Name="PhotosRefreshView"
-                             RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
-                    <CollectionView x:Name="PhotosView"
-                                    IsGrouped="True"
-                                    ItemSizingStrategy="MeasureFirstItem"
-                                    ItemsLayout="VerticalGrid, 3"
-                                    RemainingItemsThreshold="12"
-                                    RemainingItemsThresholdReached="OnLoadMore"
-                                    SelectionMode="None">
-                        <CollectionView.GroupHeaderTemplate>
-                            <DataTemplate x:DataType="helpers:PhotoDateGroup">
-                                <Label Text="{Binding DateLabel}"
-                                       FontFamily="OpenSansSemibold"
-                                       FontSize="17"
-                                       Margin="12,18,12,8"
-                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                            </DataTemplate>
-                        </CollectionView.GroupHeaderTemplate>
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="foto:Photo">
-                                <Grid Margin="2"
-                                      HeightRequest="112"
-                                      BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
-                                    <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnPhotoTapped" />
-                                    </Grid.GestureRecognizers>
-                                    <controls:AlbumGridPhotoView Aspect="AspectFill" />
-                                    <Label Text="▶"
-                                           IsVisible="{Binding IsVideo}"
-                                           FontSize="13"
-                                           TextColor="White"
-                                           BackgroundColor="#99000000"
-                                           WidthRequest="28"
-                                           HeightRequest="28"
-                                           HorizontalOptions="Center"
-                                           VerticalOptions="Center"
-                                           HorizontalTextAlignment="Center"
-                                           VerticalTextAlignment="Center" />
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </RefreshView>
+    <Grid RowDefinitions="Auto,*">
 
-                <ActivityIndicator x:Name="BusyIndicator"
-                                   IsRunning="False"
+        <Grid Grid.Row="0"
+
+              Padding="4,8,8,4"
+
+              ColumnDefinitions="Auto,*,Auto"
+
+              ColumnSpacing="4">
+
+            <Button x:Name="BackButton"
+
+                    Grid.Column="0"
+
+                    Text="‹"
+
+                    FontSize="28"
+
+                    Style="{StaticResource ToolbarIconButton}"
+
+                    SemanticProperties.Hint="返回"
+
+                    Clicked="OnBackClicked" />
+
+            <Button x:Name="CancelSelectionButton"
+
+                    Grid.Column="0"
+
+                    Text="取消"
+
+                    FontSize="15"
+
+                    IsVisible="False"
+
+                    Style="{StaticResource ToolbarIconButton}"
+
+                    Clicked="OnCancelSelectionClicked" />
+
+
+
+            <VerticalStackLayout x:Name="TitleArea"
+
+                                 Grid.Column="1"
+
+                                 VerticalOptions="Center"
+
+                                 HorizontalOptions="Center"
+
+                                 Spacing="2">
+
+                <Label x:Name="TitleLabel"
+
+                       FontFamily="OpenSansSemibold"
+
+                       FontSize="18"
+
+                       HorizontalOptions="Center"
+
+                       LineBreakMode="TailTruncation"
+
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                <Label x:Name="StatusLabel"
+
+                       FontSize="12"
+
+                       HorizontalOptions="Center"
+
+                       IsVisible="False"
+
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+
+                <HorizontalStackLayout x:Name="UploadProgressArea"
+
+                                       IsVisible="False"
+
+                                       HorizontalOptions="Center"
+
+                                       Spacing="8"
+
+                                       Margin="0,4,0,0">
+
+                    <ProgressBar x:Name="UploadProgressBar"
+
+                                 Progress="0"
+
+                                 ProgressColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+
+                                 WidthRequest="100"
+
+                                 VerticalOptions="Center" />
+
+                    <Button x:Name="CancelUploadButton"
+
+                            Text="✕"
+
+                            FontSize="14"
+
+                            WidthRequest="32"
+
+                            HeightRequest="32"
+
+                            CornerRadius="16"
+
+                            Padding="0"
+
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+
+                            Clicked="OnCancelUploadClicked" />
+
+                </HorizontalStackLayout>
+
+            </VerticalStackLayout>
+
+
+
+            <Label x:Name="SelectedCountLabel"
+
+                   Grid.Column="1"
+
+                   FontFamily="OpenSansSemibold"
+
+                   FontSize="17"
+
+                   IsVisible="False"
+
+                   HorizontalOptions="Center"
+
+                   VerticalOptions="Center"
+
+                   HorizontalTextAlignment="Center"
+
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+
+
+            <Button x:Name="MoreButton"
+
+                    Grid.Column="2"
+
+                    Text="⋮"
+
+                    Style="{StaticResource ToolbarIconButton}"
+
+                    SemanticProperties.Hint="更多"
+
+                    Clicked="OnMenuClicked" />
+
+
+
+            <HorizontalStackLayout x:Name="SelectAllArea"
+
+                                   Grid.Column="2"
+
                                    IsVisible="False"
-                                   Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
-                                   HorizontalOptions="Center"
-                                   VerticalOptions="Center" />
 
-                <Button x:Name="AddPhotoButton"
-                        Text="+"
-                        WidthRequest="56"
-                        HeightRequest="56"
-                        CornerRadius="28"
-                        FontSize="28"
-                        Padding="0"
-                        Margin="0,0,20,24"
-                        HorizontalOptions="End"
-                        VerticalOptions="End"
-                        Style="{StaticResource PrimaryButton}"
-                        SemanticProperties.Hint="添加照片"
-                        Clicked="OnAddPhotoClicked" />
-            </Grid>
+                                   Spacing="6"
+
+                                   VerticalOptions="Center"
+
+                                   HorizontalOptions="End">
+
+                <HorizontalStackLayout.GestureRecognizers>
+
+                    <TapGestureRecognizer Tapped="OnSelectAllTapped" />
+
+                </HorizontalStackLayout.GestureRecognizers>
+
+                <controls:AlbumSelectionCheckbox x:Name="SelectAllCheckbox"
+
+                                                 VerticalOptions="Center" />
+
+                <Label Text="全选"
+
+                       FontSize="15"
+
+                       VerticalOptions="Center"
+
+                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+            </HorizontalStackLayout>
+
         </Grid>
 
-        <controls:DropdownMenuOverlay x:Name="Dropdown" ZIndex="99" />
+
+
+        <Grid Grid.Row="1">
+
+            <RefreshView x:Name="PhotosRefreshView"
+
+                         RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
+
+                <CollectionView x:Name="PhotosView"
+
+                                IsGrouped="True"
+
+                                ItemSizingStrategy="MeasureFirstItem"
+
+                                ItemsLayout="VerticalGrid, 3"
+
+                                RemainingItemsThreshold="12"
+
+                                RemainingItemsThresholdReached="OnLoadMore"
+
+                                SelectionMode="None">
+
+                    <CollectionView.GroupHeaderTemplate>
+
+                        <DataTemplate x:DataType="helpers:SelectablePhotoGroup">
+
+                            <Grid Padding="12,18,12,8"
+
+                                  ColumnDefinitions="*,Auto"
+
+                                  ColumnSpacing="12">
+
+                                <Label Text="{Binding DateLabel}"
+
+                                       FontFamily="OpenSansSemibold"
+
+                                       FontSize="17"
+
+                                       VerticalOptions="Center"
+
+                                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                                <controls:AlbumSelectionCheckbox Grid.Column="1"
+
+                                                                 CheckState="{Binding CheckState}"
+
+                                                                 VerticalOptions="Center"
+
+                                                                 IsVisible="{Binding Source={x:Reference ThisPage}, Path=IsSelecting}">
+
+                                    <controls:AlbumSelectionCheckbox.GestureRecognizers>
+
+                                        <TapGestureRecognizer Tapped="OnGroupHeaderCheckTapped" />
+
+                                    </controls:AlbumSelectionCheckbox.GestureRecognizers>
+
+                                </controls:AlbumSelectionCheckbox>
+
+                            </Grid>
+
+                        </DataTemplate>
+
+                    </CollectionView.GroupHeaderTemplate>
+
+                    <CollectionView.ItemTemplate>
+
+                        <DataTemplate x:DataType="helpers:SelectablePhoto">
+
+                            <Grid Margin="2"
+
+                                  HeightRequest="112"
+
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
+
+                                <Grid.Behaviors>
+
+                                    <behaviors:LongPressBehavior />
+
+                                </Grid.Behaviors>
+
+                                <Grid.GestureRecognizers>
+
+                                    <TapGestureRecognizer Tapped="OnPhotoTapped" />
+
+                                </Grid.GestureRecognizers>
+
+                                <controls:AlbumGridPhotoView Aspect="AspectFill" />
+
+                                <controls:AlbumSelectionCheckbox CheckState="{Binding CheckState}"
+
+                                                                 Margin="4"
+
+                                                                 HorizontalOptions="End"
+
+                                                                 VerticalOptions="Start"
+
+                                                                 IsVisible="{Binding Source={x:Reference ThisPage}, Path=IsSelecting}" />
+
+                                <Label Text="▶"
+
+                                       IsVisible="{Binding Photo.IsVideo}"
+
+                                       FontSize="13"
+
+                                       TextColor="White"
+
+                                       BackgroundColor="#99000000"
+
+                                       WidthRequest="28"
+
+                                       HeightRequest="28"
+
+                                       HorizontalOptions="Center"
+
+                                       VerticalOptions="Center"
+
+                                       HorizontalTextAlignment="Center"
+
+                                       VerticalTextAlignment="Center" />
+
+                            </Grid>
+
+                        </DataTemplate>
+
+                    </CollectionView.ItemTemplate>
+
+                </CollectionView>
+
+            </RefreshView>
+
+
+
+            <ActivityIndicator x:Name="BusyIndicator"
+
+                               IsRunning="False"
+
+                               IsVisible="False"
+
+                               Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+
+                               HorizontalOptions="Center"
+
+                               VerticalOptions="Center" />
+
+
+
+            <Button x:Name="AddPhotoButton"
+
+                    Text="+"
+
+                    WidthRequest="56"
+
+                    HeightRequest="56"
+
+                    CornerRadius="28"
+
+                    FontSize="28"
+
+                    Padding="0"
+
+                    Margin="0,0,20,24"
+
+                    HorizontalOptions="End"
+
+                    VerticalOptions="End"
+
+                    Style="{StaticResource PrimaryButton}"
+
+                    SemanticProperties.Hint="添加照片"
+
+                    Clicked="OnAddPhotoClicked" />
+
+
+
+            <Border x:Name="SelectionActionBar"
+
+                    IsVisible="False"
+
+                    VerticalOptions="End"
+
+                    Margin="12,0,12,16"
+
+                    Padding="8"
+
+                    StrokeThickness="0"
+
+                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}">
+
+                <Border.StrokeShape>
+
+                    <RoundRectangle CornerRadius="14" />
+
+                </Border.StrokeShape>
+
+                <Border.Shadow>
+
+                    <Shadow Brush="Black"
+
+                            Opacity="0.12"
+
+                            Radius="12"
+
+                            Offset="0,4" />
+
+                </Border.Shadow>
+
+                <Grid ColumnDefinitions="*,*"
+
+                      ColumnSpacing="8">
+
+                    <Button x:Name="MoveSelectedButton"
+
+                            Grid.Column="0"
+
+                            Text="移动到相册"
+
+                            Style="{StaticResource SecondaryButton}"
+
+                            Clicked="OnMoveSelectedClicked" />
+
+                    <Button x:Name="DeleteSelectedButton"
+
+                            Grid.Column="1"
+
+                            Text="从相册删除"
+
+                            Style="{StaticResource DangerTextButton}"
+
+                            Clicked="OnDeleteSelectedClicked" />
+
+                </Grid>
+
+            </Border>
+
+        </Grid>
+
+
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown" Grid.RowSpan="2" ZIndex="99" />
+
     </Grid>
+
 </ContentPage>
+
+
