@@ -20,8 +20,6 @@
         </Grid>
 
         <Border x:Name="MenuCard"
-                AbsoluteLayout.LayoutBounds="0,0,Auto,Auto"
-                AbsoluteLayout.LayoutFlags="None"
                 MinimumWidthRequest="168"
                 MaximumWidthRequest="260"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"

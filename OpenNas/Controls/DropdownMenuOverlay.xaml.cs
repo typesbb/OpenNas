@@ -11,6 +11,8 @@ public partial class DropdownMenuOverlay : ContentView
     public DropdownMenuOverlay()
     {
         InitializeComponent();
+        AbsoluteLayout.SetLayoutBounds(MenuCard, new Rect(0, 0, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize));
+        AbsoluteLayout.SetLayoutFlags(MenuCard, AbsoluteLayoutFlags.None);
         OverlayRoot.SizeChanged += (_, _) => TryApplyPendingPosition();
     }
 
