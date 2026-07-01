@@ -24,6 +24,7 @@ public partial class NasAlbumsView : ContentView
     private readonly List<Album> _albums = [];
     private AlbumSortMode _sortMode;
     private bool _loading;
+    private bool _suppressAlbumTap;
 
     public Task RefreshAsync()
     {
@@ -180,6 +181,8 @@ public partial class NasAlbumsView : ContentView
         if (e.Context is not Album album)
             return;
 
+        _suppressAlbumTap = true;
+
         var selected = await Dropdown.ShowAtWindowAsync(
         [
             new DropdownMenuItem("rename", "重命名"),
@@ -253,19 +256,24 @@ public partial class NasAlbumsView : ContentView
         }
     }
 
+    private async void OnAlbumTapped(object? sender, TappedEventArgs e)
+    {
+        if (_suppressAlbumTap)
+        {
+            _suppressAlbumTap = false;
+            return;
+        }
+
+        if (sender is not BindableObject bindable || bindable.BindingContext is not Album album)
+            return;
+
+        await ShellNavigation.PushAsync(new AlbumDetailPage(album));
+    }
+
     private void OnThumbHandlerChanged(object? sender, EventArgs e)
     {
         if (sender is Image image && image.BindingContext is Album album)
             NasThumbnailLoader.TryLoadAlbumThumbnail(image, album);
-    }
-
-    private async void OnAlbumSelected(object sender, SelectionChangedEventArgs e)
-    {
-        if (e.CurrentSelection.FirstOrDefault() is not Album album)
-            return;
-
-        AlbumsView.SelectedItem = null;
-        await ShellNavigation.PushAsync(new AlbumDetailPage(album));
     }
 
     private Page? GetHostPage() =>

@@ -22,9 +22,8 @@
                      Grid.Row="1"
                      RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
             <CollectionView x:Name="AlbumsView"
-                            SelectionMode="Single"
-                            ItemsLayout="VerticalGrid, 3"
-                            SelectionChanged="OnAlbumSelected">
+                            SelectionMode="None"
+                            ItemsLayout="VerticalGrid, 3">
                 <CollectionView.EmptyView>
                     <controls:EmptyStateView Title="暂无相册"
                                              Message="下拉刷新或点右上角 + 新建相册。"
@@ -36,6 +35,9 @@
                             <VerticalStackLayout.Behaviors>
                                 <behaviors:LongPressBehavior />
                             </VerticalStackLayout.Behaviors>
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnAlbumTapped" />
+                            </VerticalStackLayout.GestureRecognizers>
                             <Border StrokeThickness="0"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
                                 <Border.StrokeShape>
