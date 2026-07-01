@@ -6,22 +6,22 @@
              InputTransparent="True"
              HorizontalOptions="Fill"
              VerticalOptions="Fill">
-    <Grid x:Name="OverlayRoot"
-          InputTransparent="False"
-          HorizontalOptions="Fill"
-          VerticalOptions="Fill">
+    <AbsoluteLayout x:Name="OverlayRoot"
+                    InputTransparent="False"
+                    HorizontalOptions="Fill"
+                    VerticalOptions="Fill">
         <Grid x:Name="DismissLayer"
               BackgroundColor="Transparent"
-              HorizontalOptions="Fill"
-              VerticalOptions="Fill">
+              AbsoluteLayout.LayoutBounds="0,0,1,1"
+              AbsoluteLayout.LayoutFlags="All">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnDismissTapped" />
             </Grid.GestureRecognizers>
         </Grid>
 
         <Border x:Name="MenuCard"
-                HorizontalOptions="End"
-                VerticalOptions="Start"
+                AbsoluteLayout.LayoutBounds="0,0,Auto,Auto"
+                AbsoluteLayout.LayoutFlags="None"
                 MinimumWidthRequest="168"
                 MaximumWidthRequest="260"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
@@ -35,5 +35,5 @@
             </Border.Shadow>
             <VerticalStackLayout x:Name="ItemsStack" Spacing="0" />
         </Border>
-    </Grid>
+    </AbsoluteLayout>
 </ContentView>

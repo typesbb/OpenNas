@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
              xmlns:controls="clr-namespace:OpenNas.Controls"
+             xmlns:behaviors="clr-namespace:OpenNas.Behaviors"
              x:Class="OpenNas.Views.NasAlbumsView">
     <Grid>
         <Grid.RowDefinitions>
@@ -32,6 +33,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="foto:Album">
                         <VerticalStackLayout Padding="6,10" Spacing="6">
+                            <VerticalStackLayout.Behaviors>
+                                <behaviors:LongPressBehavior />
+                            </VerticalStackLayout.Behaviors>
                             <Border StrokeThickness="0"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
                                 <Border.StrokeShape>
@@ -61,5 +65,7 @@
                            Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
                            HorizontalOptions="Center"
                            VerticalOptions="Center" />
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown" Grid.Row="0" Grid.RowSpan="2" ZIndex="99" />
     </Grid>
 </ContentView>

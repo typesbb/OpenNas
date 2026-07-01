@@ -16,6 +16,10 @@ namespace OpenNas.Views;
 
 public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDisposable
 {
+    private const string SortFieldKey = "album_detail_sort_field";
+    private const string SortDescKey = "album_detail_sort_desc";
+    private const string DefaultSortField = "time";
+
     private const int PageSize = 30;
 
     private readonly Album _album;
@@ -26,8 +30,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private readonly SemaphoreSlim _loadGate = new(1, 1);
 
     private int _offset;
-    private string _sortField = "time";
-    private bool _sortDescending = true;
+    private string _sortField;
+    private bool _sortDescending;
     private bool _uploading;
     private CancellationTokenSource? _uploadCts;
     private bool _hasMore = true;
@@ -60,6 +64,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     public AlbumDetailPage(Album album)
     {
+        _sortField = LoadSortField();
+        _sortDescending = LoadSortDescending();
         InitializeComponent();
         _album = album;
         TitleLabel.Text = album.Name;
@@ -67,6 +73,12 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         LongPressBehavior.LongPressed += OnPhotoLongPressBehavior;
         ApplyViewMode();
     }
+
+    private static string LoadSortField() =>
+        Preferences.Default.Get(SortFieldKey, DefaultSortField);
+
+    private static bool LoadSortDescending() =>
+        Preferences.Default.Get(SortDescKey, true);
 
     protected override async void OnAppearing()
     {
@@ -295,12 +307,21 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private void UpdateSortSelection(string field)
     {
+        var previousField = _sortField;
+        var previousDesc = _sortDescending;
+
         if (_sortField == field)
             _sortDescending = !_sortDescending;
         else
         {
             _sortField = field;
-            _sortDescending = field is not "name";
+            _sortDescending = field != "name";
+        }
+
+        if (_sortField != previousField || _sortDescending != previousDesc)
+        {
+            Preferences.Default.Set(SortFieldKey, _sortField);
+            Preferences.Default.Set(SortDescKey, _sortDescending);
         }
     }
 

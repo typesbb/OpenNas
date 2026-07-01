@@ -1,5 +1,6 @@
 using NSynology;
 using NSynology.Foto;
+using OpenNas.Behaviors;
 using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
@@ -17,8 +18,11 @@ public enum AlbumSortMode
 
 public partial class NasAlbumsView : ContentView
 {
+    private const string AlbumSortModeKey = "album_sort_mode";
+    private const string DefaultSortMode = "create";
+
     private readonly List<Album> _albums = [];
-    private AlbumSortMode _sortMode = AlbumSortMode.CreateTime;
+    private AlbumSortMode _sortMode;
     private bool _loading;
 
     public Task RefreshAsync()
@@ -29,12 +33,23 @@ public partial class NasAlbumsView : ContentView
 
     public NasAlbumsView()
     {
+        _sortMode = LoadSortMode();
         InitializeComponent();
         AlbumsRefreshView.Refreshing += OnPullRefreshing;
+        LongPressBehavior.LongPressed += OnAlbumLongPressed;
         Loaded += async (_, _) => await LoadAlbumsAsync();
     }
 
     public Task CreateAlbumAsync() => CreateAlbumInternalAsync();
+
+    private static AlbumSortMode LoadSortMode()
+    {
+        try { return Enum.Parse<AlbumSortMode>(Preferences.Default.Get(AlbumSortModeKey, DefaultSortMode)); }
+        catch { return AlbumSortMode.CreateTime; }
+    }
+
+    private static void SaveSortMode(AlbumSortMode mode) =>
+        Preferences.Default.Set(AlbumSortModeKey, mode.ToString());
 
     public IReadOnlyList<DropdownMenuItem> GetSortMenuItems() =>
     [
@@ -45,12 +60,15 @@ public partial class NasAlbumsView : ContentView
 
     public void SetSortMode(string key)
     {
+        var previous = _sortMode;
         _sortMode = key switch
         {
             "update" => AlbumSortMode.UpdateTime,
             "name" => AlbumSortMode.Name,
             _ => AlbumSortMode.CreateTime
         };
+        if (_sortMode != previous)
+            SaveSortMode(_sortMode);
         ApplySort();
     }
 
@@ -157,6 +175,84 @@ public partial class NasAlbumsView : ContentView
         }
     }
 
+    private async void OnAlbumLongPressed(object? sender, LongPressBehavior.LongPressEventArgs e)
+    {
+        if (e.Context is not Album album)
+            return;
+
+        var selected = await Dropdown.ShowAtWindowAsync(
+        [
+            new DropdownMenuItem("rename", "重命名"),
+            new DropdownMenuItem("delete", "删除相册")
+        ], e.WindowX, e.WindowY);
+
+        if (string.IsNullOrEmpty(selected))
+            return;
+
+        if (selected == "rename")
+            await RenameAlbumAsync(album);
+        else if (selected == "delete")
+            await DeleteAlbumAsync(album);
+    }
+    private async Task RenameAlbumAsync(Album album)
+    {
+        var page = GetHostPage();
+        if (page == null)
+            return;
+
+        if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
+        {
+            await page.DisplayAlertAsync("未连接 NAS", "请先在首页登录或检查连接设置。", "确定");
+            return;
+        }
+
+        var newName = await page.DisplayPromptAsync("重命名相册", "新的相册名称", "确定", "取消", initialValue: album.Name);
+        if (string.IsNullOrWhiteSpace(newName) || newName.Trim() == album.Name)
+            return;
+
+        try
+        {
+            var renamed = await SynologyManager.Client.Foto.RenameAlbumAsync(album.Id, newName.Trim());
+            album.Name = renamed.Name;
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("重命名相册失败", ex);
+            await page.DisplayAlertAsync("重命名相册", $"重命名失败：{ex.Message}", "确定");
+        }
+    }
+
+    private async Task DeleteAlbumAsync(Album album)
+    {
+        var page = GetHostPage();
+        if (page == null)
+            return;
+
+        if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
+        {
+            await page.DisplayAlertAsync("未连接 NAS", "请先在首页登录或检查连接设置。", "确定");
+            return;
+        }
+
+        var confirm = await page.DisplayAlertAsync("删除相册",
+            $"确定要删除相册「{album.Name}」？该操作不可恢复。", "删除", "取消");
+        if (!confirm)
+            return;
+
+        try
+        {
+            await SynologyManager.Client.Foto.DeleteAlbumAsync(album.Id);
+            _albums.Remove(album);
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("删除相册失败", ex);
+            await page.DisplayAlertAsync("删除相册", $"删除失败：{ex.Message}", "确定");
+        }
+    }
+
     private void OnThumbHandlerChanged(object? sender, EventArgs e)
     {
         if (sender is Image image && image.BindingContext is Album album)
@@ -181,4 +277,3 @@ public partial class NasAlbumsView : ContentView
         return page == null ? Task.CompletedTask : page.DisplayAlertAsync("相册", message, "确定");
     }
 }
-

@@ -1,5 +1,7 @@
 namespace NSynology.Foto;
 
+using System.Text.Json;
+
 public class FotoApi(SynologyClient synologyClient) : ApiBase
 {
     private readonly SynologyClient _client = synologyClient;
@@ -40,6 +42,34 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         var url = $"{SynologyClient.DsmWebApiEntry}?api=SYNO.Foto.Browse.NormalAlbum&version={version}&method=create&name={Uri.EscapeDataString(name)}&{{0}}";
         var result = await _client.GetAsync<AlbumObject>(url, cancellationToken);
         return result.Album;
+    }
+
+    /// <summary>重命名相册。</summary>
+    public async Task<Album> RenameAlbumAsync(int id, string name, CancellationToken cancellationToken = default)
+    {
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Browse.Album", 1);
+        var result = await _client.PostAppFormAsync<AlbumObject>(
+            "SYNO.Foto.Browse.Album",
+            version,
+            "set_name",
+            [
+                new KeyValuePair<string, string>("id", id.ToString()),
+                new KeyValuePair<string, string>("name", name)
+            ],
+            cancellationToken);
+        return result?.Album ?? new Album { Id = id, Name = name };
+    }
+
+    /// <summary>删除相册（不可恢复）。</summary>
+    public async Task DeleteAlbumAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var version = _client.GetMaxApiVersion("SYNO.Foto.Browse.Album", 1);
+        await _client.PostAppFormAsync(
+            "SYNO.Foto.Browse.Album",
+            version,
+            "delete",
+            [new KeyValuePair<string, string>("id", JsonSerializer.Serialize(new[] { id }))],
+            cancellationToken);
     }
 
     public async Task<Stream> GetThumbnailAsync(
