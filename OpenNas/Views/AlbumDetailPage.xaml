@@ -132,6 +132,48 @@
 
                 </HorizontalStackLayout>
 
+                <HorizontalStackLayout x:Name="DownloadProgressArea"
+
+                                       IsVisible="False"
+
+                                       HorizontalOptions="Center"
+
+                                       Spacing="8"
+
+                                       Margin="0,4,0,0">
+
+                    <ProgressBar x:Name="DownloadProgressBar"
+
+                                 Progress="0"
+
+                                 ProgressColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+
+                                 WidthRequest="100"
+
+                                 VerticalOptions="Center" />
+
+                    <Button x:Name="CancelDownloadButton"
+
+                            Text="✕"
+
+                            FontSize="14"
+
+                            WidthRequest="32"
+
+                            HeightRequest="32"
+
+                            CornerRadius="16"
+
+                            Padding="0"
+
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}"
+
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}"
+
+                            Clicked="OnCancelDownloadClicked" />
+
+                </HorizontalStackLayout>
+
             </VerticalStackLayout>
 
 
@@ -410,13 +452,23 @@
 
                 </Border.Shadow>
 
-                <Grid ColumnDefinitions="*,*"
+                <Grid ColumnDefinitions="*,*,*"
 
                       ColumnSpacing="8">
 
-                    <Button x:Name="MoveSelectedButton"
+                    <Button x:Name="DownloadSelectedButton"
 
                             Grid.Column="0"
+
+                            Text="下载"
+
+                            Style="{StaticResource SecondaryButton}"
+
+                            Clicked="OnDownloadSelectedClicked" />
+
+                    <Button x:Name="MoveSelectedButton"
+
+                            Grid.Column="1"
 
                             Text="移动到相册"
 
@@ -426,7 +478,7 @@
 
                     <Button x:Name="DeleteSelectedButton"
 
-                            Grid.Column="1"
+                            Grid.Column="2"
 
                             Text="从相册删除"
 

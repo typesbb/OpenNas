@@ -17,6 +17,14 @@ public static class MediaPermissions
         return true;
     }
 
+    public static async Task<bool> EnsureWriteMediaAsync()
+    {
+        if (OperatingSystem.IsAndroidVersionAtLeast(29))
+            return true;
+
+        return await EnsureGrantedAsync<WriteExternalStoragePermission>();
+    }
+
     public static async Task<bool> EnsureNotificationsAsync()
     {
         if (!OperatingSystem.IsAndroidVersionAtLeast(33))
@@ -52,6 +60,12 @@ public sealed class ReadMediaVideoPermission : Permissions.BasePlatformPermissio
 {
     public override (string androidPermission, bool isRuntime)[] RequiredPermissions =>
         [(Manifest.Permission.ReadMediaVideo, true)];
+}
+
+public sealed class WriteExternalStoragePermission : Permissions.BasePlatformPermission
+{
+    public override (string androidPermission, bool isRuntime)[] RequiredPermissions =>
+        [(Manifest.Permission.WriteExternalStorage, true)];
 }
 
 public sealed class PostNotificationsPermission : Permissions.BasePlatformPermission

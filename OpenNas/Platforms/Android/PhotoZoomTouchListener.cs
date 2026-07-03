@@ -44,6 +44,12 @@ public sealed class PhotoZoomGestureListener : GestureDetector.SimpleOnGestureLi
         _owner.OnDoubleTap(e);
         return true;
     }
+
+    public override bool OnSingleTapConfirmed(MotionEvent e)
+    {
+        _owner.OnSingleTap();
+        return true;
+    }
 }
 
 /// <summary>
@@ -292,6 +298,8 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
         _isPinchZoomed = true;
         _view.NotifyNativeZoomChanged(true);
     }
+
+    internal void OnSingleTap() => _view.OnNativeSingleTap();
 
     private void ApplyMatrix()
     {

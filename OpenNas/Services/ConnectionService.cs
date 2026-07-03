@@ -5,6 +5,7 @@ using OpenNas.Helpers;
 using OpenNas.Core.Models;
 using System.IO;
 using OpenNas.Core.Services;
+using OpenNas.Views;
 
 namespace OpenNas.Services;
 
@@ -12,6 +13,7 @@ public class ConnectionService
 {
     private const string ActiveProfileKey = "active_profile_id";
     private const string WifiOnlyKey = "backup_wifi_only";
+    private const string DownloadWifiOnlyKey = "download_wifi_only";
     private const string ConfirmDeleteKey = "backup_confirm_delete";
     private const string DeleteRiskAckKey = "backup_delete_risk_ack";
     private const string AutoSwitchEnabledKey = "auto_switch_enabled";
@@ -23,6 +25,7 @@ public class ConnectionService
     private bool _networkMonitoringStarted;
     private List<NasProfile> _cachedProfiles = new();
     private string? _serverKey;
+    private static int _sessionFailureHandling;
 
     public NasProfile? ActiveProfile { get; private set; }
 
@@ -420,6 +423,33 @@ public class ConnectionService
         await Task.CompletedTask;
     }
 
+    /// <summary>会话失效时清理本地凭证并返回登录页。返回 true 表示已处理。</summary>
+    public async Task<bool> TryHandleSessionFailureAsync(Exception ex)
+    {
+        if (!Helpers.NasSessionGuard.RequiresReLogin(ex))
+            return false;
+
+        if (Interlocked.CompareExchange(ref _sessionFailureHandling, 1, 0) != 0)
+            return true;
+
+        try
+        {
+            await InvalidateStoredSessionAsync(ex.Message);
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (Application.Current?.Windows.Count > 0)
+                    Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+            });
+
+            return true;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _sessionFailureHandling, 0);
+        }
+    }
+
     // ============================================================
     //  Profile management（含内存缓存）
     // ============================================================
@@ -558,6 +588,9 @@ public class ConnectionService
 
     public bool GetWifiOnly() { try { return Preferences.Get(WifiOnlyKey, true); } catch { return true; } }
     public void SetWifiOnly(bool value) { try { Preferences.Set(WifiOnlyKey, value); } catch { } }
+
+    public bool GetDownloadWifiOnly() { try { return Preferences.Get(DownloadWifiOnlyKey, true); } catch { return true; } }
+    public void SetDownloadWifiOnly(bool value) { try { Preferences.Set(DownloadWifiOnlyKey, value); } catch { } }
 
     public bool GetConfirmBeforeDelete() { try { return Preferences.Get(ConfirmDeleteKey, true); } catch { return true; } }
     public void SetConfirmBeforeDelete(bool value) { try { Preferences.Set(ConfirmDeleteKey, value); } catch { } }

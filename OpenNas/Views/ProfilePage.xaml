@@ -62,6 +62,20 @@
                 </Border>
 
                 <Border Style="{StaticResource SettingRowBorder}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Switch x:Name="DownloadWifiOnlySwitch"
+                                Toggled="OnDownloadWifiOnlyToggled"
+                                VerticalOptions="Center"
+                                WidthRequest="52"
+                                HorizontalOptions="Start" />
+                        <Label Grid.Column="1"
+                               Text="仅 Wi-Fi 时下载"
+                               VerticalOptions="Center"
+                               FontSize="15" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource SettingRowBorder}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnClearCacheClicked" />
                     </Border.GestureRecognizers>

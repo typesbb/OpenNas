@@ -187,6 +187,9 @@ public class BackupEngine
         {
             lock (Progress) { Progress.LastError = ex.Message; }
             BackupLog.Error("备份任务异常结束", ex);
+            if (await _connection.TryHandleSessionFailureAsync(ex))
+                return;
+
             throw;
         }
 
@@ -361,6 +364,8 @@ public class BackupEngine
                 catch (Exception ex) when (IsSessionError(ex))
                 {
                     BackupLog.Error($"{workItem.Media.DisplayName} 处理失败: 会话错误", ex);
+                    await _connection.TryHandleSessionFailureAsync(ex);
+                    _cts?.Cancel();
                 }
                 catch (Exception ex)
                 {

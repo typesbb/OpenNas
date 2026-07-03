@@ -33,7 +33,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private string _sortField;
     private bool _sortDescending;
     private bool _uploading;
+    private bool _downloading;
     private CancellationTokenSource? _uploadCts;
+    private CancellationTokenSource? _downloadCts;
     private bool _hasMore = true;
     private bool _isSelecting;
     private bool _suppressNextTap;
@@ -138,6 +140,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"刷新相册照片失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
         }
         finally
@@ -163,6 +168,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"加载相册照片失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
         }
         finally
@@ -394,6 +402,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private void OnCancelSelectionClicked(object? sender, EventArgs e) => ExitSelectionMode();
 
+    private async void OnDownloadSelectedClicked(object? sender, EventArgs e) => await DownloadSelectedAsync();
+
     private async void OnMoveSelectedClicked(object? sender, EventArgs e) => await MoveSelectedAsync();
 
     private async void OnDeleteSelectedClicked(object? sender, EventArgs e) => await DeleteSelectedAsync();
@@ -470,8 +480,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         SelectionActionBar.IsVisible = IsSelecting;
 
         AddPhotoButton.IsVisible = !IsSelecting;
-        MoveSelectedButton.IsEnabled = hasSelection;
-        DeleteSelectedButton.IsEnabled = hasSelection;
+        DownloadSelectedButton.IsEnabled = hasSelection && !_downloading;
+        MoveSelectedButton.IsEnabled = hasSelection && !_downloading;
+        DeleteSelectedButton.IsEnabled = hasSelection && !_downloading;
     }
 
     private int GetSelectedCount() =>
@@ -491,6 +502,100 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         if (selected == _selectableById.Count)
             return SelectionCheckState.Checked;
         return SelectionCheckState.Partial;
+    }
+
+    private async Task DownloadSelectedAsync()
+    {
+        if (_downloading)
+            return;
+
+        var selected = GetSelectedPhotos();
+        if (selected.Count == 0)
+            return;
+
+        var connection = AppServices.GetRequired<ConnectionService>();
+        if (!await AppPermissionBootstrap.EnsureDownloadAllowedAsync(this, connection))
+            return;
+
+        if (NasPhotoDownloadService.ShouldConfirmBatch(selected))
+        {
+            var confirm = await DisplayAlertAsync(_album.Name, NasPhotoDownloadService.BuildConfirmMessage(selected), "下载", "取消");
+            if (!confirm)
+                return;
+        }
+
+        _downloading = true;
+        UpdateSelectionUi();
+        StatusLabel.IsVisible = true;
+        DownloadProgressArea.IsVisible = true;
+        DownloadProgressBar.Progress = 0;
+        _downloadCts = new CancellationTokenSource();
+
+        try
+        {
+            var progress = new Progress<NasBatchDownloadProgress>(p =>
+            {
+                StatusLabel.Text = p.CurrentFileName != null
+                    ? $"正在下载 {p.CompletedCount + 1}/{p.TotalCount}…"
+                    : $"正在下载 {p.CompletedCount}/{p.TotalCount}…";
+
+                if (p.TotalCount > 0)
+                {
+                    var itemProgress = p.CurrentFileTotal is > 0
+                        ? p.BytesReceived / (double)p.CurrentFileTotal.Value
+                        : p.IsComplete ? 1 : 0;
+                    DownloadProgressBar.Progress = Math.Clamp((p.CompletedCount + itemProgress) / p.TotalCount, 0, 1);
+                }
+            });
+
+            var result = await NasPhotoDownloadService.DownloadBatchAsync(
+                selected,
+                progress,
+                _downloadCts.Token);
+
+            if (result.Cancelled)
+            {
+                await DisplayAlertAsync(_album.Name, $"下载已取消，已完成 {result.SuccessCount} 项。", "确定");
+                return;
+            }
+
+            if (result.FailedCount == 0)
+            {
+                await DisplayAlertAsync(_album.Name, $"已下载 {result.SuccessCount} 项到本机。", "确定");
+                return;
+            }
+
+            var detail = result.Failures.Count <= 3
+                ? string.Join("\n", result.Failures.Select(f => f.Photo.Filename ?? f.Photo.Id.ToString()))
+                : string.Join("\n", result.Failures.Take(3).Select(f => f.Photo.Filename ?? f.Photo.Id.ToString())) + "\n…";
+            await DisplayAlertAsync(_album.Name,
+                $"已下载 {result.SuccessCount} 项，{result.FailedCount} 项失败。\n{detail}",
+                "确定");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"下载照片失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
+            await DisplayAlertAsync(_album.Name, $"下载失败：{ex.Message}", "确定");
+        }
+        finally
+        {
+            StatusLabel.IsVisible = false;
+            StatusLabel.Text = "";
+            DownloadProgressArea.IsVisible = false;
+            _downloadCts?.Dispose();
+            _downloadCts = null;
+            _downloading = false;
+            UpdateSelectionUi();
+        }
+    }
+
+    private void OnCancelDownloadClicked(object? sender, EventArgs e)
+    {
+        try { _downloadCts?.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     private async Task MoveSelectedAsync()
@@ -544,6 +649,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"移动照片失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await DisplayAlertAsync(_album.Name, $"移动失败：{ex.Message}", "确定");
         }
         finally
@@ -585,6 +693,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"删除照片失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await DisplayAlertAsync(_album.Name, $"删除失败：{ex.Message}", "确定");
         }
         finally
@@ -666,6 +777,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"上传失败 {_album.Name}", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await DisplayAlertAsync(_album.Name, $"上传失败：{ex.Message}", "确定");
         }
         finally

@@ -143,6 +143,10 @@ public partial class ZoomableImageView : ContentView
         var tap = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
         tap.Tapped += OnDoubleTappedManaged;
         TouchLayer.GestureRecognizers.Add(tap);
+
+        var singleTap = new TapGestureRecognizer { NumberOfTapsRequired = 1 };
+        singleTap.Tapped += OnSingleTappedManaged;
+        TouchLayer.GestureRecognizers.Add(singleTap);
     }
 
     partial void InitializePlatform();
@@ -172,6 +176,7 @@ public partial class ZoomableImageView : ContentView
 #endif
 
     public event EventHandler? ZoomChanged;
+    public event EventHandler? SingleTapped;
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
     public event EventHandler<double>? DismissDrag;
     public event EventHandler? DismissRequested;
@@ -391,6 +396,22 @@ public partial class ZoomableImageView : ContentView
                 _ = AnimatePanClampAsync();
                 break;
         }
+    }
+
+    internal void OnNativeSingleTap()
+    {
+        if (IsZoomed)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
+    }
+
+    private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
+    {
+        if (_isNavigating || _isPinching || IsZoomed)
+            return;
+
+        SingleTapped?.Invoke(this, EventArgs.Empty);
     }
 
     private async void OnDoubleTappedManaged(object? sender, TappedEventArgs e)

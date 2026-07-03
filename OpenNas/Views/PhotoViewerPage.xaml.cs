@@ -1,5 +1,6 @@
 using NSynology.Foto;
 using OpenNas.Controls;
+using OpenNas.Helpers;
 using OpenNas.Services;
 
 namespace OpenNas.Views;
@@ -9,16 +10,21 @@ public partial class PhotoViewerPage : ContentPage
     private readonly IReadOnlyList<Photo> _photos;
     private readonly ZoomableImageView _imageView;
     private readonly NasVideoPlayerView _videoView;
+    private readonly ConnectionService _connection;
     private int _index;
     private bool _currentZoomed;
     private bool _initialized;
     private bool _isDismissing;
+    private bool _actionBarVisible;
+    private bool _exporting;
+    private CancellationTokenSource? _exportCts;
 
     public PhotoViewerPage(IReadOnlyList<Photo> photos, int startIndex)
     {
         InitializeComponent();
         _photos = photos;
         _index = Math.Clamp(startIndex, 0, Math.Max(0, photos.Count - 1));
+        _connection = AppServices.GetRequired<ConnectionService>();
 
         _imageView = new ZoomableImageView
         {
@@ -27,6 +33,7 @@ public partial class PhotoViewerPage : ContentPage
             IsVisible = true
         };
         _imageView.ZoomChanged += OnZoomChanged;
+        _imageView.SingleTapped += OnImageSingleTapped;
         _imageView.DismissDrag += OnDismissDrag;
         _imageView.DismissRequested += OnDismissRequested;
         _imageView.OnSwipeNavigateAsync = NavigateAsync;
@@ -41,6 +48,7 @@ public partial class PhotoViewerPage : ContentPage
         _videoView.DismissRequested += OnDismissRequested;
         _videoView.OnSwipeNavigateAsync = NavigateAsync;
         _videoView.FullscreenRequested += OnVideoFullscreenRequested;
+        _videoView.SingleTapped += OnVideoSingleTapped;
 
         DismissHost.Children.Add(_imageView);
         DismissHost.Children.Add(_videoView);
@@ -72,6 +80,7 @@ public partial class PhotoViewerPage : ContentPage
         if (_photos.Count == 0)
             return;
 
+        HideActionBar();
         var photo = _photos[_index];
         var isVideo = photo.IsVideo;
 
@@ -79,6 +88,7 @@ public partial class PhotoViewerPage : ContentPage
         _imageView.IsVisible = !isVideo;
         _videoView.IsVisible = isVideo;
         FullscreenButton.IsVisible = !isVideo;
+        ActionBar.IsVisible = false;
 
         if (isVideo)
         {
@@ -116,7 +126,39 @@ public partial class PhotoViewerPage : ContentPage
     private void OnZoomChanged(object? sender, EventArgs e)
     {
         if (sender is ZoomableImageView zoomable && _photos[_index].IsVideo == false)
+        {
             _currentZoomed = zoomable.IsZoomed;
+            if (_currentZoomed)
+                HideActionBar();
+        }
+    }
+
+    private void OnImageSingleTapped(object? sender, EventArgs e)
+    {
+        if (_photos[_index].IsVideo || _currentZoomed || _exporting)
+            return;
+
+        ToggleActionBar();
+    }
+
+    private void OnVideoSingleTapped(object? sender, EventArgs e)
+    {
+        if (!_photos[_index].IsVideo || _exporting)
+            return;
+
+        ToggleActionBar();
+    }
+
+    private void ToggleActionBar()
+    {
+        _actionBarVisible = !_actionBarVisible;
+        ActionBar.IsVisible = _actionBarVisible;
+    }
+
+    private void HideActionBar()
+    {
+        _actionBarVisible = false;
+        ActionBar.IsVisible = false;
     }
 
     private void OnDismissDrag(object? sender, double totalY)
@@ -130,6 +172,7 @@ public partial class PhotoViewerPage : ContentPage
             return;
         }
 
+        HideActionBar();
         DismissHost.TranslationY = totalY;
         var threshold = _photos[_index].IsVideo
             ? _videoView.GetDismissThreshold()
@@ -181,9 +224,123 @@ public partial class PhotoViewerPage : ContentPage
     private async void OnVideoFullscreenRequested(object? sender, EventArgs e) =>
         await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
 
+    private async void OnDownloadClicked(object? sender, EventArgs e) =>
+        await DownloadCurrentAsync();
+
+    private async void OnShareClicked(object? sender, EventArgs e) =>
+        await ShareCurrentAsync();
+
+    private Photo CurrentPhoto => _photos[_index];
+
+    private async Task DownloadCurrentAsync()
+    {
+        if (_exporting)
+            return;
+
+        if (!await AppPermissionBootstrap.EnsureDownloadAllowedAsync(this, _connection))
+            return;
+
+        _exporting = true;
+        HideActionBar();
+        ExportProgressPanel.IsVisible = true;
+        ExportStatusLabel.Text = "正在下载…";
+        ExportProgressBar.Progress = 0;
+        _exportCts = new CancellationTokenSource();
+
+        try
+        {
+            var progress = new Progress<NasDownloadProgress>(p =>
+            {
+                ExportStatusLabel.Text = p.TotalBytes is > 0
+                    ? $"正在下载 {p.BytesReceived * 100 / p.TotalBytes.Value}%"
+                    : $"正在下载 {NasMediaCache.FormatBytes(p.BytesReceived)}";
+                if (p.TotalBytes is > 0)
+                    ExportProgressBar.Progress = Math.Clamp(p.BytesReceived / (double)p.TotalBytes.Value, 0, 1);
+            });
+
+            var saved = await NasPhotoDownloadService.DownloadSingleToGalleryAsync(
+                CurrentPhoto,
+                progress,
+                _exportCts.Token);
+
+            if (saved)
+            {
+                await UiFeedback.ToastAsync("已保存到本机");
+                return;
+            }
+
+            await DisplayAlertAsync("下载失败", "无法保存到本机，请稍后重试。", "确定");
+        }
+        catch (OperationCanceledException)
+        {
+            await UiFeedback.ToastAsync("下载已取消");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("预览页下载失败", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
+            await DisplayAlertAsync("下载失败", ex.Message, "确定");
+        }
+        finally
+        {
+            ExportProgressPanel.IsVisible = false;
+            _exportCts?.Dispose();
+            _exportCts = null;
+            _exporting = false;
+        }
+    }
+
+    private async Task ShareCurrentAsync()
+    {
+        if (_exporting)
+            return;
+
+        _exporting = true;
+        HideActionBar();
+        ExportProgressPanel.IsVisible = true;
+        ExportStatusLabel.Text = "正在准备分享…";
+        ExportProgressBar.Progress = 0;
+        _exportCts = new CancellationTokenSource();
+
+        try
+        {
+            var progress = new Progress<NasDownloadProgress>(p =>
+            {
+                if (p.TotalBytes is > 0)
+                    ExportProgressBar.Progress = Math.Clamp(p.BytesReceived / (double)p.TotalBytes.Value, 0, 1);
+            });
+
+            var shared = await NasMediaShareHelper.ShareAsync(CurrentPhoto, progress, _exportCts.Token);
+            if (!shared)
+                await DisplayAlertAsync("分享失败", "无法准备分享文件，请稍后重试。", "确定");
+        }
+        catch (OperationCanceledException)
+        {
+            await UiFeedback.ToastAsync("已取消");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("预览页分享失败", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
+            await DisplayAlertAsync("分享失败", ex.Message, "确定");
+        }
+        finally
+        {
+            ExportProgressPanel.IsVisible = false;
+            _exportCts?.Dispose();
+            _exportCts = null;
+            _exporting = false;
+        }
+    }
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        try { _exportCts?.Cancel(); } catch (ObjectDisposedException) { }
         _videoView.Stop();
         DismissHost.TranslationY = 0;
         DismissHost.Opacity = 1;

@@ -19,6 +19,12 @@ public sealed class VideoGestureListener : GestureDetector.SimpleOnGestureListen
         _owner.OnDoubleTap();
         return true;
     }
+
+    public override bool OnSingleTapConfirmed(MotionEvent e)
+    {
+        _owner.OnSingleTap();
+        return true;
+    }
 }
 
 [Preserve(AllMembers = true)]
@@ -72,6 +78,8 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
     }
 
     internal void OnDoubleTap() => _view.OnNativeDoubleTap();
+
+    internal void OnSingleTap() => _view.OnNativeSingleTap();
 
     public bool OnTouch(AView? v, MotionEvent? e)
     {

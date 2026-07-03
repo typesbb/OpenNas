@@ -4,7 +4,6 @@ using OpenNas.Behaviors;
 using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
-using OpenNas.Core.Services;
 using OpenNas.Views;
 
 namespace OpenNas.Views;
@@ -114,16 +113,10 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("加载 NAS 相册失败", ex);
-            if (NasSessionHelper.IsSessionError(ex))
-            {
-                _albums.Clear();
-                AlbumsView.ItemsSource = null;
-                await ShowAlertAsync(
-                    "无法访问 Synology Photos 相册（错误 119：当前 DSM 会话对 Photos API 无效）。\n" +
-                    "请在 DSM 中为该用户启用 Photos 权限，或在「更多」重新登录后重试。");
-            }
-            else
-                await ShowAlertAsync($"加载失败：{ex.Message}");
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
+            await ShowAlertAsync($"加载失败：{ex.Message}");
         }
         finally
         {
@@ -172,6 +165,9 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("创建相册失败", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await page.DisplayAlertAsync("新建相册", $"创建失败：{ex.Message}", "确定");
         }
     }
@@ -222,6 +218,9 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("重命名相册失败", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await page.DisplayAlertAsync("重命名相册", $"重命名失败：{ex.Message}", "确定");
         }
     }
@@ -252,6 +251,9 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("删除相册失败", ex);
+            if (await NasSessionGuard.HandleIfNeededAsync(ex))
+                return;
+
             await page.DisplayAlertAsync("删除相册", $"删除失败：{ex.Message}", "确定");
         }
     }

@@ -121,6 +121,7 @@ public partial class NasVideoPlayerView : ContentView
     public event EventHandler<double>? DismissDrag;
     public event EventHandler? DismissRequested;
     public event EventHandler? FullscreenRequested;
+    public event EventHandler? SingleTapped;
 
     private void BuildUi()
     {
@@ -169,6 +170,10 @@ public partial class NasVideoPlayerView : ContentView
         var doubleTap = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
         doubleTap.Tapped += OnDoubleTapped;
         TopTouchLayer.GestureRecognizers.Add(doubleTap);
+
+        var singleTap = new TapGestureRecognizer { NumberOfTapsRequired = 1 };
+        singleTap.Tapped += OnSingleTappedManaged;
+        TopTouchLayer.GestureRecognizers.Add(singleTap);
 #endif
 
         LoadingIndicator = new ActivityIndicator
@@ -643,6 +648,9 @@ public partial class NasVideoPlayerView : ContentView
     }
 
     private void OnDoubleTapped(object? sender, TappedEventArgs e) => TogglePlayPause();
+
+    private void OnSingleTappedManaged(object? sender, TappedEventArgs e) =>
+        SingleTapped?.Invoke(this, EventArgs.Empty);
 
     private void OnScrubDragStarted(object? sender, EventArgs e)
     {

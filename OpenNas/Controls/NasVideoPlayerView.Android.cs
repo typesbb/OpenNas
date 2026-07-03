@@ -78,6 +78,9 @@ public partial class NasVideoPlayerView
 
     internal void OnNativeDoubleTap() => TogglePlayPause();
 
+    internal void OnNativeSingleTap() =>
+        MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
+
     internal void OnNativeSlideOffset(float deltaX)
     {
         if (_isNavigating)
