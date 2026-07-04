@@ -47,11 +47,11 @@ namespace NSynology
             };
             if (ErrorCodes.TryGetValue(Error.Code, out string value))
             {
-                throw new SynologyApiException(value, Error.Code);
+                SynologyApiException.ThrowIfApiError(value, Error.Code);
             }
             if (Error.Errors != null && Error.Errors.Reason != null)
             {
-                throw new SynologyApiException($"{Error.Errors.Name} {Error.Errors.Reason}", Error.Code);
+                SynologyApiException.ThrowIfApiError($"{Error.Errors.Name} {Error.Errors.Reason}", Error.Code);
             }
         }
     }

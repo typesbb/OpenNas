@@ -113,10 +113,7 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("加载 NAS 相册失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await ShowAlertAsync($"加载失败：{ex.Message}");
+            await UiFeedback.ShowApiErrorAsync(GetHostPage(), "相册", ex, $"加载失败：{ex.Message}");
         }
         finally
         {
@@ -165,10 +162,7 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("创建相册失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await page.DisplayAlertAsync("新建相册", $"创建失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(page, "新建相册", ex, $"创建失败：{ex.Message}");
         }
     }
 
@@ -218,10 +212,7 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("重命名相册失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await page.DisplayAlertAsync("重命名相册", $"重命名失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(page, "重命名相册", ex, $"重命名失败：{ex.Message}");
         }
     }
 
@@ -251,10 +242,7 @@ public partial class NasAlbumsView : ContentView
         catch (Exception ex)
         {
             AppLog.Error("删除相册失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await page.DisplayAlertAsync("删除相册", $"删除失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(page, "删除相册", ex, $"删除失败：{ex.Message}");
         }
     }
 

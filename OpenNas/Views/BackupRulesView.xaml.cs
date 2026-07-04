@@ -75,8 +75,7 @@ public partial class BackupRulesView : ContentView
         {
             AppLog.Error("备份规则操作失败", ex);
             var page = Application.Current?.Windows[0]?.Page;
-            if (page != null)
-                await page.DisplayAlertAsync("错误", ex.Message, "确定");
+            await UiFeedback.ShowApiErrorAsync(page, "错误", ex);
         }
     }
 }

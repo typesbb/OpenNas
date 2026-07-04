@@ -46,6 +46,10 @@ public static class NasOriginalLoader
             if (!string.IsNullOrEmpty(path))
                 await ApplyImageAsync(image, path, canApply, onApplied);
         }
+        catch (SynologyApiException)
+        {
+            throw;
+        }
         catch
         {
             // ignore
@@ -90,6 +94,10 @@ public static class NasOriginalLoader
             await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo, cancellationToken);
             var path = await NasMediaCache.WriteOriginalFromStreamAsync(photo, network, cancellationToken);
             return path;
+        }
+        catch (SynologyApiException)
+        {
+            throw;
         }
         catch
         {
@@ -174,6 +182,10 @@ public static class NasOriginalLoader
             File.Move(temp, path);
             progress?.Report(new NasDownloadProgress(received, totalBytes ?? received, true));
             return path;
+        }
+        catch (SynologyApiException)
+        {
+            throw;
         }
         catch
         {

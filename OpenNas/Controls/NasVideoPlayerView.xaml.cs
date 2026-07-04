@@ -38,6 +38,7 @@ public partial class NasVideoPlayerView : ContentView
     private bool _wasPlayingBeforeScrub;
     private CancellationTokenSource? _progressCts;
     private bool _isFastForwarding;
+    private CancellationTokenSource? _singleTapCts;
     private string? _playbackPath;
     private double _durationSeconds;
 
@@ -647,10 +648,29 @@ public partial class NasVideoPlayerView : ContentView
         UpdatePlayPauseButton();
     }
 
-    private void OnDoubleTapped(object? sender, TappedEventArgs e) => TogglePlayPause();
+    private void OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        _singleTapCts?.Cancel();
+        TogglePlayPause();
+    }
 
-    private void OnSingleTappedManaged(object? sender, TappedEventArgs e) =>
-        SingleTapped?.Invoke(this, EventArgs.Empty);
+    private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
+    {
+        _singleTapCts?.Cancel();
+        _singleTapCts = new CancellationTokenSource();
+        var token = _singleTapCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(300, token);
+                MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
 
     private void OnScrubDragStarted(object? sender, EventArgs e)
     {

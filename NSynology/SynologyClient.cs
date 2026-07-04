@@ -420,9 +420,36 @@ public class SynologyClient
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, FormatSid(url));
         ApplySynoTokenHeader(request);
-        var response = await HttpClient.SendAsync(request, cancellationToken);
+        using var response = await HttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
+
+        // 必须在 response 释放前读完；HttpClient 会在 Dispose 时关闭底层流。
+        await using var network = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var buffer = new MemoryStream();
+        await network.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+        return buffer;
+    }
+
+    private static async Task EnsureBinaryResponseOrThrowAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStreamAsync(cancellationToken);
+
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+        if (!contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var result = JsonSerializer.Deserialize<SynologyResponse<object>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (result == null)
+            throw new Exception("Empty response from NAS.");
+        result.CheckErrorCode();
     }
 
     private async Task<string> GetStringAsync(string url, CancellationToken cancellationToken)

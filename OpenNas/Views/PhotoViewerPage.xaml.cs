@@ -278,10 +278,7 @@ public partial class PhotoViewerPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error("预览页下载失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync("下载失败", ex.Message, "确定");
+            await UiFeedback.ShowApiErrorAsync(this, "下载失败", ex);
         }
         finally
         {
@@ -323,10 +320,7 @@ public partial class PhotoViewerPage : ContentPage
         catch (Exception ex)
         {
             AppLog.Error("预览页分享失败", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync("分享失败", ex.Message, "确定");
+            await UiFeedback.ShowApiErrorAsync(this, "分享失败", ex);
         }
         finally
         {

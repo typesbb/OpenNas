@@ -34,6 +34,14 @@ public class ConnectionService
 
     public event EventHandler? ConnectionChanged;
 
+    /// <summary>API 层检测到 106/107 并完成登出跳转后触发。</summary>
+    public event EventHandler? SessionExpired;
+
+    public ConnectionService()
+    {
+        SynologyManager.SessionExpiredHandler = OnApiSessionExpiredAsync;
+    }
+
     public void NotifyConnectionChanged() => ConnectionChanged?.Invoke(this, EventArgs.Empty);
 
     public bool AutoSwitchEnabled
@@ -400,10 +408,24 @@ public class ConnectionService
         LogRepository.Instance.AppendOperation("退出登录");
     }
 
-    public async Task InvalidateStoredSessionAsync(string reason)
+    public async Task InvalidateStoredSessionAsync(string reason, bool tryServerLogout = false)
     {
         AppLog.Warn(reason);
         LogRepository.Instance.AppendOperation("NAS 会话已过期");
+
+        if (tryServerLogout
+            && SynologyManager.Client != null
+            && !string.IsNullOrEmpty(SynologyManager.Client.Sid))
+        {
+            try
+            {
+                await SynologyManager.Client.Auth.LogoutAsync();
+            }
+            catch (Exception logoutEx)
+            {
+                AppLog.Debug("会话失效时服务端登出失败（可忽略）", logoutEx);
+            }
+        }
 
         var sidKey = await SidKeyAsync();
         var didKey = await DidKeyAsync();
@@ -423,18 +445,14 @@ public class ConnectionService
         await Task.CompletedTask;
     }
 
-    /// <summary>会话失效时清理本地凭证并返回登录页。返回 true 表示已处理。</summary>
-    public async Task<bool> TryHandleSessionFailureAsync(Exception ex)
+    private async Task OnApiSessionExpiredAsync(SynologyApiException ex)
     {
-        if (!Helpers.NasSessionGuard.RequiresReLogin(ex))
-            return false;
-
         if (Interlocked.CompareExchange(ref _sessionFailureHandling, 1, 0) != 0)
-            return true;
+            return;
 
         try
         {
-            await InvalidateStoredSessionAsync(ex.Message);
+            await InvalidateStoredSessionAsync(ex.Message, tryServerLogout: true);
 
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -442,7 +460,7 @@ public class ConnectionService
                     Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
             });
 
-            return true;
+            SessionExpired?.Invoke(this, EventArgs.Empty);
         }
         finally
         {

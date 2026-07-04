@@ -140,10 +140,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"刷新相册照片失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"加载照片失败：{ex.Message}");
         }
         finally
         {
@@ -168,10 +165,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"加载相册照片失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"加载照片失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"加载照片失败：{ex.Message}");
         }
         finally
         {
@@ -575,10 +569,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"下载照片失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"下载失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"下载失败：{ex.Message}");
         }
         finally
         {
@@ -649,10 +640,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"移动照片失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"移动失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"移动失败：{ex.Message}");
         }
         finally
         {
@@ -693,10 +681,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"删除照片失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"删除失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"删除失败：{ex.Message}");
         }
         finally
         {
@@ -777,10 +762,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         catch (Exception ex)
         {
             AppLog.Error($"上传失败 {_album.Name}", ex);
-            if (await NasSessionGuard.HandleIfNeededAsync(ex))
-                return;
-
-            await DisplayAlertAsync(_album.Name, $"上传失败：{ex.Message}", "确定");
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"上传失败：{ex.Message}");
         }
         finally
         {

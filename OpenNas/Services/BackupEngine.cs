@@ -55,6 +55,7 @@ public class BackupEngine
     {
         _db = db;
         _connection = connection;
+        _connection.SessionExpired += (_, _) => _cts?.Cancel();
     }
 
 
@@ -187,7 +188,7 @@ public class BackupEngine
         {
             lock (Progress) { Progress.LastError = ex.Message; }
             BackupLog.Error("备份任务异常结束", ex);
-            if (await _connection.TryHandleSessionFailureAsync(ex))
+            if (ex is SynologyApiException { RequiresReLogin: true })
                 return;
 
             throw;
@@ -361,13 +362,7 @@ public class BackupEngine
                 {
                     await RunSlotWorkAsync(slotIndex, workItem, key, mediaService, uploadSem, token);
                 }
-                catch (Exception ex) when (IsSessionError(ex))
-                {
-                    BackupLog.Error($"{workItem.Media.DisplayName} 处理失败: 会话错误", ex);
-                    await _connection.TryHandleSessionFailureAsync(ex);
-                    _cts?.Cancel();
-                }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not SynologyApiException { RequiresReLogin: true })
                 {
                     BackupLog.Error($"{workItem.Media.DisplayName} 处理失败", ex);
                     Progress.IncrementFailed();
@@ -563,16 +558,6 @@ public class BackupEngine
             throw new PlatformNotSupportedException("备份仅支持 Android。");
 #endif
         }
-        catch (Exception ex) when (IsSessionError(ex))
-        {
-            record.Status = BackupItemStatus.Failed;
-            record.LastError = "会话已过期，请重新登录";
-            await _db.UpsertRecordAsync(record);
-            Progress.IncrementFailed();
-            Notify(force: true);
-            lock (Progress) { Progress.LastError = record.LastError; }
-            BackupLog.Error($"{item.DisplayName} 上传失败: 会话错误", ex);
-        }
         catch (OperationCanceledException ex)
         {
             record.Status = BackupItemStatus.Failed;
@@ -720,10 +705,6 @@ public class BackupEngine
             await Task.Delay(300, token);
 
     }
-
-
-
-    private static bool IsSessionError(Exception ex) => NasSessionHelper.IsSessionError(ex);
 
 
 

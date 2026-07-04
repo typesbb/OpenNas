@@ -239,6 +239,10 @@ public static class NasThumbnailLoader
             TrimMemoryCache();
             return bytes;
         }
+        catch (SynologyApiException)
+        {
+            throw;
+        }
         catch (OperationCanceledException)
         {
             return null;
