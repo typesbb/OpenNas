@@ -6,40 +6,51 @@ namespace OpenNas.Views;
 
 public partial class StartupPage : ContentPage
 {
-    public StartupPage()
+    private readonly BackupDatabase _db;
+    private readonly ConnectionService _connection;
+    private readonly IAuthNavigation _authNavigation;
+    private bool _bootstrapped;
+
+    public StartupPage(BackupDatabase db, ConnectionService connection, IAuthNavigation authNavigation)
     {
         InitializeComponent();
+        _db = db;
+        _connection = connection;
+        _authNavigation = authNavigation;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (_bootstrapped)
+            return;
+
+        _bootstrapped = true;
         await BootstrapAsync();
     }
 
-    private static async Task BootstrapAsync()
+    private async Task BootstrapAsync()
     {
         try
         {
             Routing.RegisterRoute(nameof(ConnectionSettingsPage), typeof(ConnectionSettingsPage));
 
-            await AppServices.GetRequired<BackupDatabase>().EnsureInitializedAsync();
-
-            var connection = AppServices.GetRequired<ConnectionService>();
-            await connection.InitializeAsync();
+            await _db.EnsureInitializedAsync();
+            await _connection.InitializeAsync();
 
             if (Application.Current?.Windows.Count > 0)
             {
-                Application.Current.Windows[0].Page = connection.IsLoggedIn
-                    ? new AppShell()
-                    : new NavigationPage(AppServices.GetRequired<LoginPage>());
+                if (_connection.IsLoggedIn)
+                    await _authNavigation.GoToMainShellAsync();
+                else
+                    await _authNavigation.GoToLoginAsync();
             }
         }
         catch (Exception ex)
         {
             AppLog.Error("启动初始化失败", ex);
             if (Application.Current?.Windows.Count > 0)
-                Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+                await _authNavigation.GoToLoginAsync();
         }
     }
 }

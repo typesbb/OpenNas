@@ -23,6 +23,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private const int PageSize = 30;
 
     private readonly Album _album;
+    private readonly ConnectionService _connection;
     private readonly List<Photo> _photos = [];
     private readonly ObservableCollection<SelectablePhotoGroup> _groups = [];
     private readonly Dictionary<int, SelectablePhoto> _selectableById = [];
@@ -64,12 +65,13 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         GC.SuppressFinalize(this);
     }
 
-    public AlbumDetailPage(Album album)
+    public AlbumDetailPage(Album album, ConnectionService connection)
     {
         _sortField = LoadSortField();
         _sortDescending = LoadSortDescending();
         InitializeComponent();
         _album = album;
+        _connection = connection;
         TitleLabel.Text = album.Name;
         PhotosRefreshView.Refreshing += OnPullRefreshing;
         LongPressBehavior.LongPressed += OnPhotoLongPressBehavior;
@@ -351,7 +353,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         if (index < 0)
             index = 0;
 
-        await Navigation.PushAsync(new PhotoViewerPage(_photos, index));
+        await Navigation.PushAsync(new PhotoViewerPage(_photos, index, _connection));
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) => await Navigation.PopAsync();
@@ -507,8 +509,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         if (selected.Count == 0)
             return;
 
-        var connection = AppServices.GetRequired<ConnectionService>();
-        if (!await AppPermissionBootstrap.EnsureDownloadAllowedAsync(this, connection))
+        if (!await AppPermissionBootstrap.EnsureDownloadAllowedAsync(this, _connection))
             return;
 
         if (NasPhotoDownloadService.ShouldConfirmBatch(selected))

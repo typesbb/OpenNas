@@ -19,12 +19,12 @@ public partial class PhotoViewerPage : ContentPage
     private bool _exporting;
     private CancellationTokenSource? _exportCts;
 
-    public PhotoViewerPage(IReadOnlyList<Photo> photos, int startIndex)
+    public PhotoViewerPage(IReadOnlyList<Photo> photos, int startIndex, ConnectionService connection)
     {
         InitializeComponent();
         _photos = photos;
         _index = Math.Clamp(startIndex, 0, Math.Max(0, photos.Count - 1));
-        _connection = AppServices.GetRequired<ConnectionService>();
+        _connection = connection;
 
         _imageView = new ZoomableImageView
         {

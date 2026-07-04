@@ -11,7 +11,7 @@ namespace OpenNas.Helpers;
 
 public static class BackupRuleCreator
 {
-    public static async Task<BackupRule?> CreateFromUserInputAsync(Page page, BackupDatabase db)
+    public static async Task<BackupRule?> CreateFromUserInputAsync(Page page, BackupDatabase db, ConnectionService connection)
     {
 #if !ANDROID
         await page.DisplayAlertAsync("提示", "备份规则仅支持 Android。", "确定");
@@ -66,8 +66,7 @@ public static class BackupRuleCreator
 
         if (delete)
         {
-            var conn = AppServices.GetRequired<ConnectionService>();
-            conn.SetAcknowledgedDeleteRisk(true);
+            connection.SetAcknowledgedDeleteRisk(true);
         }
 
         var rule = new BackupRule

@@ -14,6 +14,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     private readonly BackupDatabase _db;
     private readonly BackupEngine _engine;
     private readonly ConnectionService _connection;
+    private readonly IAuthNavigation _authNavigation;
 
     private bool _wasRunning;
     private bool _isRunning;
@@ -22,11 +23,16 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     private BackupSummarySnapshot _lastSummary;
     private bool _rulesLoaded;
 
-    public BackupTaskViewModel(BackupDatabase db, BackupEngine engine, ConnectionService connection)
+    public BackupTaskViewModel(
+        BackupDatabase db,
+        BackupEngine engine,
+        ConnectionService connection,
+        IAuthNavigation authNavigation)
     {
         _db = db;
         _engine = engine;
         _connection = connection;
+        _authNavigation = authNavigation;
         Rules = [];
         Rules = [];
         _engine.ProgressChanged += OnEngineProgressChanged;
@@ -169,7 +175,7 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var rule = await BackupRuleCreator.CreateFromUserInputAsync(page, _db);
+            var rule = await BackupRuleCreator.CreateFromUserInputAsync(page, _db, _connection);
             if (rule == null)
                 return;
 
@@ -259,8 +265,8 @@ public partial class BackupTaskViewModel : INotifyPropertyChanged, IDisposable
             "NAS 会话已过期或未登录，请重新登录后再备份。",
             "去登录",
             "取消");
-        if (goLogin && Application.Current?.Windows.Count > 0)
-            Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+        if (goLogin)
+            await _authNavigation.GoToLoginAsync();
 
         return false;
     }

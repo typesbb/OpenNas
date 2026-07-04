@@ -21,9 +21,12 @@ public partial class NasAlbumsView : ContentView
     private const string DefaultSortMode = "create";
 
     private readonly List<Album> _albums = [];
+    private ConnectionService? _connection;
     private AlbumSortMode _sortMode;
     private bool _loading;
     private bool _suppressAlbumTap;
+
+    public void BindConnection(ConnectionService connection) => _connection = connection;
 
     public Task RefreshAsync()
     {
@@ -257,7 +260,10 @@ public partial class NasAlbumsView : ContentView
         if (sender is not BindableObject bindable || bindable.BindingContext is not Album album)
             return;
 
-        await ShellNavigation.PushAsync(new AlbumDetailPage(album));
+        if (_connection == null)
+            throw new InvalidOperationException("NasAlbumsView 未绑定 ConnectionService。");
+
+        await ShellNavigation.PushAsync(new AlbumDetailPage(album, _connection));
     }
 
     private void OnThumbHandlerChanged(object? sender, EventArgs e)

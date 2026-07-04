@@ -9,15 +9,17 @@ public partial class LoginPage : ContentPage
 {
     private const string LastUsernameKey = "last_username";
     private readonly ConnectionService _connection;
+    private readonly IAuthNavigation _authNavigation;
     private bool _isLoggingIn;
     private bool _passwordVisible;
     private bool _initialized;
 
-    public LoginPage(ConnectionService connection)
+    public LoginPage(ConnectionService connection, IAuthNavigation authNavigation)
     {
         InitializeComponent();
         NavigationPage.SetHasNavigationBar(this, false);
         _connection = connection;
+        _authNavigation = authNavigation;
     }
 
     protected override async void OnAppearing()
@@ -53,8 +55,7 @@ public partial class LoginPage : ContentPage
     {
         if (_connection.IsLoggedIn)
         {
-            if (Application.Current?.Windows.Count > 0)
-                Application.Current.Windows[0].Page = new AppShell();
+            _ = _authNavigation.GoToMainShellAsync();
             return;
         }
 
@@ -133,9 +134,7 @@ public partial class LoginPage : ContentPage
             {
                 Preferences.Default.Set(LastUsernameKey, username.Trim());
                 await _connection.OnLoginSuccessAsync();
-
-                if (Application.Current?.Windows.Count > 0)
-                    Application.Current.Windows[0].Page = new AppShell();
+                await _authNavigation.GoToMainShellAsync();
             }
             else
             {

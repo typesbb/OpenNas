@@ -26,6 +26,7 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
+        builder.Services.AddSingleton<IAuthNavigation, AuthNavigation>();
         builder.Services.AddSingleton<ConnectionService>();
         builder.Services.AddSingleton(new BackupDatabase(Path.Combine(FileSystem.AppDataDirectory, "opennas_backup.db")));
         builder.Services.AddSingleton<BackupEngine>();
@@ -33,12 +34,15 @@ public static class MauiProgram
         builder.Services.AddSingleton(LogRepository.Instance);
         builder.Services.AddTransient<LogPageViewModel>();
 
+        builder.Services.AddTransient<StartupPage>();
+        builder.Services.AddTransient<AppShell>();
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<AlbumsPage>();
         builder.Services.AddTransient<FilesPage>();
         builder.Services.AddTransient<TasksPage>();
         builder.Services.AddTransient<ProfilePage>();
         builder.Services.AddTransient<LogPage>();
+        builder.Services.AddTransient<Func<LogPage>>(sp => () => sp.GetRequiredService<LogPage>());
 
 #if DEBUG
         builder.Logging.AddDebug();
@@ -63,7 +67,7 @@ public static class MauiProgram
 #endif
 
         var app = builder.Build();
-        AppServices.Init(app.Services);
+        App.ConfigureServices(app.Services);
 
 #if DEBUG
         SynologyHttpTrace.Enable(SynologyDebugLog.Write);

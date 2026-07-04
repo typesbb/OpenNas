@@ -11,6 +11,8 @@ public partial class ProfilePage : ContentPage
     private const string ThemeKey = "app_theme";
     private static readonly string[] ThemeLabels = ["跟随系统", "浅色", "深色"];
     private readonly ConnectionService _connection;
+    private readonly Func<LogPage> _logPageFactory;
+    private readonly IAuthNavigation _authNavigation;
 
     private int CurrentThemeIndex => Preferences.Default.Get(ThemeKey, 0);
 
@@ -21,10 +23,12 @@ public partial class ProfilePage : ContentPage
         _ => AppTheme.Unspecified
     };
 
-    public ProfilePage(ConnectionService connection)
+    public ProfilePage(ConnectionService connection, Func<LogPage> logPageFactory, IAuthNavigation authNavigation)
     {
         InitializeComponent();
         _connection = connection;
+        _logPageFactory = logPageFactory;
+        _authNavigation = authNavigation;
         _connection.ConnectionChanged += (_, _) => RefreshProfile();
         DownloadWifiOnlySwitch.IsToggled = _connection.GetDownloadWifiOnly();
     }
@@ -89,7 +93,7 @@ public partial class ProfilePage : ContentPage
         await ShellNavigation.PushAsync(new BackupSettingsPage(_connection));
 
     private async void OnLogClicked(object? sender, EventArgs e) =>
-        await ShellNavigation.PushAsync(AppServices.GetRequired<LogPage>());
+        await ShellNavigation.PushAsync(_logPageFactory());
 
     private async void OnClearCacheClicked(object? sender, EventArgs e)
     {
@@ -126,8 +130,7 @@ public partial class ProfilePage : ContentPage
             return;
 
         await _connection.LogoutAsync();
-        if (Application.Current?.Windows.Count > 0)
-            Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
+        await _authNavigation.GoToLoginAsync();
     }
 
     private void OnThemeRowTapped(object? sender, TappedEventArgs e)

@@ -7,6 +7,10 @@ public partial class App : Application
 {
     private const string ThemeKey = "app_theme";
 
+    public static IServiceProvider Services { get; private set; } = null!;
+
+    internal static void ConfigureServices(IServiceProvider services) => Services = services;
+
     public App()
     {
         InitializeComponent();
@@ -43,5 +47,5 @@ public partial class App : Application
     }
 
     protected override Window CreateWindow(IActivationState? activationState) =>
-        new(new StartupPage());
+        new(Services.GetRequiredService<StartupPage>());
 }

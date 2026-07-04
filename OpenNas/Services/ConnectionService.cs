@@ -5,7 +5,6 @@ using OpenNas.Helpers;
 using OpenNas.Core.Models;
 using System.IO;
 using OpenNas.Core.Services;
-using OpenNas.Views;
 
 namespace OpenNas.Services;
 
@@ -26,6 +25,7 @@ public class ConnectionService
     private List<NasProfile> _cachedProfiles = new();
     private string? _serverKey;
     private static int _sessionFailureHandling;
+    private readonly IAuthNavigation _authNavigation;
 
     public NasProfile? ActiveProfile { get; private set; }
 
@@ -37,8 +37,9 @@ public class ConnectionService
     /// <summary>API 层检测到 106/107 并完成登出跳转后触发。</summary>
     public event EventHandler? SessionExpired;
 
-    public ConnectionService()
+    public ConnectionService(IAuthNavigation authNavigation)
     {
+        _authNavigation = authNavigation;
         SynologyManager.SessionExpiredHandler = OnApiSessionExpiredAsync;
     }
 
@@ -453,13 +454,7 @@ public class ConnectionService
         try
         {
             await InvalidateStoredSessionAsync(ex.Message, tryServerLogout: true);
-
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                if (Application.Current?.Windows.Count > 0)
-                    Application.Current.Windows[0].Page = new NavigationPage(AppServices.GetRequired<LoginPage>());
-            });
-
+            await _authNavigation.GoToLoginAsync();
             SessionExpired?.Invoke(this, EventArgs.Empty);
         }
         finally

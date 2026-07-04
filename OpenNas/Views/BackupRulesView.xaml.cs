@@ -8,12 +8,14 @@ namespace OpenNas.Views;
 public partial class BackupRulesView : ContentView
 {
     private readonly BackupDatabase _db;
+    private readonly ConnectionService _connection;
     private List<BackupRule> _rules = [];
 
-    public BackupRulesView(BackupDatabase db)
+    public BackupRulesView(BackupDatabase db, ConnectionService connection)
     {
         InitializeComponent();
         _db = db;
+        _connection = connection;
         Loaded += async (_, _) => await ReloadAsync();
         RulesView.SelectionMode = SelectionMode.Single;
         RulesView.SelectionChanged += OnRuleSelected;
@@ -66,7 +68,7 @@ public partial class BackupRulesView : ContentView
         try
         {
             var rule = await BackupRuleCreator.CreateFromUserInputAsync(
-                (Application.Current?.Windows[0]?.Page)!, _db);
+                (Application.Current?.Windows[0]?.Page)!, _db, _connection);
             if (rule == null)
                 return;
             await ReloadAsync();

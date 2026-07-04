@@ -1,12 +1,14 @@
 using OpenNas.Controls;
+using OpenNas.Services;
 
 namespace OpenNas.Views;
 
 public partial class AlbumsPage : ContentPage
 {
-    public AlbumsPage()
+    public AlbumsPage(ConnectionService connection)
     {
         InitializeComponent();
+        AlbumsContent.BindConnection(connection);
     }
 
     private async void OnSortClicked(object? sender, EventArgs e)

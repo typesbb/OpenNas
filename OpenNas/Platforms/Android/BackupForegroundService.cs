@@ -44,7 +44,7 @@ public class BackupForegroundService : Service
                 return;
             }
 
-            var engine = AppServices.GetRequired<BackupEngine>();
+            var engine = App.Services.GetRequiredService<BackupEngine>();
             engine.ProgressChanged += (_, _) => UpdateNotification(engine);
             var media = new LocalMediaService();
             await engine.RunBackupAsync(media, retryFailed, ruleId);
