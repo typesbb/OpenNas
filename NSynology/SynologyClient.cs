@@ -111,6 +111,12 @@ public class SynologyClient
         AddCookie(new Uri(BaseUrl), "did", deviceId);
     }
 
+    internal void ClearSessionCredentials()
+    {
+        SessionUsername = null;
+        SessionPassword = null;
+    }
+
     internal string GetDeviceIdPersistencePath()
     {
         var host = new Uri(BaseUrl).Host.Replace(':', '_');

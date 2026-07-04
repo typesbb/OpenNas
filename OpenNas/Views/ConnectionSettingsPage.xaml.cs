@@ -72,70 +72,72 @@ public partial class ConnectionSettingsPage : ContentPage
     {
         try
         {
-        // Build LAN address
-        var lanHost = LanHost.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(lanHost))
-        {
-            await UiFeedback.AlertAsync(this, "错误", "请输入内网 (LAN) 的 IP 地址或域名");
-            return;
-        }
+            var lanHost = LanHost.Text?.Trim();
+            var wanHost = WanHost.Text?.Trim();
 
-        // Build WAN address (optional)
-        var wanHost = WanHost.Text?.Trim();
+            var profiles = await _connection.LoadProfilesAsync();
 
-        var profiles = await _connection.LoadProfilesAsync();
+            UpsertOrRemoveProfile(profiles, NetworkKind.Lan, "内网", lanHost, LanProtocol, LanPort);
+            UpsertOrRemoveProfile(profiles, NetworkKind.Wan, "外网", wanHost, WanProtocol, WanPort);
 
-        // Save/update LAN profile
-        var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan)
-                         ?? new NasProfile { NetworkKind = NetworkKind.Lan };
-        lanProfile.DisplayName = "内网";
-        lanProfile.BaseUrl = BuildUrl(LanProtocol, lanHost, LanPort);
-        lanProfile.NetworkKind = NetworkKind.Lan;
+            await _connection.SaveProfilesAsync(profiles);
 
-        if (!profiles.Any(p => p.Id == lanProfile.Id))
-            profiles.Add(lanProfile);
-        else
-        {
-            var idx = profiles.FindIndex(p => p.Id == lanProfile.Id);
-            profiles[idx] = lanProfile;
-        }
+            var active = _connection.ActiveProfile;
+            if (active == null || !profiles.Any(p => p.Id == active.Id))
+            {
+                active = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan)
+                         ?? profiles.FirstOrDefault();
+            }
 
-        // Save/update WAN profile (only if host is entered)
-        if (!string.IsNullOrWhiteSpace(wanHost))
-        {
-            var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan)
-                             ?? new NasProfile { NetworkKind = NetworkKind.Wan, DisplayName = "外网" };
-            wanProfile.DisplayName = "外网";
-            wanProfile.BaseUrl = BuildUrl(WanProtocol, wanHost, WanPort);
-            wanProfile.NetworkKind = NetworkKind.Wan;
-
-            if (!profiles.Any(p => p.Id == wanProfile.Id))
-                profiles.Add(wanProfile);
+            if (active != null)
+            {
+                await _connection.SetActiveProfileAsync(active);
+                StatusLabel.Text = $"当前：{active.BaseUrl}";
+            }
             else
             {
-                var idx = profiles.FindIndex(p => p.Id == wanProfile.Id);
-                profiles[idx] = wanProfile;
+                await _connection.ClearActiveProfileAsync();
+                StatusLabel.Text = "尚未配置连接";
             }
-        }
 
-        await _connection.SaveProfilesAsync(profiles);
-
-        // Keep the same active profile if it still exists, otherwise set to LAN
-        var active = _connection.ActiveProfile;
-        if (active == null || !profiles.Any(p => p.Id == active.Id))
-            active = lanProfile;
-
-        await _connection.SetActiveProfileAsync(active);
-        LogRepository.Instance.AppendOperation("修改连接设置");
-
-        StatusLabel.Text = $"当前：{active.BaseUrl}";
-        await UiFeedback.ToastAsync("连接配置已保存");
-        await Navigation.PopAsync();
+            LogRepository.Instance.AppendOperation("修改连接设置");
+            await UiFeedback.ToastAsync("连接配置已保存");
+            await Navigation.PopAsync();
         }
         catch (Exception ex)
         {
             AppLog.Error("保存连接配置失败", ex);
             StatusLabel.Text = "保存配置失败，请重试。";
+        }
+    }
+
+    private static void UpsertOrRemoveProfile(
+        List<NasProfile> profiles,
+        NetworkKind kind,
+        string displayName,
+        string? host,
+        Picker protocol,
+        Entry port)
+    {
+        var existing = profiles.FirstOrDefault(p => p.NetworkKind == kind);
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            if (existing != null)
+                profiles.Remove(existing);
+            return;
+        }
+
+        var profile = existing ?? new NasProfile { NetworkKind = kind };
+        profile.DisplayName = displayName;
+        profile.BaseUrl = BuildUrl(protocol, host, port);
+        profile.NetworkKind = kind;
+
+        if (existing == null)
+            profiles.Add(profile);
+        else
+        {
+            var idx = profiles.FindIndex(p => p.Id == profile.Id);
+            profiles[idx] = profile;
         }
     }
 

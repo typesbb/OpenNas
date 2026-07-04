@@ -10,7 +10,6 @@ namespace OpenNas.Services;
 
 public class ConnectionService
 {
-    private const string ActiveProfileKey = "active_profile_id";
     private const string WifiOnlyKey = "backup_wifi_only";
     private const string DownloadWifiOnlyKey = "download_wifi_only";
     private const string ConfirmDeleteKey = "backup_confirm_delete";
@@ -273,6 +272,22 @@ public class ConnectionService
         ConnectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public async Task ClearActiveProfileAsync()
+    {
+        ActiveProfile = null;
+        try
+        {
+            SecureStorage.Remove(ActiveProfileSecureKey);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        ConnectionChanged?.Invoke(this, EventArgs.Empty);
+        await Task.CompletedTask;
+    }
+
     public async Task ApplyActiveProfileAsync(bool restoreSid)
     {
         if (ActiveProfile == null || string.IsNullOrWhiteSpace(ActiveProfile.BaseUrl)) return;
@@ -518,39 +533,14 @@ public class ConnectionService
     //  File I/O
     // ============================================================
 
-    private static string ActiveProfileIdFilePath =>
-        Path.Combine(FileSystem.AppDataDirectory, "active_profile.txt");
+    private const string ProfilesSecureKey = "opennas_nas_profiles";
+    private const string ActiveProfileSecureKey = "opennas_active_profile_id";
 
-    private async Task<string?> LoadActiveProfileIdAsync()
-    {
-        try
-        {
-            if (!File.Exists(ActiveProfileIdFilePath))
-                return null;
-            var text = await File.ReadAllTextAsync(ActiveProfileIdFilePath);
-            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-        }
-        catch (Exception ex)
-        {
-            AppLog.Error("读取活跃配置文件 ID 失败", ex);
-            return null;
-        }
-    }
-
-    private async Task SaveActiveProfileIdAsync(string profileId)
-    {
-        try
-        {
-            await File.WriteAllTextAsync(ActiveProfileIdFilePath, profileId);
-        }
-        catch (Exception ex)
-        {
-            AppLog.Error("保存活跃配置文件 ID 失败", ex);
-        }
-    }
-
-    private static string ProfilesFilePath =>
+    private static string LegacyProfilesFilePath =>
         Path.Combine(FileSystem.AppDataDirectory, "nas_profiles.json");
+
+    private static string LegacyActiveProfileIdFilePath =>
+        Path.Combine(FileSystem.AppDataDirectory, "active_profile.txt");
 
     private static readonly SemaphoreSlim _profileFileLock = new(1, 1);
 
@@ -559,17 +549,26 @@ public class ConnectionService
         await _profileFileLock.WaitAsync();
         try
         {
-            if (!File.Exists(ProfilesFilePath))
-                return new List<NasProfile>();
-            var json = await File.ReadAllTextAsync(ProfilesFilePath);
+            var json = await SecureStorage.GetAsync(ProfilesSecureKey);
+            if (string.IsNullOrWhiteSpace(json) && File.Exists(LegacyProfilesFilePath))
+            {
+                json = await File.ReadAllTextAsync(LegacyProfilesFilePath);
+                if (!string.IsNullOrWhiteSpace(json))
+                {
+                    await SecureStorage.SetAsync(ProfilesSecureKey, json);
+                    TryDeleteLegacyFile(LegacyProfilesFilePath);
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(json))
-                return new List<NasProfile>();
-            return JsonSerializer.Deserialize<List<NasProfile>>(json) ?? new List<NasProfile>();
+                return [];
+
+            return JsonSerializer.Deserialize<List<NasProfile>>(json) ?? [];
         }
         catch (Exception ex)
         {
             AppLog.Error("读取 NAS 配置文件失败", ex);
-            return new List<NasProfile>();
+            return [];
         }
         finally
         {
@@ -583,7 +582,8 @@ public class ConnectionService
         try
         {
             var json = JsonSerializer.Serialize(profiles);
-            await File.WriteAllTextAsync(ProfilesFilePath, json);
+            await SecureStorage.SetAsync(ProfilesSecureKey, json);
+            TryDeleteLegacyFile(LegacyProfilesFilePath);
         }
         catch (Exception ex)
         {
@@ -592,6 +592,59 @@ public class ConnectionService
         finally
         {
             _profileFileLock.Release();
+        }
+    }
+
+    private static void TryDeleteLegacyFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private async Task<string?> LoadActiveProfileIdAsync()
+    {
+        try
+        {
+            var id = await SecureStorage.GetAsync(ActiveProfileSecureKey);
+            if (!string.IsNullOrWhiteSpace(id))
+                return id.Trim();
+
+            if (!File.Exists(LegacyActiveProfileIdFilePath))
+                return null;
+
+            var text = await File.ReadAllTextAsync(LegacyActiveProfileIdFilePath);
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            id = text.Trim();
+            await SecureStorage.SetAsync(ActiveProfileSecureKey, id);
+            TryDeleteLegacyFile(LegacyActiveProfileIdFilePath);
+            return id;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("读取活跃配置文件 ID 失败", ex);
+            return null;
+        }
+    }
+
+    private async Task SaveActiveProfileIdAsync(string profileId)
+    {
+        try
+        {
+            await SecureStorage.SetAsync(ActiveProfileSecureKey, profileId);
+            TryDeleteLegacyFile(LegacyActiveProfileIdFilePath);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("保存活跃配置文件 ID 失败", ex);
         }
     }
 

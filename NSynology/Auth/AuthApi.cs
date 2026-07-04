@@ -19,20 +19,25 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
     public async Task<bool> LoginAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         _client.ClearHttpCookies();
-        _client.SessionUsername = username;
-        _client.SessionPassword = password;
         _client.CookieSessionSynoToken = null;
 
-        await TryAppApiInfoAsync(cancellationToken);
+        try
+        {
+            await TryAppApiInfoAsync(cancellationToken);
 
-        if (!await TryLoginDsmAsync(username, password, cancellationToken))
-            return false;
+            if (!await TryLoginDsmAsync(username, password, cancellationToken))
+                return false;
 
-        await RefreshMainSynoTokenAsync(cancellationToken);
-        _client.ApplyPhotosWebCookies();
-        await _client.RefreshCookieSessionSynoTokenAsync(cancellationToken);
+            await RefreshMainSynoTokenAsync(cancellationToken);
+            _client.ApplyPhotosWebCookies();
+            await _client.RefreshCookieSessionSynoTokenAsync(cancellationToken);
 
-        return true;
+            return true;
+        }
+        finally
+        {
+            _client.ClearSessionCredentials();
+        }
     }
 
     private async Task RefreshMainSynoTokenAsync(CancellationToken cancellationToken)
@@ -54,25 +59,30 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         string password,
         CancellationToken cancellationToken = default)
     {
-        _client.SessionUsername = username;
-        _client.SessionPassword = password;
         _client.CookieSessionSynoToken = null;
 
-        var explicitDid = _client.PhotosDeviceId;
-        var preservedDid = explicitDid ?? _client.LoadPersistedDeviceId();
-        _client.ClearHttpCookiesPreservingDid(preservedDid);
+        try
+        {
+            var explicitDid = _client.PhotosDeviceId;
+            var preservedDid = explicitDid ?? _client.LoadPersistedDeviceId();
+            _client.ClearHttpCookiesPreservingDid(preservedDid);
 
-        await TryAppApiInfoAsync(cancellationToken);
+            await TryAppApiInfoAsync(cancellationToken);
 
-        // 官方 App 抓包：优先 POST entry.cgi + __cIpHeRtExT 加密登录，响应 data.did + data.sid。
-        if (!await TryLoginAppEncryptedAsync(username, password, cancellationToken)
-            && !await TryLoginAppPlainAsync(username, password, cancellationToken))
-            return false;
+            // 官方 App 抓包：优先 POST entry.cgi + __cIpHeRtExT 加密登录，响应 data.did + data.sid。
+            if (!await TryLoginAppEncryptedAsync(username, password, cancellationToken)
+                && !await TryLoginAppPlainAsync(username, password, cancellationToken))
+                return false;
 
-        // 官方抓包：id/did 仅来自本次登录响应，不再额外刷新 SynoToken。
-        await EnsureAppBootstrapAsync(cancellationToken);
+            // 官方抓包：id/did 仅来自本次登录响应，不再额外刷新 SynoToken。
+            await EnsureAppBootstrapAsync(cancellationToken);
 
-        return true;
+            return true;
+        }
+        finally
+        {
+            _client.ClearSessionCredentials();
+        }
     }
 
     private async Task TryAppApiInfoAsync(CancellationToken cancellationToken)
@@ -351,8 +361,7 @@ public class AuthApi(SynologyClient synologyClient) : ApiBase
         _client.CookieSessionSynoToken = null;
         _client.FileStationSid = null;
         _client.FileStationSynoToken = null;
-        _client.SessionUsername = null;
-        _client.SessionPassword = null;
+        _client.ClearSessionCredentials();
     }
 
     private async Task<bool> TryLoginDsmAsync(string username, string password, CancellationToken cancellationToken)
