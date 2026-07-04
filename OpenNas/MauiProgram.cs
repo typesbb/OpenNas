@@ -42,7 +42,8 @@ public static class MauiProgram
         builder.Services.AddTransient<TasksPage>();
         builder.Services.AddTransient<ProfilePage>();
         builder.Services.AddTransient<LogPage>();
-        builder.Services.AddTransient<Func<LogPage>>(sp => () => sp.GetRequiredService<LogPage>());
+        builder.Services.AddTransient<ConnectionSettingsPage>();
+        builder.Services.AddTransient<BackupSettingsPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

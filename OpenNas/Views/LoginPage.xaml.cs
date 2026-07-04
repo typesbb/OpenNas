@@ -10,16 +10,18 @@ public partial class LoginPage : ContentPage
     private const string LastUsernameKey = "last_username";
     private readonly ConnectionService _connection;
     private readonly IAuthNavigation _authNavigation;
+    private readonly IServiceProvider _services;
     private bool _isLoggingIn;
     private bool _passwordVisible;
     private bool _initialized;
 
-    public LoginPage(ConnectionService connection, IAuthNavigation authNavigation)
+    public LoginPage(ConnectionService connection, IAuthNavigation authNavigation, IServiceProvider services)
     {
         InitializeComponent();
         NavigationPage.SetHasNavigationBar(this, false);
         _connection = connection;
         _authNavigation = authNavigation;
+        _services = services;
     }
 
     protected override async void OnAppearing()
@@ -190,8 +192,8 @@ public partial class LoginPage : ContentPage
     }
 
     private async void OnConnectionSettingsClicked(object sender, EventArgs e) =>
-        await Navigation.PushAsync(new Views.ConnectionSettingsPage(_connection));
+        await Navigation.PushAsync(_services.GetRequiredService<ConnectionSettingsPage>());
 
     private async void OnGoToSettingsClicked(object sender, EventArgs e) =>
-        await Navigation.PushAsync(new Views.ConnectionSettingsPage(_connection));
+        await Navigation.PushAsync(_services.GetRequiredService<ConnectionSettingsPage>());
 }

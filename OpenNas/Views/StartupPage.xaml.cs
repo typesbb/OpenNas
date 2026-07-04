@@ -33,8 +33,6 @@ public partial class StartupPage : ContentPage
     {
         try
         {
-            Routing.RegisterRoute(nameof(ConnectionSettingsPage), typeof(ConnectionSettingsPage));
-
             await _db.EnsureInitializedAsync();
             await _connection.InitializeAsync();
 

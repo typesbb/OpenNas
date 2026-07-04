@@ -1,7 +1,6 @@
+using OpenNas.Core.Models;
 using OpenNas.Helpers;
 using OpenNas.Services;
-using OpenNas.Core.Models;
-using OpenNas.Views;
 
 namespace OpenNas.Views;
 
@@ -11,7 +10,7 @@ public partial class ProfilePage : ContentPage
     private const string ThemeKey = "app_theme";
     private static readonly string[] ThemeLabels = ["跟随系统", "浅色", "深色"];
     private readonly ConnectionService _connection;
-    private readonly Func<LogPage> _logPageFactory;
+    private readonly IServiceProvider _services;
     private readonly IAuthNavigation _authNavigation;
 
     private int CurrentThemeIndex => Preferences.Default.Get(ThemeKey, 0);
@@ -23,11 +22,11 @@ public partial class ProfilePage : ContentPage
         _ => AppTheme.Unspecified
     };
 
-    public ProfilePage(ConnectionService connection, Func<LogPage> logPageFactory, IAuthNavigation authNavigation)
+    public ProfilePage(ConnectionService connection, IServiceProvider services, IAuthNavigation authNavigation)
     {
         InitializeComponent();
         _connection = connection;
-        _logPageFactory = logPageFactory;
+        _services = services;
         _authNavigation = authNavigation;
         _connection.ConnectionChanged += (_, _) => RefreshProfile();
         DownloadWifiOnlySwitch.IsToggled = _connection.GetDownloadWifiOnly();
@@ -67,7 +66,7 @@ public partial class ProfilePage : ContentPage
     }
 
     private async void OnConnectionClicked(object? sender, EventArgs e) =>
-        await ShellNavigation.PushAsync(new ConnectionSettingsPage(_connection));
+        await ShellNavigation.PushAsync(_services.GetRequiredService<ConnectionSettingsPage>());
 
     private async void OnSwitchClicked(object? sender, EventArgs e)
     {
@@ -90,10 +89,10 @@ public partial class ProfilePage : ContentPage
     }
 
     private async void OnBackupSettingsClicked(object? sender, EventArgs e) =>
-        await ShellNavigation.PushAsync(new BackupSettingsPage(_connection));
+        await ShellNavigation.PushAsync(_services.GetRequiredService<BackupSettingsPage>());
 
     private async void OnLogClicked(object? sender, EventArgs e) =>
-        await ShellNavigation.PushAsync(_logPageFactory());
+        await ShellNavigation.PushAsync(_services.GetRequiredService<LogPage>());
 
     private async void OnClearCacheClicked(object? sender, EventArgs e)
     {
