@@ -24,15 +24,18 @@ public partial class AlbumsPage : ContentPage
         AlbumsContent.BindConnection(connection, libraryContext);
         ExploreContent.Bind(connection, libraryContext);
         TimelineContent.Bind(connection, libraryContext);
+        SpaceBar.Bind(libraryContext);
 
         _libraryContext.ViewModeChanged += OnViewModeChanged;
-        _libraryContext.AlbumFilterChanged += OnAlbumFilterChanged;
-        _libraryContext.TimelineLibraryChanged += OnTimelineLibraryChanged;
+        _libraryContext.AlbumFilterChanged += OnSpaceContextChanged;
+        _libraryContext.TimelineLibraryChanged += OnSpaceContextChanged;
+        _libraryContext.ExploreLibraryChanged += OnSpaceContextChanged;
 
         Loaded += OnPageLoaded;
         UpdateViewTitle();
         UpdateViewModeUi();
         UpdateToolbar();
+        UpdateSpaceBarLayout();
     }
 
     private async void OnPageLoaded(object? sender, EventArgs e)
@@ -40,6 +43,7 @@ public partial class AlbumsPage : ContentPage
         await _libraryContext.RefreshTeamSpaceSettingsAsync();
         UpdateViewTitle();
         ApplyMediaScopeForCurrentView();
+        UpdateSpaceBarLayout();
         await EnsureCurrentViewLoadedAsync();
     }
 
@@ -50,24 +54,23 @@ public partial class AlbumsPage : ContentPage
             UpdateViewTitle();
             UpdateViewModeUi();
             UpdateToolbar();
+            UpdateSpaceBarLayout();
             _ = EnsureCurrentViewLoadedAsync();
         });
     }
 
-    private void OnAlbumFilterChanged(object? sender, EventArgs e)
-    {
-        MainThread.BeginInvokeOnMainThread(UpdateToolbar);
-    }
-
-    private void OnTimelineLibraryChanged(object? sender, EventArgs e)
+    private void OnSpaceContextChanged(object? sender, EventArgs e)
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            UpdateToolbar();
+            UpdateSpaceBarLayout();
             ApplyMediaScopeForCurrentView();
-            TimelineContent.InvalidateCache();
+
             if (_libraryContext.CurrentViewMode == PhotosViewMode.Timeline)
+            {
+                TimelineContent.InvalidateCache();
                 _ = TimelineContent.RefreshAsync(force: true);
+            }
         });
     }
 
@@ -90,16 +93,6 @@ public partial class AlbumsPage : ContentPage
             _libraryContext.SetViewMode(PhotosViewMode.Timeline);
     }
 
-    private async void OnAlbumFilterClicked(object? sender, TappedEventArgs e)
-    {
-        if (_libraryContext.CurrentViewMode != PhotosViewMode.Albums)
-            return;
-
-        var selected = await ShowDropdownBelowAsync(AlbumFilterButton, AlbumsContent.GetFilterMenuItems());
-        if (!string.IsNullOrEmpty(selected))
-            await AlbumsContent.HandleFilterAsync(selected);
-    }
-
     private async void OnSortClicked(object? sender, EventArgs e)
     {
         if (_libraryContext.CurrentViewMode != PhotosViewMode.Albums)
@@ -108,25 +101,6 @@ public partial class AlbumsPage : ContentPage
         var selected = await ShowDropdownBelowAsync(SortButton, AlbumsContent.GetSortMenuItems());
         if (!string.IsNullOrEmpty(selected))
             await AlbumsContent.HandleSortAsync(selected);
-    }
-
-    private async void OnTimelineSpaceClicked(object? sender, TappedEventArgs e)
-    {
-        if (_libraryContext.CurrentViewMode != PhotosViewMode.Timeline ||
-            !_libraryContext.SharedSpaceEnabled)
-            return;
-
-        var items = new List<DropdownMenuItem>
-        {
-            new("personal", "个人空间", _libraryContext.TimelineLibrary == PhotosLibrary.PersonalSpace),
-            new("shared", "共享空间", _libraryContext.TimelineLibrary == PhotosLibrary.SharedSpace)
-        };
-
-        var selected = await ShowDropdownBelowAsync(TimelineSpaceButton, items);
-        if (selected == "personal")
-            _libraryContext.SetTimelineLibrary(PhotosLibrary.PersonalSpace);
-        else if (selected == "shared")
-            _libraryContext.SetTimelineLibrary(PhotosLibrary.SharedSpace);
     }
 
     private async void OnAddClicked(object? sender, EventArgs e)
@@ -153,13 +127,11 @@ public partial class AlbumsPage : ContentPage
 
     private void UpdateToolbar()
     {
-        AlbumFilterButton.IsVisible = _viewModel.ShowAlbumFilterButton;
         SortButton.IsVisible = _viewModel.ShowSortButton;
-        TimelineSpaceButton.IsVisible = _viewModel.ShowTimelineSpaceButton;
         AddButton.IsVisible = _viewModel.CanCreateAlbum;
-        AlbumFilterLabel.Text = _viewModel.AlbumFilterTitle;
-        TimelineSpaceLabel.Text = _viewModel.TimelineLibraryTitle;
     }
+
+    private void UpdateSpaceBarLayout() => SpaceBar.RefreshState();
 
     private void UpdateViewModeUi()
     {
@@ -171,12 +143,7 @@ public partial class AlbumsPage : ContentPage
 
     private void ApplyMediaScopeForCurrentView()
     {
-        PhotosMediaLibraryScope.Current = _libraryContext.CurrentViewMode switch
-        {
-            PhotosViewMode.Timeline => _libraryContext.TimelineLibrary,
-            PhotosViewMode.Explore => _libraryContext.ExploreLibrary,
-            _ => PhotosLibrary.PersonalSpace
-        };
+        PhotosMediaLibraryScope.Current = _libraryContext.GetActiveLibrary();
     }
 
     private Task EnsureCurrentViewLoadedAsync(bool force = false) => _libraryContext.CurrentViewMode switch

@@ -29,7 +29,6 @@ public partial class ProfilePage : ContentPage
         _services = services;
         _authNavigation = authNavigation;
         _connection.ConnectionChanged += (_, _) => RefreshProfile();
-        DownloadWifiOnlySwitch.IsToggled = _connection.GetDownloadWifiOnly();
     }
 
     protected override void OnAppearing()
@@ -38,7 +37,6 @@ public partial class ProfilePage : ContentPage
         RefreshProfile();
         RefreshCacheSize();
         ThemeLabel.Text = ThemeLabels[CurrentThemeIndex];
-        DownloadWifiOnlySwitch.IsToggled = _connection.GetDownloadWifiOnly();
     }
 
     private void RefreshProfile()
@@ -80,12 +78,6 @@ public partial class ProfilePage : ContentPage
             await _connection.SetActiveProfileAsync(profiles[idx]);
             await UiFeedback.ToastAsync("已切换连接");
         }
-    }
-
-    private void OnDownloadWifiOnlyToggled(object? sender, ToggledEventArgs e)
-    {
-        _connection.SetDownloadWifiOnly(e.Value);
-        LogRepository.Instance.AppendOperation(e.Value ? "开启仅Wi-Fi下载" : "关闭仅Wi-Fi下载");
     }
 
     private async void OnBackupSettingsClicked(object? sender, EventArgs e) =>

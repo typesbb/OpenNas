@@ -42,7 +42,7 @@
                         <TapGestureRecognizer Tapped="OnBackupSettingsClicked" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="备份策略" VerticalOptions="Center" FontSize="15" />
+                        <Label Text="传输与网络" VerticalOptions="Center" FontSize="15" />
                         <Label Grid.Column="1" Text="›" FontSize="20"
                                TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
                                VerticalOptions="Center" />
@@ -58,20 +58,6 @@
                         <Label Grid.Column="1" Text="›" FontSize="20"
                                TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
                                VerticalOptions="Center" />
-                    </Grid>
-                </Border>
-
-                <Border Style="{StaticResource SettingRowBorder}">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                        <Switch x:Name="DownloadWifiOnlySwitch"
-                                Toggled="OnDownloadWifiOnlyToggled"
-                                VerticalOptions="Center"
-                                WidthRequest="52"
-                                HorizontalOptions="Start" />
-                        <Label Grid.Column="1"
-                               Text="仅 Wi-Fi 时下载"
-                               VerticalOptions="Center"
-                               FontSize="15" />
                     </Grid>
                 </Border>
 

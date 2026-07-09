@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
+             x:Class="OpenNas.Controls.PhotosLibrarySpaceBar"
+             x:Name="Root"
+             HorizontalOptions="Center"
+             VerticalOptions="End"
+             InputTransparent="False"
+             Margin="0,0,0,48">
+    <Border Padding="4"
+            StrokeThickness="0"
+            BackgroundColor="{AppThemeBinding Light={StaticResource BrandPrimarySoft}, Dark={StaticResource BrandPrimarySoftDark}}"
+            Opacity="0.96">
+        <Border.StrokeShape>
+            <shapes:RoundRectangle CornerRadius="24" />
+        </Border.StrokeShape>
+        <Grid ColumnDefinitions="Auto,Auto"
+              ColumnSpacing="2">
+            <Border x:Name="PersonalOption"
+                    Padding="14,8"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <shapes:RoundRectangle CornerRadius="20" />
+                </Border.StrokeShape>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnPersonalTapped" />
+                </Border.GestureRecognizers>
+                <Label x:Name="PersonalLabel"
+                       Text="个人"
+                       FontSize="14"
+                       FontFamily="OpenSansSemibold"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+            </Border>
+            <Border x:Name="SharedOption"
+                    Grid.Column="1"
+                    Padding="14,8"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <shapes:RoundRectangle CornerRadius="20" />
+                </Border.StrokeShape>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSharedTapped" />
+                </Border.GestureRecognizers>
+                <Label x:Name="SharedLabel"
+                       Text="共享"
+                       FontSize="14"
+                       FontFamily="OpenSansSemibold"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+            </Border>
+        </Grid>
+    </Border>
+</ContentView>

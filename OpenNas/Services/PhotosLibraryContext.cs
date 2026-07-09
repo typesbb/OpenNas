@@ -148,12 +148,58 @@ public sealed class PhotosLibraryContext
         _ => "all_album"
     };
 
-    public static string GetAlbumFilterTitle(AlbumListFilter filter) => filter switch
+    public static string GetAlbumFilterTitle(AlbumListFilter filter) =>
+        GetLibraryTitle(MapAlbumFilterToLibrary(filter));
+
+    public static PhotosLibrary MapAlbumFilterToLibrary(AlbumListFilter filter) =>
+        filter == AlbumListFilter.SharedWithMe
+            ? PhotosLibrary.SharedSpace
+            : PhotosLibrary.PersonalSpace;
+
+    public PhotosLibrary GetActiveLibrary(PhotosViewMode? mode = null)
     {
-        AlbumListFilter.My => "我的",
-        AlbumListFilter.SharedWithMe => "与我共享",
-        _ => "我的"
-    };
+        mode ??= CurrentViewMode;
+        return mode switch
+        {
+            PhotosViewMode.Albums => MapAlbumFilterToLibrary(CurrentAlbumFilter),
+            PhotosViewMode.Timeline => TimelineLibrary,
+            _ => ExploreLibrary
+        };
+    }
+
+    public bool IsSpaceSwitcherVisible(PhotosViewMode? mode = null)
+    {
+        mode ??= CurrentViewMode;
+        return mode switch
+        {
+            PhotosViewMode.Albums => true,
+            PhotosViewMode.Timeline => SharedSpaceEnabled,
+            _ => false
+        };
+    }
+
+    /// <summary>探索分类详情页（非主页）是否显示空间切换。</summary>
+    public bool IsExploreCategorySpaceSwitcherVisible(PhotosBrowseCategory category) =>
+        SharedSpaceEnabled && CategorySupportsSharedSpace(category);
+
+    public void SetActiveLibrary(PhotosLibrary library, PhotosViewMode? mode = null)
+    {
+        mode ??= CurrentViewMode;
+        switch (mode)
+        {
+            case PhotosViewMode.Albums:
+                SetAlbumFilter(library == PhotosLibrary.SharedSpace
+                    ? AlbumListFilter.SharedWithMe
+                    : AlbumListFilter.My);
+                break;
+            case PhotosViewMode.Timeline:
+                SetTimelineLibrary(library);
+                break;
+            default:
+                SetExploreLibrary(library);
+                break;
+        }
+    }
 
     public static AlbumListFilter NormalizeAlbumFilter(AlbumListFilter filter) =>
         filter == AlbumListFilter.All ? AlbumListFilter.My : filter;
@@ -166,7 +212,7 @@ public sealed class PhotosLibraryContext
     };
 
     public static string GetLibraryTitle(PhotosLibrary library) =>
-        library == PhotosLibrary.SharedSpace ? "共享空间" : "个人空间";
+        library == PhotosLibrary.SharedSpace ? "共享" : "个人";
 
     private static void ApplyCookies(PhotosLibrary library, string viewType)
     {

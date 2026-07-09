@@ -38,7 +38,7 @@ public partial class CategoryBrowsePage : ContentPage
 
         InitializeComponent();
         TitleLabel.Text = ResolveTitle(category, title, filterId);
-        ConfigureSpaceButton();
+        ConfigureSpaceBar();
         ConfigureCollectionView();
         RefreshHost.Refreshing += OnPullRefreshing;
         _libraryContext?.ExploreLibraryChanged += OnExploreLibraryChanged;
@@ -48,36 +48,23 @@ public partial class CategoryBrowsePage : ContentPage
     private void OnExploreLibraryChanged(object? sender, EventArgs e) =>
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            ConfigureSpaceButton();
+            ConfigureSpaceBar();
             await LoadAsync(reset: true);
         });
 
-    private void ConfigureSpaceButton()
+    private void ConfigureSpaceBar()
     {
-        var show = _libraryContext != null &&
-                   _libraryContext.SharedSpaceEnabled &&
-                   PhotosLibraryContext.CategorySupportsSharedSpace(_category);
-        SpaceButton.IsVisible = show;
-        if (show)
-            SpaceButton.Text = _libraryContext!.ExploreLibrary == PhotosLibrary.SharedSpace ? "共享" : "个人";
-    }
-
-    private async void OnSpaceClicked(object? sender, EventArgs e)
-    {
-        if (_libraryContext == null || !_libraryContext.SharedSpaceEnabled)
-            return;
-
-        var items = new List<DropdownMenuItem>
+        if (_libraryContext == null ||
+            !_libraryContext.IsExploreCategorySpaceSwitcherVisible(_category))
         {
-            new("personal", "个人空间", _libraryContext.ExploreLibrary == PhotosLibrary.PersonalSpace),
-            new("shared", "共享空间", _libraryContext.ExploreLibrary == PhotosLibrary.SharedSpace)
-        };
+            SpaceBar.IsVisible = false;
+            return;
+        }
 
-        var selected = await Dropdown.ShowAsync(items, topMargin: 52, rightMargin: 8);
-        if (selected == "personal")
-            _libraryContext.SetExploreLibrary(PhotosLibrary.PersonalSpace);
-        else if (selected == "shared")
-            _libraryContext.SetExploreLibrary(PhotosLibrary.SharedSpace);
+        SpaceBar.Bind(
+            _libraryContext,
+            PhotosViewMode.Explore,
+            () => _libraryContext.IsExploreCategorySpaceSwitcherVisible(_category));
     }
 
     private void ConfigureCollectionView()

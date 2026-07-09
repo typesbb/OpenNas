@@ -11,8 +11,14 @@ public partial class BackupSettingsPage : ContentPage
     {
         InitializeComponent();
         _connection = connection;
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
         WifiOnlySwitch.IsToggled = _connection.GetWifiOnly();
         ConfirmDeleteSwitch.IsToggled = _connection.GetConfirmBeforeDelete();
+        DownloadWifiOnlySwitch.IsToggled = _connection.GetDownloadWifiOnly();
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>
@@ -22,6 +28,12 @@ public partial class BackupSettingsPage : ContentPage
     {
         _connection.SetWifiOnly(e.Value);
         LogRepository.Instance.AppendOperation(e.Value ? "开启仅Wi-Fi备份" : "关闭仅Wi-Fi备份");
+    }
+
+    private void OnDownloadWifiOnlyToggled(object? sender, ToggledEventArgs e)
+    {
+        _connection.SetDownloadWifiOnly(e.Value);
+        LogRepository.Instance.AppendOperation(e.Value ? "开启仅Wi-Fi下载" : "关闭仅Wi-Fi下载");
     }
 
     private void OnConfirmDeleteToggled(object? sender, ToggledEventArgs e)

@@ -43,44 +43,6 @@
             <HorizontalStackLayout HorizontalOptions="End"
                                    VerticalOptions="Center"
                                    Spacing="4">
-                <HorizontalStackLayout x:Name="AlbumFilterButton"
-                                       IsVisible="False"
-                                       Spacing="4"
-                                       VerticalOptions="Center"
-                                       Padding="4,0">
-                    <HorizontalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnAlbumFilterClicked" />
-                    </HorizontalStackLayout.GestureRecognizers>
-                    <Label x:Name="AlbumFilterLabel"
-                           Text="我的"
-                           FontSize="13"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
-                    <Label Text="▾"
-                           FontSize="11"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                </HorizontalStackLayout>
-
-                <HorizontalStackLayout x:Name="TimelineSpaceButton"
-                                       IsVisible="False"
-                                       Spacing="4"
-                                       VerticalOptions="Center"
-                                       Padding="4,0">
-                    <HorizontalStackLayout.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnTimelineSpaceClicked" />
-                    </HorizontalStackLayout.GestureRecognizers>
-                    <Label x:Name="TimelineSpaceLabel"
-                           Text="个人空间"
-                           FontSize="13"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
-                    <Label Text="▾"
-                           FontSize="11"
-                           VerticalOptions="Center"
-                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-                </HorizontalStackLayout>
-
                 <Button x:Name="SortButton"
                         Text="⇅"
                         IsVisible="False"
@@ -96,10 +58,15 @@
             </HorizontalStackLayout>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid x:Name="ContentHost" Grid.Row="1">
             <views:ExploreView x:Name="ExploreContent" IsVisible="True" />
             <views:NasAlbumsView x:Name="AlbumsContent" IsVisible="False" />
             <views:TimelineView x:Name="TimelineContent" IsVisible="False" />
+
+            <controls:PhotosLibrarySpaceBar x:Name="SpaceBar"
+                                            ZIndex="10"
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="End" />
         </Grid>
 
         <controls:DropdownMenuOverlay x:Name="Dropdown"

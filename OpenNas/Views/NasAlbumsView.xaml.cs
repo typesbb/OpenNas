@@ -47,17 +47,6 @@ public partial class NasAlbumsView : ContentView
 
     public Task CreateAlbumAsync() => CreateAlbumInternalAsync();
 
-    public IReadOnlyList<DropdownMenuItem> GetFilterMenuItems()
-    {
-        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
-            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
-        return
-        [
-            new("filter_my", "我的相册", filter == AlbumListFilter.My),
-            new("filter_shared", "与我共享", filter == AlbumListFilter.SharedWithMe)
-        ];
-    }
-
     public IReadOnlyList<DropdownMenuItem> GetSortMenuItems()
     {
         var filter = PhotosLibraryContext.NormalizeAlbumFilter(
@@ -86,19 +75,6 @@ public partial class NasAlbumsView : ContentView
         items.Add(new("update_desc", "更新时间（新→旧）", _activeSortKey == "update_desc"));
 
         return items;
-    }
-
-    public async Task HandleFilterAsync(string key)
-    {
-        switch (key)
-        {
-            case "filter_my":
-                _libraryContext?.SetAlbumFilter(AlbumListFilter.My);
-                break;
-            case "filter_shared":
-                _libraryContext?.SetAlbumFilter(AlbumListFilter.SharedWithMe);
-                break;
-        }
     }
 
     public Task HandleSortAsync(string key) => SetSortModeAsync(key);
@@ -493,8 +469,9 @@ public partial class NasAlbumsView : ContentView
 
         var filter = PhotosLibraryContext.NormalizeAlbumFilter(
             _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
-        var filterTitle = PhotosLibraryContext.GetAlbumFilterTitle(filter);
-        AlbumCountLabel.Text = $"{_albums.Count} 个相册 · {filterTitle}";
+        var library = PhotosLibraryContext.MapAlbumFilterToLibrary(filter);
+        var libraryTitle = PhotosLibraryContext.GetLibraryTitle(library);
+        AlbumCountLabel.Text = $"{_albums.Count} 个相册 · {libraryTitle}";
         AlbumCountLabel.IsVisible = true;
     }
 

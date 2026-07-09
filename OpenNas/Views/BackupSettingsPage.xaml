@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.BackupSettingsPage"
-             Title="备份策略"
+             Title="传输与网络"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*">
@@ -17,7 +17,7 @@
                     SemanticProperties.Hint="返回"
                     Clicked="OnBackClicked" />
             <Label Grid.Column="1"
-                   Text="备份策略"
+                   Text="传输与网络"
                    FontFamily="OpenSansSemibold"
                    FontSize="18"
                    HorizontalOptions="Center"
@@ -26,19 +26,56 @@
         </Grid>
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Padding="16" Spacing="16">
+                <Label Text="备份" Style="{StaticResource SectionTitle}" />
+
                 <Border Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="12">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Switch x:Name="WifiOnlySwitch" Toggled="OnWifiOnlyToggled" VerticalOptions="Center" WidthRequest="52" HorizontalOptions="Start" />
-                            <Label Grid.Column="1" Text="仅 Wi-Fi 时备份" VerticalOptions="Center" FontSize="15" />
+                            <Switch x:Name="WifiOnlySwitch"
+                                    Toggled="OnWifiOnlyToggled"
+                                    VerticalOptions="Center"
+                                    WidthRequest="52"
+                                    HorizontalOptions="Start" />
+                            <Label Grid.Column="1"
+                                   Text="仅 Wi-Fi 时备份"
+                                   VerticalOptions="Center"
+                                   FontSize="15" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Switch x:Name="ConfirmDeleteSwitch" Toggled="OnConfirmDeleteToggled" VerticalOptions="Center" WidthRequest="52" HorizontalOptions="Start" />
-                            <Label Grid.Column="1" Text="删除本地前需已确认风险" VerticalOptions="Center" FontSize="15" />
+                            <Switch x:Name="ConfirmDeleteSwitch"
+                                    Toggled="OnConfirmDeleteToggled"
+                                    VerticalOptions="Center"
+                                    WidthRequest="52"
+                                    HorizontalOptions="Start" />
+                            <Label Grid.Column="1"
+                                   Text="删除本地前需已确认风险"
+                                   VerticalOptions="Center"
+                                   FontSize="15" />
                         </Grid>
                         <Button Text="我已了解删除风险"
                                 Style="{StaticResource OutlineButton}"
                                 Clicked="OnAckDeleteRiskClicked" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="下载" Style="{StaticResource SectionTitle}" />
+
+                <Border Style="{StaticResource CardBorder}" Padding="14">
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Switch x:Name="DownloadWifiOnlySwitch"
+                                    Toggled="OnDownloadWifiOnlyToggled"
+                                    VerticalOptions="Center"
+                                    WidthRequest="52"
+                                    HorizontalOptions="Start" />
+                            <Label Grid.Column="1"
+                                   Text="仅 Wi-Fi 时下载"
+                                   VerticalOptions="Center"
+                                   FontSize="15" />
+                        </Grid>
+                        <Label Text="浏览相册、保存到本机时使用"
+                               Style="{StaticResource MicroCaption}"
+                               Margin="64,0,0,0" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
