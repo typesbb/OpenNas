@@ -91,7 +91,8 @@ public static class NasOriginalLoader
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
                 return null;
 
-            await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo, cancellationToken);
+            await using var network = await NasFotoMediaApi.GetDownloadPhotoAsync(
+                SynologyManager.Client, photo, cancellationToken);
             var path = await NasMediaCache.WriteOriginalFromStreamAsync(photo, network, cancellationToken);
             return path;
         }
@@ -157,7 +158,8 @@ public static class NasOriginalLoader
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
                 return null;
 
-            await using var network = await SynologyManager.Client.Foto.GetDownloadPhotoAsync(photo, cancellationToken);
+            await using var network = await NasFotoMediaApi.GetDownloadPhotoAsync(
+                SynologyManager.Client, photo, cancellationToken);
             var path = NasMediaCache.GetOriginalFilePath(photo);
             var temp = path + ".tmp";
             long? totalBytes = photo.FileSize > 0 ? photo.FileSize : null;

@@ -11,6 +11,7 @@ public partial class PhotoViewerPage : ContentPage
     private readonly ZoomableImageView _imageView;
     private readonly NasVideoPlayerView _videoView;
     private readonly ConnectionService _connection;
+    private readonly PhotosLibrary _mediaLibrary;
     private int _index;
     private bool _currentZoomed;
     private bool _initialized;
@@ -19,12 +20,17 @@ public partial class PhotoViewerPage : ContentPage
     private bool _exporting;
     private CancellationTokenSource? _exportCts;
 
-    public PhotoViewerPage(IReadOnlyList<Photo> photos, int startIndex, ConnectionService connection)
+    public PhotoViewerPage(
+        IReadOnlyList<Photo> photos,
+        int startIndex,
+        ConnectionService connection,
+        PhotosLibrary mediaLibrary = PhotosLibrary.PersonalSpace)
     {
         InitializeComponent();
         _photos = photos;
         _index = Math.Clamp(startIndex, 0, Math.Max(0, photos.Count - 1));
         _connection = connection;
+        _mediaLibrary = mediaLibrary;
 
         _imageView = new ZoomableImageView
         {
@@ -59,11 +65,22 @@ public partial class PhotoViewerPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        PhotosMediaLibraryScope.Current = _mediaLibrary;
+        if (PhotosAlbumMediaScope.CurrentPassphrase != null)
+            PhotosMediaLibraryScope.Current = PhotosLibrary.PersonalSpace;
+        UpdateExportActionsVisibility();
         if (_initialized || _photos.Count == 0)
             return;
 
         _initialized = true;
         ShowCurrent();
+    }
+
+    private void UpdateExportActionsVisibility()
+    {
+        var allowExport = PhotosAlbumMediaScope.AllowDownload;
+        DownloadButton.IsVisible = allowExport;
+        ShareButton.IsVisible = allowExport;
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -81,6 +98,7 @@ public partial class PhotoViewerPage : ContentPage
             return;
 
         HideActionBar();
+        UpdateExportActionsVisibility();
         var photo = _photos[_index];
         var isVideo = photo.IsVideo;
 
@@ -103,7 +121,27 @@ public partial class PhotoViewerPage : ContentPage
             _videoView.Photo = null;
             UpdateNavigationBounds();
             _imageView.Photo = photo;
+            PrefetchNeighbors(_index);
         }
+    }
+
+    private void PrefetchNeighbors(int centerIndex)
+    {
+        PrefetchPhoto(centerIndex - 1);
+        PrefetchPhoto(centerIndex + 1);
+    }
+
+    private void PrefetchPhoto(int index)
+    {
+        if (index < 0 || index >= _photos.Count)
+            return;
+
+        var photo = _photos[index];
+        if (photo.IsVideo)
+            return;
+
+        _ = NasThumbnailLoader.EnsureCachedAsync(photo);
+        _ = NasOriginalLoader.EnsureCachedAsync(photo);
     }
 
     private void UpdateNavigationBounds()

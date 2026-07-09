@@ -26,10 +26,39 @@ public static class NasThumbnailLoader
         image.Source = null;
 
         var thumb = album.Additional?.Thumbnail;
-        if (thumb == null || thumb.UnitId <= 0 || string.IsNullOrEmpty(thumb.CacheKey))
+        if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
+            return;
+
+        if (!string.IsNullOrEmpty(AlbumShareHelper.ResolvePassphrase(album)))
+        {
+            if (album.Id <= 0)
+                return;
+
+            _ = LoadIntoImageAsync(
+                new WeakReference<Image>(image),
+                album.Id,
+                thumb.CacheKey,
+                type: "album",
+                passphrase: AlbumShareHelper.ResolvePassphrase(album));
+            return;
+        }
+
+        if (thumb.UnitId <= 0)
             return;
 
         _ = LoadIntoImageAsync(new WeakReference<Image>(image), thumb.UnitId, thumb.CacheKey);
+    }
+
+    public static void TryLoadBrowseItemThumbnail(Image image, BrowseAlbumItem item)
+    {
+        image.Source = null;
+        var thumb = item.Additional?.Thumbnail;
+        var unitId = item.Cover > 0 ? item.Cover : thumb?.UnitId ?? 0;
+        var cacheKey = thumb?.CacheKey;
+        if (unitId <= 0 || string.IsNullOrEmpty(cacheKey))
+            return;
+
+        _ = LoadIntoImageAsync(new WeakReference<Image>(image), unitId, cacheKey);
     }
 
     public static Task EnsureCachedAsync(Photo photo, CancellationToken cancellationToken = default)
@@ -45,11 +74,20 @@ public static class NasThumbnailLoader
         if (NasMediaCache.TryGetThumbnailFile(id, thumb.CacheKey, out _))
             return Task.CompletedTask;
 
-        var key = $"{id}:{thumb.CacheKey}";
+        var resolvedAlbumId = PhotosAlbumMediaScope.CurrentAlbumId;
+        var resolvedPassphrase = PhotosAlbumMediaScope.CurrentPassphrase;
+        var key = BuildMemoryCacheKey(id, thumb.CacheKey, "unit", resolvedAlbumId, resolvedPassphrase);
         if (MemoryCache.TryGetValue(key, out var existing))
             return existing;
 
-        return MemoryCache.GetOrAdd(key, _ => DownloadAndCacheAsync(id, thumb.CacheKey, cancellationToken))
+        return MemoryCache.GetOrAdd(
+                key,
+                _ => DownloadAndCacheAsync(
+                    id,
+                    thumb.CacheKey,
+                    cancellationToken,
+                    albumId: resolvedAlbumId,
+                    passphrase: resolvedPassphrase))
             .WaitAsync(cancellationToken);
     }
 
@@ -64,11 +102,11 @@ public static class NasThumbnailLoader
         if (forGrid)
         {
             NasGridImageApplyScheduler.ScheduleLoad(() =>
-                StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken));
+                StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken, forGrid: true));
             return;
         }
 
-        StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken);
+        StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken, forGrid);
     }
 
     /// <summary>已由网格控件 ScheduleLoad 后调用，避免重复入队。</summary>
@@ -78,30 +116,33 @@ public static class NasThumbnailLoader
         Func<bool>? canApply = null,
         CancellationToken cancellationToken = default)
     {
-        StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken);
+        StartPhotoThumbnailLoad(new WeakReference<Image>(image), photo, canApply, cancellationToken, forGrid: true);
     }
 
     private static void StartPhotoThumbnailLoad(
         WeakReference<Image> target,
         Photo photo,
         Func<bool>? canApply,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool forGrid)
     {
         var thumb = photo.Additional?.Thumbnail;
         if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
         {
-            ScheduleApplySource(target, null, canApply, cancellationToken, forGrid: true);
+            if (forGrid)
+                ScheduleApplySource(target, null, canApply, cancellationToken, forGrid: true);
             return;
         }
 
         var id = thumb.UnitId > 0 ? thumb.UnitId : photo.Id;
         if (id <= 0)
         {
-            ScheduleApplySource(target, null, canApply, cancellationToken, forGrid: true);
+            if (forGrid)
+                ScheduleApplySource(target, null, canApply, cancellationToken, forGrid: true);
             return;
         }
 
-        _ = LoadIntoImageAsync(target, id, thumb.CacheKey, canApply, cancellationToken, forGrid: true);
+        _ = LoadIntoImageAsync(target, id, thumb.CacheKey, canApply, cancellationToken, forGrid);
     }
 
     private static async Task LoadIntoImageAsync(
@@ -110,14 +151,22 @@ public static class NasThumbnailLoader
         string cacheKey,
         Func<bool>? canApply = null,
         CancellationToken cancellationToken = default,
-        bool forGrid = false)
+        bool forGrid = false,
+        string type = "unit",
+        int? albumId = null,
+        string? passphrase = null)
     {
         try
         {
+            var resolvedAlbumId = albumId ?? PhotosAlbumMediaScope.CurrentAlbumId;
+            var resolvedPassphrase = passphrase ?? PhotosAlbumMediaScope.CurrentPassphrase;
+
             if (forGrid && NasGridImageApplyScheduler.IsScrolling)
             {
                 NasGridImageApplyScheduler.RunWhenIdle(() =>
-                    _ = LoadIntoImageAsync(target, id, cacheKey, canApply, cancellationToken, forGrid: true));
+                    _ = LoadIntoImageAsync(
+                        target, id, cacheKey, canApply, cancellationToken, forGrid: true,
+                        type, resolvedAlbumId, resolvedPassphrase));
                 return;
             }
 
@@ -134,15 +183,26 @@ public static class NasThumbnailLoader
             if (forGrid && NasGridImageApplyScheduler.IsScrolling)
             {
                 NasGridImageApplyScheduler.RunWhenIdle(() =>
-                    _ = LoadIntoImageAsync(target, id, cacheKey, canApply, cancellationToken, forGrid: true));
+                    _ = LoadIntoImageAsync(
+                        target, id, cacheKey, canApply, cancellationToken, forGrid: true,
+                        type, resolvedAlbumId, resolvedPassphrase));
                 return;
             }
 
-            ScheduleApplySource(target, null, canApply, cancellationToken, forGrid);
+            if (forGrid)
+                ScheduleApplySource(target, null, canApply, cancellationToken, forGrid);
 
-            var key = $"{id}:{cacheKey}";
+            var key = BuildMemoryCacheKey(id, cacheKey, type, resolvedAlbumId, resolvedPassphrase);
             var bytes = await MemoryCache
-                .GetOrAdd(key, _ => DownloadAndCacheAsync(id, cacheKey, cancellationToken))
+                .GetOrAdd(
+                    key,
+                    _ => DownloadAndCacheAsync(
+                        id,
+                        cacheKey,
+                        cancellationToken,
+                        type,
+                        resolvedAlbumId,
+                        resolvedPassphrase))
                 .WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
             MemoryCacheOrder.Enqueue(key);
@@ -215,7 +275,21 @@ public static class NasThumbnailLoader
             MainThread.BeginInvokeOnMainThread(Apply);
     }
 
-    private static async Task<byte[]?> DownloadAndCacheAsync(int id, string cacheKey, CancellationToken cancellationToken)
+    private static string BuildMemoryCacheKey(
+        int id,
+        string cacheKey,
+        string type,
+        int? albumId,
+        string? passphrase) =>
+        $"{type}:{id}:{cacheKey}:{albumId}:{passphrase}";
+
+    private static async Task<byte[]?> DownloadAndCacheAsync(
+        int id,
+        string cacheKey,
+        CancellationToken cancellationToken,
+        string type = "unit",
+        int? albumId = null,
+        string? passphrase = null)
     {
         await ThumbnailGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -226,8 +300,14 @@ public static class NasThumbnailLoader
             if (SynologyManager.Client == null || string.IsNullOrEmpty(SynologyManager.Client.Sid))
                 return null;
 
-            await using var network = await SynologyManager.Client.Foto.GetThumbnailAsync(
-                id, cacheKey, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await using var network = await NasFotoMediaApi.GetThumbnailAsync(
+                SynologyManager.Client,
+                id,
+                cacheKey,
+                type: type,
+                albumId: albumId,
+                passphrase: passphrase,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             using var ms = new MemoryStream();
             await network.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
             var bytes = ms.ToArray();
@@ -235,7 +315,7 @@ public static class NasThumbnailLoader
                 return null;
 
             await NasMediaCache.WriteThumbnailAsync(id, cacheKey, bytes, cancellationToken).ConfigureAwait(false);
-            MemoryCacheOrder.Enqueue($"{id}:{cacheKey}");
+            MemoryCacheOrder.Enqueue(BuildMemoryCacheKey(id, cacheKey, type, albumId, passphrase));
             TrimMemoryCache();
             return bytes;
         }
@@ -255,7 +335,11 @@ public static class NasThumbnailLoader
         finally
         {
             ThumbnailGate.Release();
-            MemoryCache.TryRemove($"{id}:{cacheKey}", out _);
+            var resolvedAlbumId = albumId ?? PhotosAlbumMediaScope.CurrentAlbumId;
+            var resolvedPassphrase = passphrase ?? PhotosAlbumMediaScope.CurrentPassphrase;
+            MemoryCache.TryRemove(
+                BuildMemoryCacheKey(id, cacheKey, type, resolvedAlbumId, resolvedPassphrase),
+                out _);
         }
     }
 }

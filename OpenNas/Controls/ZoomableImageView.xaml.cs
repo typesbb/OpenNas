@@ -231,10 +231,19 @@ public partial class ZoomableImageView : ContentView
             return;
         }
 
+        var thumb = photo.Additional?.Thumbnail;
+        var thumbId = thumb?.UnitId > 0 ? thumb!.UnitId : photo.Id;
+        if (thumb != null && !string.IsNullOrEmpty(thumb.CacheKey) &&
+            NasMediaCache.TryGetThumbnailFile(thumbId, thumb.CacheKey, out var cachedThumb))
+        {
+            view.PhotoImage.Source = ImageSource.FromFile(cachedThumb);
+        }
+
         NasThumbnailLoader.TryLoadPhotoThumbnail(
             view.PhotoImage,
             photo,
-            () => generation == view._loadGeneration && view._showThumbnailOnly);
+            () => generation == view._loadGeneration && view._showThumbnailOnly,
+            forGrid: false);
 
         NasOriginalLoader.TryLoad(
             view.PhotoImage,
@@ -306,6 +315,10 @@ public partial class ZoomableImageView : ContentView
     private void UpdateLoading(int generation, bool loading)
     {
         if (generation != _loadGeneration)
+            return;
+
+        // 大图已有缩略图占位时不反复闪 loading 指示器
+        if (loading && PhotoImage.Source != null && _showThumbnailOnly)
             return;
 
         LoadingIndicator.IsVisible = loading;

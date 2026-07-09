@@ -1,78 +1,176 @@
+using System.Collections.ObjectModel;
 using NSynology;
 using NSynology.Foto;
 using OpenNas.Behaviors;
 using OpenNas.Controls;
 using OpenNas.Helpers;
 using OpenNas.Services;
-using OpenNas.Views;
 
 namespace OpenNas.Views;
 
-public enum AlbumSortMode
-{
-    CreateTime,
-    UpdateTime,
-    Name
-}
-
 public partial class NasAlbumsView : ContentView
 {
-    private const string AlbumSortModeKey = "album_sort_mode";
-    private const string DefaultSortMode = "create";
+    private const string AlbumSortKey = "album_sort_key";
 
-    private readonly List<Album> _albums = [];
+    private readonly ObservableCollection<Album> _albums = [];
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
     private ConnectionService? _connection;
-    private AlbumSortMode _sortMode;
-    private bool _loading;
+    private PhotosLibraryContext? _libraryContext;
+    private AlbumListOrder _albumOrder = new();
+    private AlbumListFilter? _lastDisplayFilter;
+    private string _activeSortKey;
     private bool _suppressAlbumTap;
 
-    public void BindConnection(ConnectionService connection) => _connection = connection;
+    public void BindConnection(ConnectionService connection, PhotosLibraryContext libraryContext)
+    {
+        _connection = connection;
+        _libraryContext = libraryContext;
+        _libraryContext.AlbumFilterChanged += OnContextChanged;
+    }
 
     public Task RefreshAsync()
     {
-        _loading = false;
+        _lastDisplayFilter = null;
         return LoadAlbumsAsync();
     }
 
     public NasAlbumsView()
     {
-        _sortMode = LoadSortMode();
+        _activeSortKey = Preferences.Default.Get(AlbumSortKey, "start_desc");
         InitializeComponent();
+        AlbumsView.ItemsSource = _albums;
         AlbumsRefreshView.Refreshing += OnPullRefreshing;
         LongPressBehavior.LongPressed += OnAlbumLongPressed;
-        Loaded += async (_, _) => await LoadAlbumsAsync();
     }
 
     public Task CreateAlbumAsync() => CreateAlbumInternalAsync();
 
-    private static AlbumSortMode LoadSortMode()
+    public IReadOnlyList<DropdownMenuItem> GetFilterMenuItems()
     {
-        try { return Enum.Parse<AlbumSortMode>(Preferences.Default.Get(AlbumSortModeKey, DefaultSortMode)); }
-        catch { return AlbumSortMode.CreateTime; }
+        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+        return
+        [
+            new("filter_my", "我的相册", filter == AlbumListFilter.My),
+            new("filter_shared", "与我共享", filter == AlbumListFilter.SharedWithMe)
+        ];
     }
 
-    private static void SaveSortMode(AlbumSortMode mode) =>
-        Preferences.Default.Set(AlbumSortModeKey, mode.ToString());
-
-    public IReadOnlyList<DropdownMenuItem> GetSortMenuItems() =>
-    [
-        new("create", "创建时间排序", _sortMode == AlbumSortMode.CreateTime),
-        new("update", "更新时间排序", _sortMode == AlbumSortMode.UpdateTime),
-        new("name", "按名称排序", _sortMode == AlbumSortMode.Name)
-    ];
-
-    public void SetSortMode(string key)
+    public IReadOnlyList<DropdownMenuItem> GetSortMenuItems()
     {
-        var previous = _sortMode;
-        _sortMode = key switch
+        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+        var items = new List<DropdownMenuItem>();
+
+        if (_libraryContext?.CurrentViewMode == PhotosViewMode.Albums &&
+            filter == AlbumListFilter.SharedWithMe)
         {
-            "update" => AlbumSortMode.UpdateTime,
-            "name" => AlbumSortMode.Name,
-            _ => AlbumSortMode.CreateTime
-        };
-        if (_sortMode != previous)
-            SaveSortMode(_sortMode);
-        ApplySort();
+            items.Add(new("share_desc", "共享时间（新到旧）", _activeSortKey == "share_desc"));
+            items.Add(new("share_asc", "共享时间（旧到新）", _activeSortKey == "share_asc"));
+            items.Add(new("start_desc", "开始时间（新到旧）", _activeSortKey == "start_desc"));
+            items.Add(new("start_asc", "开始时间（旧到新）", _activeSortKey == "start_asc"));
+        }
+        else
+        {
+            items.Add(new("start_desc", "开始时间（新到旧）", _activeSortKey == "start_desc"));
+            items.Add(new("start_asc", "开始时间（旧到新）", _activeSortKey == "start_asc"));
+        }
+
+        items.Add(new("count_desc", "照片数量（多→少）", _activeSortKey == "count_desc"));
+        items.Add(new("count_asc", "照片数量（少→多）", _activeSortKey == "count_asc"));
+        items.Add(new("name_asc", "相册名称（A→Z）", _activeSortKey == "name_asc"));
+        items.Add(new("name_desc", "相册名称（Z→A）", _activeSortKey == "name_desc"));
+        items.Add(new("create_desc", "创建时间（新→旧）", _activeSortKey == "create_desc"));
+        items.Add(new("update_desc", "更新时间（新→旧）", _activeSortKey == "update_desc"));
+
+        return items;
+    }
+
+    public async Task HandleFilterAsync(string key)
+    {
+        switch (key)
+        {
+            case "filter_my":
+                _libraryContext?.SetAlbumFilter(AlbumListFilter.My);
+                break;
+            case "filter_shared":
+                _libraryContext?.SetAlbumFilter(AlbumListFilter.SharedWithMe);
+                break;
+        }
+    }
+
+    public Task HandleSortAsync(string key) => SetSortModeAsync(key);
+
+    public IReadOnlyList<DropdownMenuItem> GetOptionsMenuItems() => GetSortMenuItems();
+
+    public async Task HandleOptionAsync(string key)
+    {
+        switch (key)
+        {
+            case "start_desc":
+            case "start_asc":
+            case "share_desc":
+            case "share_asc":
+            case "count_desc":
+            case "count_asc":
+            case "name_asc":
+            case "name_desc":
+            case "create_desc":
+            case "update_desc":
+                await SetSortModeAsync(key);
+                break;
+        }
+    }
+
+    public async Task SetSortModeAsync(string key)
+    {
+        _activeSortKey = key;
+        Preferences.Default.Set(AlbumSortKey, key);
+
+        if (IsClientSort(key))
+        {
+            if (_albums.Count == 0)
+                await LoadAlbumsAsync();
+            else
+                ApplyClientSort();
+            return;
+        }
+
+        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+        if (filter == AlbumListFilter.SharedWithMe)
+        {
+            _albumOrder.SharedWithMeSortBy = key is "share_asc" or "share_desc" ? "share_modify_time" : "start_time";
+            _albumOrder.SharedWithMeSortDirection = key is "share_asc" or "start_asc" ? "asc" : "desc";
+        }
+        else
+        {
+            _albumOrder.AlbumListSortBy = "start_time";
+            _albumOrder.AlbumListSortDirection = key == "start_asc" ? "asc" : "desc";
+        }
+
+        var client = SynologyManager.Client;
+        if (client != null && !string.IsNullOrEmpty(client.Sid))
+        {
+            try
+            {
+                await client.Foto.SetAlbumListOrderAsync(_albumOrder);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("保存相册排序失败", ex);
+            }
+        }
+
+        await LoadAlbumsAsync();
+    }
+
+    private static bool IsClientSort(string key) =>
+        key is "count_desc" or "count_asc" or "name_asc" or "name_desc" or "create_desc" or "update_desc";
+
+    private void OnContextChanged(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() => _ = LoadAlbumsAsync());
     }
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
@@ -83,38 +181,84 @@ public partial class NasAlbumsView : ContentView
 
     private async Task LoadAlbumsAsync()
     {
-        if (_loading)
-            return;
-
-        _loading = true;
-        BusyIndicator.IsVisible = true;
-        BusyIndicator.IsRunning = true;
-        AlbumsView.IsEnabled = false;
-
+        await _loadGate.WaitAsync();
+        var previousAlbums = _albums.ToList();
         try
         {
+            BusyIndicator.IsVisible = true;
+            BusyIndicator.IsRunning = true;
+            AlbumsView.IsEnabled = false;
+
             var client = SynologyManager.Client;
             if (client == null || string.IsNullOrEmpty(client.Sid))
             {
-                _albums.Clear();
-                AlbumsView.ItemsSource = null;
+                await MainThread.InvokeOnMainThreadAsync(() => _albums.Clear());
                 return;
             }
 
+            _libraryContext?.ApplyAlbumCookies();
+
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-            _albums.Clear();
-            var albums = await Task.Run(
-                async () => await client.Foto.GetAlbumsAsync(0, 100, cts.Token),
-                cts.Token);
-            _albums.AddRange(albums);
-            ApplySort();
+
+            if (!IsClientSort(_activeSortKey))
+            {
+                var order = await client.Foto.GetAlbumListOrderAsync(cts.Token);
+                if (order != null)
+                    _albumOrder = order;
+            }
+
+            var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+                _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+            var useServerSort = !IsClientSort(_activeSortKey);
+            var (sortBy, sortDir) = useServerSort
+                ? ResolveSort(filter)
+                : ("start_time", "desc");
+
+            if (filter != AlbumListFilter.SharedWithMe && filter != _lastDisplayFilter)
+            {
+                await client.Foto.SetAlbumListDisplayAsync(
+                    PhotosLibraryContext.MapAlbumDisplayType(filter),
+                    cts.Token);
+                _lastDisplayFilter = filter;
+            }
+
+            var albums = filter switch
+            {
+                AlbumListFilter.SharedWithMe => await client.Foto.ListSharedWithMeAlbumsAsync(0, 500, cts.Token),
+                _ => await client.Foto.GetAlbumsAsync(
+                    0, 100, PhotosLibraryContext.MapAlbumCategory(filter), sortBy, sortDir, cancellationToken: cts.Token)
+            };
+
+            var albumList = albums as IList<Album> ?? albums.ToList();
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                ReplaceAlbums(albumList);
+                if (filter == AlbumListFilter.SharedWithMe && useServerSort)
+                    ApplySharedWithMeServerSort(sortBy, sortDir);
+                else if (IsClientSort(_activeSortKey))
+                    ApplyClientSort();
+                UpdateAlbumCountLabel();
+            });
         }
         catch (OperationCanceledException)
         {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (_albums.Count == 0 && previousAlbums.Count > 0)
+                    ReplaceAlbums(previousAlbums);
+            });
+
             await ShowAlertAsync("加载超时，请检查 NAS 地址与网络后重试。");
         }
         catch (Exception ex)
         {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (_albums.Count == 0 && previousAlbums.Count > 0)
+                    ReplaceAlbums(previousAlbums);
+            });
+
             AppLog.Error("加载 NAS 相册失败", ex);
             await UiFeedback.ShowApiErrorAsync(GetHostPage(), "相册", ex, $"加载失败：{ex.Message}");
         }
@@ -123,22 +267,68 @@ public partial class NasAlbumsView : ContentView
             BusyIndicator.IsRunning = false;
             BusyIndicator.IsVisible = false;
             AlbumsView.IsEnabled = true;
-            _loading = false;
+            _loadGate.Release();
         }
     }
 
-    private void ApplySort()
+    private void ReplaceAlbums(IEnumerable<Album> albums)
     {
-        IEnumerable<Album> sorted = _sortMode switch
+        var sorted = albums as IList<Album> ?? albums.ToList();
+        _albums.Clear();
+        foreach (var album in sorted)
+            _albums.Add(album);
+
+        // Android CollectionView 在批量 Clear/Add 后偶发不刷新，强制重绑一次
+        if (_albums.Count > 0)
         {
-            AlbumSortMode.UpdateTime => _albums.OrderByDescending(a => a.StartTime > 0 ? a.StartTime : a.CreateTime),
-            AlbumSortMode.Name => _albums.OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase),
-            _ => _albums.OrderByDescending(a => a.CreateTime)
+            AlbumsView.ItemsSource = null;
+            AlbumsView.ItemsSource = _albums;
+        }
+    }
+
+    private (string SortBy, string SortDir) ResolveSort(AlbumListFilter filter)
+    {
+        if (filter == AlbumListFilter.SharedWithMe)
+        {
+            return _activeSortKey switch
+            {
+                "share_asc" => ("share_modify_time", "asc"),
+                "share_desc" => ("share_modify_time", "desc"),
+                "start_asc" => ("start_time", "asc"),
+                "start_desc" => ("start_time", "desc"),
+                _ => (_albumOrder.SharedWithMeSortBy, _albumOrder.SharedWithMeSortDirection)
+            };
+        }
+
+        return (_albumOrder.AlbumListSortBy, _albumOrder.AlbumListSortDirection);
+    }
+
+    private void ApplySharedWithMeServerSort(string sortBy, string sortDir)
+    {
+        IEnumerable<Album> sorted = sortBy == "share_modify_time"
+            ? sortDir == "asc"
+                ? _albums.OrderBy(a => a.Additional?.SharingInfo?.Mtime ?? a.StartTime)
+                : _albums.OrderByDescending(a => a.Additional?.SharingInfo?.Mtime ?? a.StartTime)
+            : sortDir == "asc"
+                ? _albums.OrderBy(a => a.StartTime)
+                : _albums.OrderByDescending(a => a.StartTime);
+        ReplaceAlbums(sorted);
+    }
+
+    private void ApplyClientSort()
+    {
+        IEnumerable<Album> sorted = _activeSortKey switch
+        {
+            "count_desc" => _albums.OrderByDescending(a => a.ItemCount),
+            "count_asc" => _albums.OrderBy(a => a.ItemCount),
+            "name_asc" => _albums.OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase),
+            "name_desc" => _albums.OrderByDescending(a => a.Name, StringComparer.CurrentCultureIgnoreCase),
+            "create_desc" => _albums.OrderByDescending(a => a.CreateTime),
+            "update_desc" => _albums.OrderByDescending(a => a.StartTime > 0 ? a.StartTime : a.CreateTime),
+            _ => _albums.ToList()
         };
 
-        AlbumsView.ItemsSource = sorted.ToList();
-        AlbumCountLabel.Text = _albums.Count == 0 ? "" : $"{_albums.Count} 个相册";
-        AlbumCountLabel.IsVisible = _albums.Count > 0;
+        ReplaceAlbums(sorted);
     }
 
     private async Task CreateAlbumInternalAsync()
@@ -174,6 +364,9 @@ public partial class NasAlbumsView : ContentView
         if (e.Context is not Album album)
             return;
 
+        if (AlbumShareHelper.RequiresSharePassphrase(album))
+            return;
+
         _suppressAlbumTap = true;
 
         var selected = await Dropdown.ShowAtWindowAsync(
@@ -190,6 +383,7 @@ public partial class NasAlbumsView : ContentView
         else if (selected == "delete")
             await DeleteAlbumAsync(album);
     }
+
     private async Task RenameAlbumAsync(Album album)
     {
         var page = GetHostPage();
@@ -210,7 +404,12 @@ public partial class NasAlbumsView : ContentView
         {
             var renamed = await SynologyManager.Client.Foto.RenameAlbumAsync(album.Id, newName.Trim());
             album.Name = renamed.Name;
-            ApplySort();
+            var index = _albums.IndexOf(album);
+            if (index >= 0)
+            {
+                _albums.RemoveAt(index);
+                _albums.Insert(index, album);
+            }
         }
         catch (Exception ex)
         {
@@ -240,7 +439,7 @@ public partial class NasAlbumsView : ContentView
         {
             await SynologyManager.Client.Foto.DeleteAlbumAsync(album.Id);
             _albums.Remove(album);
-            ApplySort();
+            UpdateAlbumCountLabel();
         }
         catch (Exception ex)
         {
@@ -270,6 +469,22 @@ public partial class NasAlbumsView : ContentView
     {
         if (sender is Image image && image.BindingContext is Album album)
             NasThumbnailLoader.TryLoadAlbumThumbnail(image, album);
+    }
+
+    private void UpdateAlbumCountLabel()
+    {
+        if (_albums.Count == 0)
+        {
+            AlbumCountLabel.Text = "";
+            AlbumCountLabel.IsVisible = false;
+            return;
+        }
+
+        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+        var filterTitle = PhotosLibraryContext.GetAlbumFilterTitle(filter);
+        AlbumCountLabel.Text = $"{_albums.Count} 个相册 · {filterTitle}";
+        AlbumCountLabel.IsVisible = true;
     }
 
     private Page? GetHostPage() =>

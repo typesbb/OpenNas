@@ -39,6 +39,26 @@ public static class PhotoDateHelper
 
     internal static long NormalizeUnixTime(long time) =>
         time > 10_000_000_000L ? time / 1000L : time;
+
+    public static bool TryGetLocalDay(Photo photo, out int year, out int month, out int day)
+    {
+        var unix = photo.Time > 0 ? photo.Time : NormalizeUnixTime(photo.IndexedTime);
+        if (unix <= 0)
+        {
+            year = month = day = 0;
+            return false;
+        }
+
+        var dt = DateTimeOffset.FromUnixTimeSeconds(NormalizeUnixTime(unix)).LocalDateTime;
+        year = dt.Year;
+        month = dt.Month;
+        day = dt.Day;
+        return true;
+    }
+
+    public static bool BelongsToLocalDay(Photo photo, int year, int month, int day) =>
+        TryGetLocalDay(photo, out var y, out var m, out var d) &&
+        y == year && m == month && d == day;
 }
 
 public class PhotoDateGroup : List<Photo>

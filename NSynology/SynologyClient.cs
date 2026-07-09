@@ -38,6 +38,8 @@ public class SynologyClient
 
     public AuthApi Auth { get; set; }
     public FotoApi Foto { get; set; }
+    public FotoBrowseApi FotoBrowse { get; set; }
+    public FotoTeamApi FotoTeam { get; set; }
     public FileStationApi FileStation { get; set; }
 
     public SynologyClient(string baseUrl)
@@ -48,6 +50,8 @@ public class SynologyClient
         ServicePointManager.FindServicePoint(new Uri(BaseUrl)).ConnectionLimit = 512;
         Auth = new AuthApi(this);
         Foto = new FotoApi(this);
+        FotoBrowse = new FotoBrowseApi(this);
+        FotoTeam = new FotoTeamApi(this);
         FileStation = new FileStationApi(this);
     }
 
@@ -86,6 +90,8 @@ public class SynologyClient
         ServicePointManager.FindServicePoint(new Uri(BaseUrl)).ConnectionLimit = 512;
         Auth = new AuthApi(this);
         Foto = new FotoApi(this);
+        FotoBrowse = new FotoBrowseApi(this);
+        FotoTeam = new FotoTeamApi(this);
         FileStation = new FileStationApi(this);
     }
 
@@ -440,6 +446,32 @@ public class SynologyClient
         return buffer;
     }
 
+    /// <summary>官方 Photos App 的 synofoto / Cookie 资源：带 <c>id</c>+<c>did</c>，URL 不带 <c>_sid</c>。</summary>
+    internal async Task<Stream> GetCookieAuthenticatedStreamAsync(
+        string relativePath,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSidAsync();
+        RestorePersistedPhotosDeviceId();
+        EnsureAppDeviceCookie();
+
+        var baseUri = new Uri(BaseUrl.TrimEnd('/') + "/");
+        var uri = new Uri(baseUri, relativePath.TrimStart('/'));
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        ApplyAppApiHeaders(request);
+        using var response = await HttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
+
+        await using var network = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var buffer = new MemoryStream();
+        await network.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+        return buffer;
+    }
+
     private static async Task EnsureBinaryResponseOrThrowAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
@@ -487,13 +519,13 @@ public class SynologyClient
         return sb.ToString();
     }
 
-    /// <summary>与浏览器 Photos 个人空间一致的 Cookie（Browse API 用）。</summary>
-    internal void ApplyPhotosWebCookies()
+    /// <summary>与浏览器 Photos 一致的 Cookie（Browse API 用）。</summary>
+    internal void ApplyPhotosWebCookies(string library = "personal_space", string viewType = "folder")
     {
         var uri = new Uri(BaseUrl);
-        AddCookie(uri, "ViewLibrary", "personal_space");
-        AddCookie(uri, "AutoSmartAlbumLibrary", "personal_space");
-        AddCookie(uri, "ViewType", "folder");
+        AddCookie(uri, "ViewLibrary", library);
+        AddCookie(uri, "AutoSmartAlbumLibrary", library);
+        AddCookie(uri, "ViewType", viewType);
     }
 
     internal string? GetSessionIdCookieValue()

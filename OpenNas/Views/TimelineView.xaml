@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+
+             xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
+
+             xmlns:helpers="clr-namespace:OpenNas.Helpers"
+
+             xmlns:controls="clr-namespace:OpenNas.Controls"
+
+             x:Class="OpenNas.Views.TimelineView">
+
+    <Grid>
+        <RefreshView x:Name="RefreshHost"
+
+                         RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
+
+                <CollectionView x:Name="TimelineCollection"
+
+                                IsGrouped="True"
+
+                                ItemsLayout="VerticalGrid, 3"
+
+                                RemainingItemsThreshold="18"
+
+                                RemainingItemsThresholdReached="OnLoadMore"
+
+                                SelectionMode="None">
+
+                    <CollectionView.GroupHeaderTemplate>
+
+                        <DataTemplate x:DataType="helpers:TimelinePhotoGroup">
+
+                            <Label Text="{Binding DateLabel}"
+
+                                   FontFamily="OpenSansSemibold"
+
+                                   FontSize="17"
+
+                                   Padding="12,18,12,8"
+
+                                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+
+                        </DataTemplate>
+
+                    </CollectionView.GroupHeaderTemplate>
+
+                    <CollectionView.ItemTemplate>
+
+                        <DataTemplate x:DataType="foto:Photo">
+
+                            <Grid Margin="2" HeightRequest="112"
+
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceMuted}, Dark={StaticResource SurfaceMutedDark}}">
+
+                                <Grid.GestureRecognizers>
+
+                                    <TapGestureRecognizer Tapped="OnPhotoTapped" />
+
+                                </Grid.GestureRecognizers>
+
+                                <controls:AlbumGridPhotoView Aspect="AspectFill" />
+
+                                <Label Text="▶"
+
+                                       IsVisible="{Binding IsVideo}"
+
+                                       FontSize="11"
+
+                                       TextColor="White"
+
+                                       Margin="6"
+
+                                       HorizontalOptions="End"
+
+                                       VerticalOptions="End" />
+
+                            </Grid>
+
+                        </DataTemplate>
+
+                    </CollectionView.ItemTemplate>
+
+                    <CollectionView.EmptyView>
+
+                        <controls:EmptyStateView Title="暂无照片"
+
+                                                 Message="下拉刷新以加载时间线。"
+
+                                                 IconText="📅" />
+
+                    </CollectionView.EmptyView>
+
+                </CollectionView>
+
+            </RefreshView>
+
+
+
+            <ActivityIndicator x:Name="BusyIndicator"
+
+                               IsRunning="False"
+
+                               IsVisible="False"
+
+                               Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+
+                               HorizontalOptions="Center"
+
+                               VerticalOptions="Center" />
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown"
+                                      ZIndex="99"
+                                      HorizontalOptions="Fill"
+                                      VerticalOptions="Fill" />
+
+    </Grid>
+
+</ContentView>
+
+

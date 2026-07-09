@@ -40,6 +40,10 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private bool _hasMore = true;
     private bool _isSelecting;
     private bool _suppressNextTap;
+    private bool _retainAlbumScopeOnDisappear;
+    private bool _canDownload;
+    private bool _canManage;
+    private bool _canUpload;
 
     public bool IsSelecting
     {
@@ -57,6 +61,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     public void Dispose()
     {
+        PhotosAlbumMediaScope.Clear();
         LongPressBehavior.LongPressed -= OnPhotoLongPressBehavior;
         ClearSelectableRegistry();
         _loadGate?.Dispose();
@@ -87,6 +92,12 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        var passphrase = AlbumShareHelper.ResolvePassphrase(_album);
+        _canDownload = AlbumShareHelper.CanDownload(_album);
+        _canManage = AlbumShareHelper.CanManage(_album);
+        _canUpload = AlbumShareHelper.CanUpload(_album);
+        PhotosAlbumMediaScope.Set(_album.Id, passphrase, _canDownload);
+        PhotosMediaLibraryScope.Current = PhotosLibrary.PersonalSpace;
 #if ANDROID
         AlbumGridUiHelper.TryOptimize(PhotosView);
 #endif
@@ -94,6 +105,16 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         UpdateSelectionUi();
         if (_photos.Count == 0)
             await ReloadPhotosAsync();
+
+        UpdateSelectionUi();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (!_retainAlbumScopeOnDisappear)
+            PhotosAlbumMediaScope.Clear();
+        _retainAlbumScopeOnDisappear = false;
     }
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
@@ -209,13 +230,22 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
             return;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var albums = await Task.Run(async () =>
+
+        if (AlbumShareHelper.RequiresSharePassphrase(_album))
         {
-            return await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cts.Token);
-        });
-        var fresh = albums.FirstOrDefault(a => a.Id == _album.Id);
-        if (fresh != null)
-            _album.ItemCount = fresh.ItemCount;
+            var shared = await Task.Run(async () =>
+                await SynologyManager.Client.Foto.ListSharedWithMeAlbumsAsync(0, 500, cts.Token));
+            var fresh = shared.FirstOrDefault(a => a.Id == _album.Id);
+            if (fresh != null)
+                _album.ItemCount = fresh.ItemCount;
+            return;
+        }
+
+        var albums = await Task.Run(async () =>
+            await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cancellationToken: cts.Token));
+        var updated = albums.FirstOrDefault(a => a.Id == _album.Id);
+        if (updated != null)
+            _album.ItemCount = updated.ItemCount;
     }
 
     private bool UsesGroups => AlbumPhotoSort.UsesGroups(_sortField);
@@ -353,6 +383,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         if (index < 0)
             index = 0;
 
+        _retainAlbumScopeOnDisappear = true;
         await Navigation.PushAsync(new PhotoViewerPage(_photos, index, _connection));
     }
 
@@ -380,6 +411,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private void OnPhotoLongPressBehavior(object? sender, LongPressBehavior.LongPressEventArgs e)
     {
         if (e.Context is not SelectablePhoto item || IsSelecting)
+            return;
+
+        if (!_canDownload && !_canManage)
             return;
 
         EnterSelectionMode(item, suppressNextTap: true);
@@ -475,7 +509,10 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         SelectAllArea.IsVisible = IsSelecting;
         SelectionActionBar.IsVisible = IsSelecting;
 
-        AddPhotoButton.IsVisible = !IsSelecting;
+        AddPhotoButton.IsVisible = !IsSelecting && _canUpload;
+        DownloadSelectedButton.IsVisible = _canDownload;
+        MoveSelectedButton.IsVisible = _canManage;
+        DeleteSelectedButton.IsVisible = _canManage;
         DownloadSelectedButton.IsEnabled = hasSelection && !_downloading;
         MoveSelectedButton.IsEnabled = hasSelection && !_downloading;
         DeleteSelectedButton.IsEnabled = hasSelection && !_downloading;
@@ -605,7 +642,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         var allAlbums = await Task.Run(async () =>
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            return await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cts.Token);
+            return await SynologyManager.Client.Foto.GetAlbumsAsync(0, 200, cancellationToken: cts.Token);
         });
         var otherAlbums = allAlbums.Where(a => a.Id != _album.Id).ToList();
 

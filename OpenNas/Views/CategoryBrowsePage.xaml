@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:foto="clr-namespace:NSynology.Foto;assembly=NSynology"
+             xmlns:controls="clr-namespace:OpenNas.Controls"
+             x:Class="OpenNas.Views.CategoryBrowsePage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0"
+              Padding="4,8,8,4"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="4">
+            <Button Grid.Column="0"
+                    Text="‹"
+                    FontSize="28"
+                    Style="{StaticResource ToolbarIconButton}"
+                    Clicked="OnBackClicked" />
+            <Label x:Name="TitleLabel"
+                   Grid.Column="1"
+                   FontFamily="OpenSansSemibold"
+                   FontSize="18"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   LineBreakMode="TailTruncation"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+            <Button x:Name="SpaceButton"
+                    Grid.Column="2"
+                    Text="个人"
+                    FontSize="13"
+                    Style="{StaticResource CompactOutlineButton}"
+                    IsVisible="False"
+                    Clicked="OnSpaceClicked" />
+        </Grid>
+
+        <RefreshView x:Name="RefreshHost"
+                     Grid.Row="1"
+                     RefreshColor="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}">
+            <CollectionView x:Name="ItemsView"
+                            SelectionMode="None"
+                            RemainingItemsThreshold="12"
+                            RemainingItemsThresholdReached="OnLoadMore">
+                <CollectionView.EmptyView>
+                    <controls:EmptyStateView Title="暂无内容"
+                                             Message="下拉刷新重试。"
+                                             IconText="🖼" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </RefreshView>
+
+        <ActivityIndicator x:Name="BusyIndicator"
+                           Grid.RowSpan="2"
+                           IsRunning="False"
+                           IsVisible="False"
+                           Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown" Grid.RowSpan="2" ZIndex="99" />
+    </Grid>
+</ContentPage>

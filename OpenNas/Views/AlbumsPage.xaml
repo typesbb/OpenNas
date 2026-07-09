@@ -7,38 +7,94 @@
              Title="相册"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
-    <Grid>
-        <Grid RowDefinitions="Auto,*">
-            <Grid Grid.Row="0"
-                  Padding="12,8,8,4"
-                  ColumnDefinitions="*,Auto,Auto"
-                  ColumnSpacing="4">
-                <Label Grid.Column="0"
-                       Grid.ColumnSpan="3"
-                       Text="相册"
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" Padding="12,8,8,4" MinimumHeightRequest="44">
+            <HorizontalStackLayout HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Spacing="4">
+                <HorizontalStackLayout.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnViewTitleClicked" />
+                </HorizontalStackLayout.GestureRecognizers>
+                <Label x:Name="ViewTitleLabel"
+                       Text="探索"
                        FontFamily="OpenSansSemibold"
                        FontSize="18"
-                       HorizontalOptions="Center"
                        VerticalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                <Label Text="▾"
+                       FontSize="12"
+                       VerticalOptions="Center"
+                       Margin="0,2,0,0"
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+            </HorizontalStackLayout>
+
+            <HorizontalStackLayout HorizontalOptions="End"
+                                   VerticalOptions="Center"
+                                   Spacing="4">
+                <HorizontalStackLayout x:Name="AlbumFilterButton"
+                                       IsVisible="False"
+                                       Spacing="4"
+                                       VerticalOptions="Center"
+                                       Padding="4,0">
+                    <HorizontalStackLayout.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAlbumFilterClicked" />
+                    </HorizontalStackLayout.GestureRecognizers>
+                    <Label x:Name="AlbumFilterLabel"
+                           Text="我的"
+                           FontSize="13"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                    <Label Text="▾"
+                           FontSize="11"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout x:Name="TimelineSpaceButton"
+                                       IsVisible="False"
+                                       Spacing="4"
+                                       VerticalOptions="Center"
+                                       Padding="4,0">
+                    <HorizontalStackLayout.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnTimelineSpaceClicked" />
+                    </HorizontalStackLayout.GestureRecognizers>
+                    <Label x:Name="TimelineSpaceLabel"
+                           Text="个人空间"
+                           FontSize="13"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                    <Label Text="▾"
+                           FontSize="11"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
+                </HorizontalStackLayout>
+
                 <Button x:Name="SortButton"
-                        Grid.Column="1"
                         Text="⇅"
+                        IsVisible="False"
                         Style="{StaticResource ToolbarIconButton}"
                         SemanticProperties.Hint="排序"
                         Clicked="OnSortClicked" />
                 <Button x:Name="AddButton"
-                        Grid.Column="2"
                         Text="+"
                         FontSize="26"
                         Style="{StaticResource ToolbarIconButton}"
                         SemanticProperties.Hint="新建相册"
                         Clicked="OnAddClicked" />
-            </Grid>
-
-            <views:NasAlbumsView x:Name="AlbumsContent" Grid.Row="1" />
+            </HorizontalStackLayout>
         </Grid>
 
-        <controls:DropdownMenuOverlay x:Name="Dropdown" ZIndex="99" />
+        <Grid Grid.Row="1">
+            <views:ExploreView x:Name="ExploreContent" IsVisible="True" />
+            <views:NasAlbumsView x:Name="AlbumsContent" IsVisible="False" />
+            <views:TimelineView x:Name="TimelineContent" IsVisible="False" />
+        </Grid>
+
+        <controls:DropdownMenuOverlay x:Name="Dropdown"
+                                      Grid.Row="0"
+                                      Grid.RowSpan="2"
+                                      ZIndex="99"
+                                      HorizontalOptions="Fill"
+                                      VerticalOptions="Fill" />
     </Grid>
 </ContentPage>

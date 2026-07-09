@@ -5,16 +5,11 @@
              xmlns:controls="clr-namespace:OpenNas.Controls"
              xmlns:behaviors="clr-namespace:OpenNas.Behaviors"
              x:Class="OpenNas.Views.NasAlbumsView">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
+    <Grid RowDefinitions="Auto,*">
         <Label x:Name="AlbumCountLabel"
                Grid.Row="0"
                FontSize="12"
-               Margin="4,0,4,6"
+               Margin="12,4,12,8"
                HorizontalOptions="Center"
                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
 
@@ -62,12 +57,13 @@
         </RefreshView>
 
         <ActivityIndicator x:Name="BusyIndicator"
+                           Grid.RowSpan="2"
                            IsRunning="False"
                            IsVisible="False"
                            Color="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
                            HorizontalOptions="Center"
                            VerticalOptions="Center" />
 
-        <controls:DropdownMenuOverlay x:Name="Dropdown" Grid.Row="0" Grid.RowSpan="2" ZIndex="99" />
+        <controls:DropdownMenuOverlay x:Name="Dropdown" Grid.RowSpan="2" ZIndex="99" />
     </Grid>
 </ContentView>

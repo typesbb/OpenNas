@@ -48,5 +48,15 @@ namespace NSynology.Foto
 
         public string ThumbnailUrl { get; set; }
         public Additional Additional { get; set; }
+
+        public string? ResolveSharePassphrase()
+        {
+            if (!string.IsNullOrWhiteSpace(Passphrase))
+                return Passphrase;
+
+            return string.IsNullOrWhiteSpace(Additional?.SharingInfo?.Passphrase)
+                ? null
+                : Additional.SharingInfo.Passphrase;
+        }
     }
 }

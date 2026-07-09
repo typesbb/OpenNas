@@ -28,6 +28,8 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IAuthNavigation, AuthNavigation>();
         builder.Services.AddSingleton<ConnectionService>();
+        builder.Services.AddSingleton<PhotosLibraryContext>();
+        builder.Services.AddSingleton<AlbumsPageViewModel>();
         builder.Services.AddSingleton(new BackupDatabase(Path.Combine(FileSystem.AppDataDirectory, "opennas_backup.db")));
         builder.Services.AddSingleton<BackupEngine>();
         builder.Services.AddSingleton<BackupTaskViewModel>();
