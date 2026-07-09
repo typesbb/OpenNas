@@ -92,7 +92,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        var passphrase = AlbumShareHelper.ResolvePassphrase(_album);
+        var sharedWithMe = AlbumShareHelper.IsSharedWithMe(_album);
+        var passphrase = sharedWithMe ? AlbumShareHelper.ResolvePassphrase(_album) : null;
         _canDownload = AlbumShareHelper.CanDownload(_album);
         _canManage = AlbumShareHelper.CanManage(_album);
         _canUpload = AlbumShareHelper.CanUpload(_album);
@@ -387,7 +388,27 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         await Navigation.PushAsync(new PhotoViewerPage(_photos, index, _connection));
     }
 
-    private async void OnBackClicked(object? sender, EventArgs e) => await Navigation.PopAsync();
+    private async void OnBackClicked(object? sender, EventArgs e)
+    {
+        if (IsSelecting)
+        {
+            ExitSelectionMode();
+            return;
+        }
+
+        await Navigation.PopAsync();
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (IsSelecting)
+        {
+            ExitSelectionMode();
+            return true;
+        }
+
+        return base.OnBackButtonPressed();
+    }
 
     private async void OnMenuClicked(object? sender, EventArgs e)
     {

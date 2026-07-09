@@ -78,9 +78,14 @@ public partial class PhotoViewerPage : ContentPage
 
     private void UpdateExportActionsVisibility()
     {
-        var allowExport = PhotosAlbumMediaScope.AllowDownload;
+        // 时间线/探索等非共享相册上下文：始终允许导出；与我共享且不可下载时隐藏。
+        var allowExport = PhotosAlbumMediaScope.CurrentPassphrase == null
+            || PhotosAlbumMediaScope.AllowDownload;
         DownloadButton.IsVisible = allowExport;
         ShareButton.IsVisible = allowExport;
+        ActionBarDivider.IsVisible = allowExport;
+        if (!allowExport)
+            HideActionBar();
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -189,6 +194,9 @@ public partial class PhotoViewerPage : ContentPage
 
     private void ToggleActionBar()
     {
+        if (PhotosAlbumMediaScope.CurrentPassphrase != null && !PhotosAlbumMediaScope.AllowDownload)
+            return;
+
         _actionBarVisible = !_actionBarVisible;
         ActionBar.IsVisible = _actionBarVisible;
     }

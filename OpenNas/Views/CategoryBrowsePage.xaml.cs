@@ -34,8 +34,7 @@ public partial class CategoryBrowsePage : ContentPage
         _connection = connection;
         _libraryContext = libraryContext;
         _filterId = filterId;
-        _photoMode = category is PhotosBrowseCategory.RecentlyAdded or PhotosBrowseCategory.Video
-            || (category == PhotosBrowseCategory.Person && filterId.HasValue);
+        _photoMode = IsFilteredPhotoMode(category, filterId);
 
         InitializeComponent();
         TitleLabel.Text = ResolveTitle(category, title, filterId);
@@ -144,6 +143,13 @@ public partial class CategoryBrowsePage : ContentPage
         }
     }
 
+    private static bool IsFilteredPhotoMode(PhotosBrowseCategory category, int? filterId) =>
+        category is PhotosBrowseCategory.RecentlyAdded or PhotosBrowseCategory.Video
+            || (filterId.HasValue && category is PhotosBrowseCategory.Person
+                or PhotosBrowseCategory.Concept
+                or PhotosBrowseCategory.Geocoding
+                or PhotosBrowseCategory.GeneralTag);
+
     internal static string ResolveTitle(PhotosBrowseCategory category, string? title, int? filterId = null)
     {
         if (!string.IsNullOrWhiteSpace(title))
@@ -247,9 +253,9 @@ public partial class CategoryBrowsePage : ContentPage
             return PhotosBrowseGateway.ListRecentlyAddedAsync(client, offset, limit, cancellationToken);
         if (_category == PhotosBrowseCategory.Video)
             return PhotosBrowseGateway.ListVideosAsync(client, library, offset, limit, cancellationToken);
-        if (_category == PhotosBrowseCategory.Person && _filterId.HasValue)
-            return PhotosBrowseGateway.ListPersonPhotosAsync(
-                client, library, _filterId.Value, offset, limit, cancellationToken);
+        if (_filterId.HasValue)
+            return PhotosBrowseGateway.ListFilteredPhotosAsync(
+                client, library, _category, _filterId.Value, offset, limit, cancellationToken);
 
         return Task.FromResult<IReadOnlyList<Photo>>([]);
     }
@@ -274,6 +280,7 @@ public partial class CategoryBrowsePage : ContentPage
         if (index < 0)
             index = 0;
 
+        PhotosAlbumMediaScope.Clear();
         await ShellNavigation.PushAsync(new PhotoViewerPage(
             _photos, index, _connection, _libraryContext?.ExploreLibrary ?? PhotosLibrary.PersonalSpace));
     }
@@ -283,15 +290,13 @@ public partial class CategoryBrowsePage : ContentPage
         if (sender is not BindableObject bindable || bindable.BindingContext is not BrowseAlbumItem item)
             return;
 
-        if (_category == PhotosBrowseCategory.Person)
+        if (_category is PhotosBrowseCategory.Person or PhotosBrowseCategory.Concept
+            or PhotosBrowseCategory.Geocoding or PhotosBrowseCategory.GeneralTag)
         {
             await ShellNavigation.PushAsync(new CategoryBrowsePage(
-                PhotosBrowseCategory.Person, _connection, _libraryContext, item.Id,
-                CategoryBrowsePage.ResolveTitle(PhotosBrowseCategory.Person, item.Name, item.Id)));
-            return;
+                _category, _connection, _libraryContext, item.Id,
+                ResolveTitle(_category, item.Name, item.Id)));
         }
-
-        await DisplayAlertAsync(TitleLabel.Text, "该分类详情浏览即将完善。", "确定");
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>

@@ -40,17 +40,17 @@ public partial class AlbumsPage : ContentPage
         await _libraryContext.RefreshTeamSpaceSettingsAsync();
         UpdateViewTitle();
         ApplyMediaScopeForCurrentView();
-        await RefreshCurrentViewAsync();
+        await EnsureCurrentViewLoadedAsync();
     }
 
     private void OnViewModeChanged(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(async () =>
+        MainThread.BeginInvokeOnMainThread(() =>
         {
             UpdateViewTitle();
             UpdateViewModeUi();
             UpdateToolbar();
-            await RefreshCurrentViewAsync();
+            _ = EnsureCurrentViewLoadedAsync();
         });
     }
 
@@ -65,6 +65,9 @@ public partial class AlbumsPage : ContentPage
         {
             UpdateToolbar();
             ApplyMediaScopeForCurrentView();
+            TimelineContent.InvalidateCache();
+            if (_libraryContext.CurrentViewMode == PhotosViewMode.Timeline)
+                _ = TimelineContent.RefreshAsync(force: true);
         });
     }
 
@@ -78,7 +81,7 @@ public partial class AlbumsPage : ContentPage
             new("timeline", "时间线", mode == PhotosViewMode.Timeline)
         };
 
-        var selected = await ShowDropdownBelowAsync((VisualElement)sender!, items);
+        var selected = await ShowDropdownBelowAsync(ViewTitleButton, items);
         if (selected == "explore")
             _libraryContext.SetViewMode(PhotosViewMode.Explore);
         else if (selected == "albums")
@@ -176,10 +179,12 @@ public partial class AlbumsPage : ContentPage
         };
     }
 
-    private Task RefreshCurrentViewAsync() => _libraryContext.CurrentViewMode switch
+    private Task EnsureCurrentViewLoadedAsync(bool force = false) => _libraryContext.CurrentViewMode switch
     {
-        PhotosViewMode.Albums => AlbumsContent.RefreshAsync(),
-        PhotosViewMode.Timeline => TimelineContent.RefreshAsync(),
-        _ => ExploreContent.RefreshAsync()
+        PhotosViewMode.Albums => AlbumsContent.RefreshAsync(force),
+        PhotosViewMode.Timeline => TimelineContent.RefreshAsync(force),
+        _ => ExploreContent.RefreshAsync(force)
     };
+
+    public Task RefreshCurrentViewAsync(bool force = false) => EnsureCurrentViewLoadedAsync(force);
 }

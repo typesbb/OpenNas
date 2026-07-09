@@ -23,6 +23,9 @@ public partial class TimelineView : ContentView
     private bool _loading;
     private bool _loadingSections;
     private int _nextSectionIndex;
+    private PhotosLibrary? _loadedForLibrary;
+
+    public void InvalidateCache() => _loadedForLibrary = null;
 
     public void Bind(ConnectionService connection, PhotosLibraryContext libraryContext)
     {
@@ -40,20 +43,25 @@ public partial class TimelineView : ContentView
 
     private void OnTimelineLibraryChanged(object? sender, EventArgs e)
     {
+        InvalidateCache();
         if (!IsVisible)
             return;
 
-        MainThread.BeginInvokeOnMainThread(async () => await RefreshAsync());
+        MainThread.BeginInvokeOnMainThread(async () => await RefreshAsync(force: true));
     }
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
-        await RefreshAsync();
+        await RefreshAsync(force: true);
         RefreshHost.IsRefreshing = false;
     }
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(bool force = false)
     {
+        var library = _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace;
+        if (!force && _groups.Count > 0 && _loadedForLibrary == library)
+            return;
+
         if (_loading)
             return;
 
@@ -117,6 +125,7 @@ public partial class TimelineView : ContentView
             }
 
             await LoadNextSectionBatchAsync(Math.Min(InitialSectionLoadCount, _pendingSections.Count));
+            _loadedForLibrary = library;
         }
         catch (Exception ex)
         {
@@ -250,6 +259,7 @@ public partial class TimelineView : ContentView
         if (index < 0)
             index = 0;
 
+        PhotosAlbumMediaScope.Clear();
         await ShellNavigation.PushAsync(new PhotoViewerPage(
             _flatPhotos, index, _connection,
             _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace));

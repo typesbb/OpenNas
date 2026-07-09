@@ -18,6 +18,7 @@ public partial class NasAlbumsView : ContentView
     private PhotosLibraryContext? _libraryContext;
     private AlbumListOrder _albumOrder = new();
     private AlbumListFilter? _lastDisplayFilter;
+    private AlbumListFilter? _loadedForFilter;
     private string _activeSortKey;
     private bool _suppressAlbumTap;
 
@@ -28,10 +29,11 @@ public partial class NasAlbumsView : ContentView
         _libraryContext.AlbumFilterChanged += OnContextChanged;
     }
 
-    public Task RefreshAsync()
+    public Task RefreshAsync(bool force = false)
     {
-        _lastDisplayFilter = null;
-        return LoadAlbumsAsync();
+        if (force)
+            _lastDisplayFilter = null;
+        return LoadAlbumsAsync(force);
     }
 
     public NasAlbumsView()
@@ -162,7 +164,7 @@ public partial class NasAlbumsView : ContentView
             }
         }
 
-        await LoadAlbumsAsync();
+        await LoadAlbumsAsync(force: true);
     }
 
     private static bool IsClientSort(string key) =>
@@ -170,17 +172,27 @@ public partial class NasAlbumsView : ContentView
 
     private void OnContextChanged(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(() => _ = LoadAlbumsAsync());
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            _lastDisplayFilter = null;
+            _ = LoadAlbumsAsync(force: true);
+        });
     }
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
-        await LoadAlbumsAsync();
+        _lastDisplayFilter = null;
+        await LoadAlbumsAsync(force: true);
         AlbumsRefreshView.IsRefreshing = false;
     }
 
-    private async Task LoadAlbumsAsync()
+    private async Task LoadAlbumsAsync(bool force = false)
     {
+        var filter = PhotosLibraryContext.NormalizeAlbumFilter(
+            _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
+        if (!force && _albums.Count > 0 && _loadedForFilter == filter)
+            return;
+
         await _loadGate.WaitAsync();
         var previousAlbums = _albums.ToList();
         try
@@ -207,8 +219,6 @@ public partial class NasAlbumsView : ContentView
                     _albumOrder = order;
             }
 
-            var filter = PhotosLibraryContext.NormalizeAlbumFilter(
-                _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
             var useServerSort = !IsClientSort(_activeSortKey);
             var (sortBy, sortDir) = useServerSort
                 ? ResolveSort(filter)
@@ -239,6 +249,7 @@ public partial class NasAlbumsView : ContentView
                 else if (IsClientSort(_activeSortKey))
                     ApplyClientSort();
                 UpdateAlbumCountLabel();
+                _loadedForFilter = filter;
             });
         }
         catch (OperationCanceledException)
@@ -350,7 +361,7 @@ public partial class NasAlbumsView : ContentView
         try
         {
             await SynologyManager.Client.Foto.CreateNormalAlbumAsync(name.Trim());
-            await LoadAlbumsAsync();
+            await LoadAlbumsAsync(force: true);
         }
         catch (Exception ex)
         {
@@ -364,7 +375,7 @@ public partial class NasAlbumsView : ContentView
         if (e.Context is not Album album)
             return;
 
-        if (AlbumShareHelper.RequiresSharePassphrase(album))
+        if (AlbumShareHelper.IsSharedWithMe(album))
             return;
 
         _suppressAlbumTap = true;

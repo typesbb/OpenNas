@@ -120,6 +120,54 @@ public class FotoTeamApi(SynologyClient synologyClient)
             ],
             cancellationToken);
 
+    public Task<IReadOnlyList<Photo>> ListConceptPhotosAsync(
+        int conceptId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        ListBrowseItemsAsync(
+            [
+                new("offset", offset.ToString()),
+                new("limit", limit.ToString()),
+                new("additional", AppCapture.BrowseItemListAdditional),
+                new("geocoding_accept_language", "chs"),
+                new("timeline_group_unit", "\"day\""),
+                new("concept_id", conceptId.ToString())
+            ],
+            cancellationToken);
+
+    public Task<IReadOnlyList<Photo>> ListGeocodingPhotosAsync(
+        int geocodingId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        ListBrowseItemsAsync(
+            [
+                new("offset", offset.ToString()),
+                new("limit", limit.ToString()),
+                new("additional", AppCapture.BrowseItemListAdditional),
+                new("geocoding_accept_language", "chs"),
+                new("timeline_group_unit", "\"day\""),
+                new("geocoding_id", geocodingId.ToString())
+            ],
+            cancellationToken);
+
+    public Task<IReadOnlyList<Photo>> ListGeneralTagPhotosAsync(
+        int tagId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        ListBrowseItemsAsync(
+            [
+                new("offset", offset.ToString()),
+                new("limit", limit.ToString()),
+                new("additional", AppCapture.BrowseItemListAdditional),
+                new("geocoding_accept_language", "chs"),
+                new("timeline_group_unit", "\"day\""),
+                new("tag_id", tagId.ToString())
+            ],
+            cancellationToken);
+
     public Task<IReadOnlyList<Photo>> ListTimelineSectionPhotosAsync(
         long startTimeUnix,
         int offset,

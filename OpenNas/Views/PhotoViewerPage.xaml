@@ -47,7 +47,8 @@
                         BorderWidth="0"
                         Padding="16,8"
                         Clicked="OnDownloadClicked" />
-                <BoxView WidthRequest="1"
+                <BoxView x:Name="ActionBarDivider"
+                         WidthRequest="1"
                          HeightRequest="20"
                          Color="#66FFFFFF"
                          VerticalOptions="Center" />

@@ -45,6 +45,60 @@ public static class PhotosBrowseGateway
             ? client.FotoTeam.ListPersonPhotosAsync(personId, offset, limit, cancellationToken)
             : client.FotoBrowse.ListPersonPhotosAsync(personId, offset, limit, cancellationToken);
 
+    public static Task<IReadOnlyList<Photo>> ListConceptPhotosAsync(
+        SynologyClient client,
+        PhotosLibrary library,
+        int conceptId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        UsesSharedTeamApi(library)
+            ? client.FotoTeam.ListConceptPhotosAsync(conceptId, offset, limit, cancellationToken)
+            : client.FotoBrowse.ListConceptPhotosAsync(conceptId, offset, limit, cancellationToken);
+
+    public static Task<IReadOnlyList<Photo>> ListGeocodingPhotosAsync(
+        SynologyClient client,
+        PhotosLibrary library,
+        int geocodingId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        UsesSharedTeamApi(library)
+            ? client.FotoTeam.ListGeocodingPhotosAsync(geocodingId, offset, limit, cancellationToken)
+            : client.FotoBrowse.ListGeocodingPhotosAsync(geocodingId, offset, limit, cancellationToken);
+
+    public static Task<IReadOnlyList<Photo>> ListGeneralTagPhotosAsync(
+        SynologyClient client,
+        PhotosLibrary library,
+        int tagId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        UsesSharedTeamApi(library)
+            ? client.FotoTeam.ListGeneralTagPhotosAsync(tagId, offset, limit, cancellationToken)
+            : client.FotoBrowse.ListGeneralTagPhotosAsync(tagId, offset, limit, cancellationToken);
+
+    public static Task<IReadOnlyList<Photo>> ListFilteredPhotosAsync(
+        SynologyClient client,
+        PhotosLibrary library,
+        PhotosBrowseCategory category,
+        int filterId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        category switch
+        {
+            PhotosBrowseCategory.Person => ListPersonPhotosAsync(
+                client, library, filterId, offset, limit, cancellationToken),
+            PhotosBrowseCategory.Concept => ListConceptPhotosAsync(
+                client, library, filterId, offset, limit, cancellationToken),
+            PhotosBrowseCategory.Geocoding => ListGeocodingPhotosAsync(
+                client, library, filterId, offset, limit, cancellationToken),
+            PhotosBrowseCategory.GeneralTag => ListGeneralTagPhotosAsync(
+                client, library, filterId, offset, limit, cancellationToken),
+            _ => Task.FromResult<IReadOnlyList<Photo>>([])
+        };
+
     public static Task<IReadOnlyList<BrowseAlbumItem>> ListBrowseItemsAsync(
         SynologyClient client,
         PhotosLibrary library,

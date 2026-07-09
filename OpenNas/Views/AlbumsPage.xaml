@@ -3,30 +3,42 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:views="clr-namespace:OpenNas.Views"
              xmlns:controls="clr-namespace:OpenNas.Controls"
+             xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
              x:Class="OpenNas.Views.AlbumsPage"
              Title="相册"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*">
         <Grid Grid.Row="0" Padding="12,8,8,4" MinimumHeightRequest="44">
-            <HorizontalStackLayout HorizontalOptions="Center"
-                                   VerticalOptions="Center"
-                                   Spacing="4">
-                <HorizontalStackLayout.GestureRecognizers>
+            <Border x:Name="ViewTitleButton"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    Padding="12,6"
+                    StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light={StaticResource BrandPrimary}, Dark={StaticResource BrandPrimaryLight}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource BrandPrimarySoft}, Dark={StaticResource BrandPrimarySoftDark}}">
+                <Border.StrokeShape>
+                    <shapes:RoundRectangle CornerRadius="18" />
+                </Border.StrokeShape>
+                <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnViewTitleClicked" />
-                </HorizontalStackLayout.GestureRecognizers>
-                <Label x:Name="ViewTitleLabel"
-                       Text="探索"
-                       FontFamily="OpenSansSemibold"
-                       FontSize="18"
-                       VerticalOptions="Center"
-                       TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
-                <Label Text="▾"
-                       FontSize="12"
-                       VerticalOptions="Center"
-                       Margin="0,2,0,0"
-                       TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource TextSecondaryDark}}" />
-            </HorizontalStackLayout>
+                </Border.GestureRecognizers>
+                <HorizontalStackLayout Spacing="6"
+                                       VerticalOptions="Center">
+                    <Label x:Name="ViewTitleLabel"
+                           Text="探索"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="18"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                    <Label Text="▼"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center"
+                           Margin="0,1,0,0"
+                           TextColor="{AppThemeBinding Light={StaticResource BrandPrimaryDark}, Dark={StaticResource BrandPrimaryLight}}" />
+                </HorizontalStackLayout>
+            </Border>
 
             <HorizontalStackLayout HorizontalOptions="End"
                                    VerticalOptions="Center"

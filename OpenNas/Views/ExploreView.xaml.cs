@@ -28,6 +28,8 @@ public partial class ExploreView : ContentView
 
     private bool _loading;
 
+    private bool _hasLoaded;
+
     private IReadOnlyList<PhotoCategory> _categories = [];
 
 
@@ -60,7 +62,7 @@ public partial class ExploreView : ContentView
 
     private void OnExploreLibraryChanged(object? sender, EventArgs e) =>
 
-        MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
+        MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync(force: true));
 
 
 
@@ -68,7 +70,7 @@ public partial class ExploreView : ContentView
 
     {
 
-        await RefreshAsync();
+        await RefreshAsync(force: true);
 
         RefreshHost.IsRefreshing = false;
 
@@ -76,9 +78,15 @@ public partial class ExploreView : ContentView
 
 
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(bool force = false)
 
     {
+
+        if (!force && _hasLoaded && SectionsHost.Children.Count > 0)
+
+            return;
+
+
 
         if (_loading)
 
@@ -121,6 +129,8 @@ public partial class ExploreView : ContentView
             _categories = await client.FotoBrowse.GetCategoriesAsync(cts.Token);
 
             BuildSections();
+
+            _hasLoaded = true;
 
         }
 
@@ -430,19 +440,17 @@ public partial class ExploreView : ContentView
         var tap = new TapGestureRecognizer();
 
         tap.Tapped += async (_, _) =>
-
         {
-
-            if (isPerson)
-
+            if (category is PhotosBrowseCategory.Person or PhotosBrowseCategory.Concept
+                or PhotosBrowseCategory.Geocoding or PhotosBrowseCategory.GeneralTag)
+            {
                 await ShellNavigation.PushAsync(new CategoryBrowsePage(
                     category, _connection!, _libraryContext, itemId,
                     CategoryBrowsePage.ResolveTitle(category, item.Name, itemId)));
+                return;
+            }
 
-            else
-
-                await OpenCategoryAsync(category);
-
+            await OpenCategoryAsync(category);
         };
 
         border.GestureRecognizers.Add(tap);
