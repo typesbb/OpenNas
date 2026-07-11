@@ -144,6 +144,10 @@ public class BackupEngine
             if (_connection.GetWifiOnly() && !IsOnWifi())
                 throw new InvalidOperationException("当前非 Wi-Fi，已启用「仅 Wi-Fi 备份」。");
 
+#if ANDROID
+            await ResolveRemoteAlbumsForRulesAsync(token);
+#endif
+
             BackupLog.Info("正在扫描本地相册并比对数据库…");
             var (work, previouslyCompleted) = await BuildWorkQueueAsync(mediaService, token);
             BackupLog.Info($"待上传 {work.Count} 个文件（共 {work.Count + previouslyCompleted} 项，{previouslyCompleted} 项已完成）");
@@ -744,6 +748,43 @@ public class BackupEngine
         }
 
         return Task.FromResult(0L);
+    }
+
+    private async Task ResolveRemoteAlbumsForRulesAsync(CancellationToken token)
+    {
+        var rules = await _db.GetRulesAsync();
+        IEnumerable<BackupRule> toResolve = rules.Where(r => r.Enabled);
+        if (_ruleIdFilter is int ruleId)
+            toResolve = toResolve.Where(r => r.Id == ruleId);
+
+        foreach (var rule in toResolve)
+        {
+            token.ThrowIfCancellationRequested();
+            var previousId = rule.RemoteAlbumId;
+            var (album, action) = await SynologyManager.Client.Foto.ResolveBackupTargetAlbumAsync(
+                rule.RemoteAlbumId,
+                rule.RemoteAlbumName,
+                token);
+
+            switch (action)
+            {
+                case RemoteAlbumResolveAction.MatchedByName:
+                    BackupLog.Info(
+                        $"NAS 相册 id={previousId} 已失效，按名称匹配到「{album.Name}」(id={album.Id})");
+                    break;
+                case RemoteAlbumResolveAction.Created:
+                    BackupLog.Info($"NAS 相册「{album.Name}」不存在，已自动创建 (id={album.Id})");
+                    break;
+            }
+
+            if (album.Id != rule.RemoteAlbumId
+                || !string.Equals(album.Name, rule.RemoteAlbumName, StringComparison.Ordinal))
+            {
+                rule.RemoteAlbumId = album.Id;
+                rule.RemoteAlbumName = album.Name;
+                await _db.SaveRuleAsync(rule);
+            }
+        }
     }
 
 #endif

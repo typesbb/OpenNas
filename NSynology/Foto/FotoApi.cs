@@ -140,6 +140,90 @@ public class FotoApi(SynologyClient synologyClient) : ApiBase
         return result.Album;
     }
 
+    /// <summary>
+    /// 备份目标相册：先校验已存 ID；无效则按名称匹配个人普通相册；仍无则新建。
+    /// </summary>
+    public async Task<(Album Album, RemoteAlbumResolveAction Action)> ResolveBackupTargetAlbumAsync(
+        int storedAlbumId,
+        string storedAlbumName,
+        CancellationToken cancellationToken = default)
+    {
+        if (storedAlbumId > 0)
+        {
+            var byId = await TryGetPersonalAlbumAsync(storedAlbumId, cancellationToken);
+            if (byId != null)
+                return (byId, RemoteAlbumResolveAction.ExistingId);
+        }
+
+        var name = storedAlbumName?.Trim()
+            ?? throw new InvalidOperationException("备份规则未配置 NAS 相册名称。");
+        if (name.Length == 0)
+            throw new InvalidOperationException("备份规则未配置 NAS 相册名称。");
+
+        var byName = await FindPersonalNormalAlbumByNameAsync(name, cancellationToken);
+        if (byName != null)
+            return (byName, RemoteAlbumResolveAction.MatchedByName);
+
+        var created = await CreateNormalAlbumAsync(name, cancellationToken);
+        if (created.Id <= 0)
+            throw new InvalidOperationException($"无法在 NAS 上创建相册「{name}」。");
+
+        return (created, RemoteAlbumResolveAction.Created);
+    }
+
+    private async Task<Album?> TryGetPersonalAlbumAsync(int albumId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var parsed = await _client.PostAppFormAsync<ListObject<Album>>(
+                "SYNO.Foto.Browse.Album",
+                _client.GetMaxApiVersion("SYNO.Foto.Browse.Album", 4),
+                "get",
+                [
+                    new KeyValuePair<string, string>("id", $"[{albumId}]"),
+                    new KeyValuePair<string, string>(
+                        "additional",
+                        "[\"thumbnail\",\"sharing_info\",\"access_permission\"]"),
+                    new KeyValuePair<string, string>("accept_language", "chs")
+                ],
+                cancellationToken);
+            return parsed?.List?.FirstOrDefault(a => a.Id == albumId);
+        }
+        catch (SynologyApiException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<Album?> FindPersonalNormalAlbumByNameAsync(
+        string name,
+        CancellationToken cancellationToken)
+    {
+        const int pageSize = 500;
+        var offset = 0;
+        while (true)
+        {
+            var page = (await ListAppAlbumsAsync(offset, pageSize, cancellationToken: cancellationToken)).ToList();
+            var matches = page
+                .Where(a => string.Equals(a.Name, name, StringComparison.Ordinal)
+                            && IsNormalAlbum(a))
+                .ToList();
+            if (matches.Count == 1)
+                return matches[0];
+            if (matches.Count > 1)
+                return matches.OrderByDescending(a => a.CreateTime).First();
+
+            if (page.Count < pageSize)
+                return null;
+
+            offset += pageSize;
+        }
+    }
+
+    private static bool IsNormalAlbum(Album album) =>
+        string.IsNullOrEmpty(album.Type)
+        || string.Equals(album.Type, "normal", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>重命名相册。</summary>
     public async Task<Album> RenameAlbumAsync(int id, string name, CancellationToken cancellationToken = default)
     {
