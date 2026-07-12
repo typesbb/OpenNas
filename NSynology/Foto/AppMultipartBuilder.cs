@@ -13,7 +13,8 @@ internal static class AppMultipartBuilder
         long dateSec,
         byte[] thumbXl,
         byte[] thumbSm,
-        string rawDataJson)
+        string rawDataJson,
+        string duplicate = AppUploadDuplicate.Ignore)
     {
         var boundary = Guid.NewGuid().ToString();
         using var ms = new MemoryStream();
@@ -27,7 +28,7 @@ internal static class AppMultipartBuilder
         WriteField(ms, boundary, "date", dateSec.ToString());
         WriteField(ms, boundary, "folder", "[\"PhotoLibrary\"]");
         WriteField(ms, boundary, "album_id", albumId.ToString());
-        WriteField(ms, boundary, "duplicate", "\"ignore\"");
+        WriteField(ms, boundary, "duplicate", duplicate);
 
         WriteFile(ms, boundary, "file", fileName, fileBytes);
         WriteFile(ms, boundary, "thumb_xl", "xl", thumbXl);

@@ -722,6 +722,40 @@ public class SynologyClient
             cancellationToken);
     }
 
+    /// <summary>从本地原文件重传视频（含 thumb_xl/sm）。修复坏缩略图请用 <see cref="AppUploadDuplicate.Rename"/>。</summary>
+    public async Task<UploadResult> ReuploadVideoThumbnailFromLocalFileAsync(
+        string localFilePath,
+        string fileName,
+        string mimeType,
+        int albumId,
+        long mtimeUnix,
+        string duplicate = AppUploadDuplicate.Ignore,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(localFilePath))
+            throw new ArgumentException("本地文件路径不能为空。", nameof(localFilePath));
+
+        var fileInfo = new FileInfo(localFilePath);
+        if (!fileInfo.Exists)
+            throw new FileNotFoundException("本地原文件不存在。", localFilePath);
+
+        await EnsureSidAsync();
+
+        UploadStreamFactory openStream = _ => Task.FromResult<Stream>(File.OpenRead(localFilePath));
+        return await PostAppAlbumUploadFromStreamAsync(
+            openStream,
+            fileName,
+            mimeType,
+            albumId,
+            fileInfo.Length,
+            mtimeUnix,
+            uploadProgress: null,
+            cancellationToken,
+            duplicate: duplicate,
+            localFilePathForThumbnails: localFilePath,
+            requireValidThumbnails: true);
+    }
+
     private Uri BuildAppAlbumUploadUri() =>
         BuildApiUri(DsmWebApiEntry);
 
@@ -1015,7 +1049,10 @@ public class SynologyClient
         long fileSize,
         long mtimeUnix,
         IProgress<double>? uploadProgress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string duplicate = AppUploadDuplicate.Ignore,
+        string? localFilePathForThumbnails = null,
+        bool requireValidThumbnails = false)
     {
         EnsureAppDeviceCookie();
         StripPhotosViewCookiesForAppUpload();
@@ -1027,8 +1064,19 @@ public class SynologyClient
             Sid = idCookie;
 
         var dateSec = ToAppDateSeconds(mtimeSec);
-        var (thumbXl, thumbSm) = await AppThumbnailGenerator.CreateForUploadAsync(
-            mimeType, openStream, cancellationToken);
+        var (thumbXl, thumbSm) = !string.IsNullOrEmpty(localFilePathForThumbnails)
+            ? await AppThumbnailGenerator.CreateForUploadFromLocalFileAsync(
+                mimeType, localFilePathForThumbnails, cancellationToken)
+            : await AppThumbnailGenerator.CreateForUploadAsync(
+                mimeType, openStream, cancellationToken);
+
+        if (requireValidThumbnails
+            && (thumbXl.Length <= AppThumbnailGenerator.MinimalJpeg.Length + 1
+                || thumbSm.Length <= AppThumbnailGenerator.MinimalJpeg.Length + 1))
+        {
+            throw new InvalidOperationException(
+                $"无法从视频生成有效缩略图（xl={thumbXl.Length} sm={thumbSm.Length}），请确认本地原片完整。");
+        }
 
         var fileBytesLength = await ResolveUploadFileBytesLengthAsync(openStream, fileSize, cancellationToken);
 
@@ -1043,7 +1091,8 @@ public class SynologyClient
             AppCapture.UploadRawDataJson,
             openStream,
             fileBytesLength,
-            uploadProgress);
+            uploadProgress,
+            duplicate);
         ApplyAppAlbumUploadHeaders(request);
 
         var response = await SendAppRequestAsync(request, cancellationToken);
@@ -1112,7 +1161,8 @@ public class SynologyClient
             dateSec,
             thumbXl,
             thumbSm,
-            AppCapture.UploadRawDataJson);
+            AppCapture.UploadRawDataJson,
+            AppUploadDuplicate.Ignore);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, BuildAppAlbumUploadUri());
         request.Content = new ProgressByteArrayContent(body, uploadProgress);
@@ -1269,7 +1319,56 @@ public class SynologyClient
         if (code == 119)
             return "NAS Photos 上传会话无效（119，请确认 Cookie id+did 与官方 App 登录一致）";
 
+        if (code == 120)
+        {
+            if (TryGetUploadFieldError(body, out var field, out var reason)
+                && string.Equals(field, "duplicate", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(reason, "condition", StringComparison.OrdinalIgnoreCase))
+            {
+                return "NAS Photos duplicate 参数非法（120：v5 仅支持 ignore/rename，不支持 overwrite）";
+            }
+
+            return "NAS Photos 上传参数无效或未命中重复条目（120，多为 mtime/文件名与 NAS 上 mobile_cache_mtime 不一致）";
+        }
+
         return $"NAS upload error {code}";
+    }
+
+    internal static bool TryGetUploadFieldError(string? body, out string field, out string reason)
+    {
+        field = "";
+        reason = "";
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("error", out var error))
+                return false;
+
+            if (error.TryGetProperty("errors", out var errors))
+            {
+                if (errors.ValueKind == JsonValueKind.Object)
+                {
+                    if (errors.TryGetProperty("name", out var nameEl))
+                        field = nameEl.GetString() ?? "";
+                    if (errors.TryGetProperty("reason", out var reasonEl))
+                        reason = reasonEl.GetString() ?? "";
+                    return !string.IsNullOrEmpty(field) || !string.IsNullOrEmpty(reason);
+                }
+            }
+
+            if (error.TryGetProperty("name", out var legacyName))
+                field = legacyName.GetString() ?? "";
+            if (error.TryGetProperty("reason", out var legacyReason))
+                reason = legacyReason.GetString() ?? "";
+            return !string.IsNullOrEmpty(field) || !string.IsNullOrEmpty(reason);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     internal static int ExtractPhotoId(JsonElement data)

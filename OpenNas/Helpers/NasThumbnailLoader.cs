@@ -142,7 +142,152 @@ public static class NasThumbnailLoader
             return;
         }
 
-        _ = LoadIntoImageAsync(target, id, thumb.CacheKey, canApply, cancellationToken, forGrid);
+        _ = LoadPhotoThumbnailIntoImageAsync(target, photo, id, thumb.CacheKey, canApply, cancellationToken, forGrid);
+    }
+
+    private static async Task LoadPhotoThumbnailIntoImageAsync(
+        WeakReference<Image> target,
+        Photo photo,
+        int id,
+        string cacheKey,
+        Func<bool>? canApply,
+        CancellationToken cancellationToken,
+        bool forGrid,
+        bool allowRepair = true)
+    {
+        try
+        {
+            var resolvedAlbumId = PhotosAlbumMediaScope.CurrentAlbumId;
+            var resolvedPassphrase = PhotosAlbumMediaScope.CurrentPassphrase;
+
+            if (forGrid && NasGridImageApplyScheduler.IsScrolling)
+            {
+                NasGridImageApplyScheduler.RunWhenIdle(() =>
+                    _ = LoadPhotoThumbnailIntoImageAsync(
+                        target, photo, id, cacheKey, canApply, cancellationToken, forGrid: true));
+                return;
+            }
+
+            byte[]? bytes = null;
+            var cachedPath = await Task.Run(() =>
+                NasMediaCache.TryGetThumbnailFile(id, cacheKey, out var path) ? path : null,
+                cancellationToken).ConfigureAwait(false);
+
+            if (cachedPath != null)
+            {
+                bytes = await File.ReadAllBytesAsync(cachedPath, cancellationToken).ConfigureAwait(false);
+                if (!NasThumbnailBytes.IsLikelyPlaceholder(bytes))
+                {
+                    ScheduleApplyFile(target, cachedPath, canApply, cancellationToken, forGrid);
+                    return;
+                }
+
+                NasMediaCache.TryInvalidateThumbnail(id, cacheKey);
+                if (allowRepair && photo.IsVideo && PhotosAlbumMediaScope.CurrentAlbumId is > 0)
+                {
+                    _ = RepairAndReloadThumbnailAsync(
+                        target, photo, id, cacheKey, canApply, cancellationToken, forGrid);
+                    return;
+                }
+            }
+
+            if (forGrid && NasGridImageApplyScheduler.IsScrolling)
+            {
+                NasGridImageApplyScheduler.RunWhenIdle(() =>
+                    _ = LoadPhotoThumbnailIntoImageAsync(
+                        target, photo, id, cacheKey, canApply, cancellationToken, forGrid: true));
+                return;
+            }
+
+            if (forGrid)
+                ScheduleApplySource(target, null, canApply, cancellationToken, forGrid);
+
+            bytes ??= await DownloadThumbnailBytesAsync(
+                    id, cacheKey, cancellationToken, resolvedAlbumId, resolvedPassphrase)
+                .ConfigureAwait(false);
+
+            if (bytes == null || bytes.Length == 0 || cancellationToken.IsCancellationRequested)
+                return;
+
+            if (NasThumbnailBytes.IsLikelyPlaceholder(bytes) && allowRepair && photo.IsVideo && PhotosAlbumMediaScope.CurrentAlbumId is > 0)
+            {
+                _ = RepairAndReloadThumbnailAsync(
+                    target, photo, id, cacheKey, canApply, cancellationToken, forGrid);
+                return;
+            }
+
+            var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
+            ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid);
+        }
+        catch (OperationCanceledException)
+        {
+            // cell 复用或页面离开
+        }
+        catch (Exception ex)
+        {
+            AppLog.Debug("缩略图加载失败", ex);
+        }
+    }
+
+    private static async Task RepairAndReloadThumbnailAsync(
+        WeakReference<Image> target,
+        Photo photo,
+        int id,
+        string cacheKey,
+        Func<bool>? canApply,
+        CancellationToken cancellationToken,
+        bool forGrid)
+    {
+        try
+        {
+            if (!await NasVideoThumbnailRepair.RepairAsync(photo, cancellationToken).ConfigureAwait(false))
+                return;
+
+            var thumb = photo.Additional?.Thumbnail;
+            var reloadId = thumb?.UnitId > 0 ? thumb!.UnitId : photo.Id;
+            var reloadKey = thumb?.CacheKey ?? cacheKey;
+            ClearThumbnailMemoryCacheEntry(reloadId, reloadKey);
+            ClearThumbnailMemoryCacheEntry(photo.Id, cacheKey);
+            if (id != photo.Id)
+                ClearThumbnailMemoryCacheEntry(id, cacheKey);
+            await LoadPhotoThumbnailIntoImageAsync(
+                    target, photo, reloadId, reloadKey, canApply, cancellationToken, forGrid, allowRepair: false)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // ignore
+        }
+        catch (Exception ex)
+        {
+            AppLog.Debug("视频缩略图修复后重载失败", ex);
+        }
+    }
+
+    private static void ClearThumbnailMemoryCacheEntry(int id, string cacheKey)
+    {
+        var albumId = PhotosAlbumMediaScope.CurrentAlbumId;
+        var passphrase = PhotosAlbumMediaScope.CurrentPassphrase;
+        MemoryCache.TryRemove(BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase), out _);
+    }
+
+    private static async Task<byte[]?> DownloadThumbnailBytesAsync(
+        int id,
+        string cacheKey,
+        CancellationToken cancellationToken,
+        int? albumId,
+        string? passphrase)
+    {
+        var key = BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase);
+        var bytes = await MemoryCache
+            .GetOrAdd(
+                key,
+                _ => DownloadAndCacheAsync(id, cacheKey, cancellationToken, "unit", albumId, passphrase))
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+        MemoryCacheOrder.Enqueue(key);
+        TrimMemoryCache();
+        return bytes;
     }
 
     private static async Task LoadIntoImageAsync(
@@ -192,21 +337,9 @@ public static class NasThumbnailLoader
             if (forGrid)
                 ScheduleApplySource(target, null, canApply, cancellationToken, forGrid);
 
-            var key = BuildMemoryCacheKey(id, cacheKey, type, resolvedAlbumId, resolvedPassphrase);
-            var bytes = await MemoryCache
-                .GetOrAdd(
-                    key,
-                    _ => DownloadAndCacheAsync(
-                        id,
-                        cacheKey,
-                        cancellationToken,
-                        type,
-                        resolvedAlbumId,
-                        resolvedPassphrase))
-                .WaitAsync(cancellationToken)
+            var bytes = await DownloadThumbnailBytesAsync(
+                    id, cacheKey, cancellationToken, resolvedAlbumId, resolvedPassphrase)
                 .ConfigureAwait(false);
-            MemoryCacheOrder.Enqueue(key);
-            TrimMemoryCache();
             if (bytes == null || bytes.Length == 0 || cancellationToken.IsCancellationRequested)
                 return;
 

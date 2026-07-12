@@ -46,6 +46,22 @@ public static class NasMediaCache
         }
     }
 
+    public static void TryInvalidateThumbnail(int unitId, string cacheKey)
+    {
+        var path = GetThumbnailFilePath(unitId, cacheKey);
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        InvalidateStats();
+    }
+
     public static async Task WriteThumbnailAsync(int unitId, string cacheKey, byte[] bytes, CancellationToken cancellationToken = default)
     {
         if (bytes.Length == 0)

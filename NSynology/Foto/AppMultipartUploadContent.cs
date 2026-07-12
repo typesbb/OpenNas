@@ -18,6 +18,7 @@ internal sealed class AppMultipartUploadContent : HttpContent
     private readonly long _fileBytesLength;
     private readonly long _totalLength;
     private readonly IProgress<double>? _progress;
+    private readonly string _duplicate;
 
     public AppMultipartUploadContent(
         string fileName,
@@ -29,7 +30,8 @@ internal sealed class AppMultipartUploadContent : HttpContent
         string rawDataJson,
         UploadStreamFactory openFileStream,
         long fileBytesLength,
-        IProgress<double>? progress = null)
+        IProgress<double>? progress = null,
+        string duplicate = AppUploadDuplicate.Ignore)
     {
         if (fileBytesLength < 0)
             throw new ArgumentOutOfRangeException(nameof(fileBytesLength));
@@ -45,6 +47,7 @@ internal sealed class AppMultipartUploadContent : HttpContent
         _openFileStream = openFileStream;
         _fileBytesLength = fileBytesLength;
         _progress = progress;
+        _duplicate = duplicate;
         _totalLength = AppMultipartWriter.ComputeAlbumUploadLength(
             _boundary,
             fileName,
@@ -54,7 +57,8 @@ internal sealed class AppMultipartUploadContent : HttpContent
             thumbXl,
             thumbSm,
             rawDataJson,
-            fileBytesLength);
+            fileBytesLength,
+            duplicate);
         Headers.TryAddWithoutValidation("Content-Type", $"multipart/form-data; boundary={_boundary}");
     }
 
@@ -79,7 +83,9 @@ internal sealed class AppMultipartUploadContent : HttpContent
             _rawDataJson,
             _openFileStream,
             _fileBytesLength,
-            tracker);
+            tracker,
+            cancellationToken: default,
+            duplicate: _duplicate);
         _progress?.Report(1.0);
     }
 }

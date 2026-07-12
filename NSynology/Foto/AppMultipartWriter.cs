@@ -30,7 +30,8 @@ internal static class AppMultipartWriter
         byte[] thumbXl,
         byte[] thumbSm,
         string rawDataJson,
-        long fileBytesLength)
+        long fileBytesLength,
+        string duplicate = AppUploadDuplicate.Ignore)
     {
         long total = 0;
         total += FieldPartLength(boundary, "method", "upload");
@@ -42,7 +43,7 @@ internal static class AppMultipartWriter
         total += FieldPartLength(boundary, "date", dateSec.ToString());
         total += FieldPartLength(boundary, "folder", "[\"PhotoLibrary\"]");
         total += FieldPartLength(boundary, "album_id", albumId.ToString());
-        total += FieldPartLength(boundary, "duplicate", "\"ignore\"");
+        total += FieldPartLength(boundary, "duplicate", duplicate);
         total += BinaryPartLength(boundary, "file", fileName, fileBytesLength);
         total += BinaryPartLength(boundary, "thumb_xl", "xl", thumbXl.Length);
         total += FieldPartLength(boundary, "model_version", "3");
@@ -65,7 +66,8 @@ internal static class AppMultipartWriter
         UploadStreamFactory openFileStream,
         long fileBytesLength,
         MultipartWriteTracker? tracker,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string duplicate = AppUploadDuplicate.Ignore)
     {
         await WriteFieldAsync(target, boundary, "method", "upload", tracker);
         await WriteFieldAsync(target, boundary, "api", "SYNO.Foto.Upload.Item", tracker);
@@ -76,7 +78,7 @@ internal static class AppMultipartWriter
         await WriteFieldAsync(target, boundary, "date", dateSec.ToString(), tracker);
         await WriteFieldAsync(target, boundary, "folder", "[\"PhotoLibrary\"]", tracker);
         await WriteFieldAsync(target, boundary, "album_id", albumId.ToString(), tracker);
-        await WriteFieldAsync(target, boundary, "duplicate", "\"ignore\"", tracker);
+        await WriteFieldAsync(target, boundary, "duplicate", duplicate, tracker);
 
         await using (var fileStream = await openFileStream(cancellationToken))
             await WriteFileStreamAsync(

@@ -18,6 +18,34 @@ internal static class AppThumbnailGenerator
     /// <summary>Android 等平台注入：从已读入的图像字节生成 thumb_xl / thumb_sm。</summary>
     public static Func<string, byte[], CancellationToken, Task<(byte[] Xl, byte[] Sm)>>? UploadThumbnailFromBytesFactory { get; set; }
 
+    /// <summary>Android 等平台注入：从本地完整原文件生成 thumb_xl / thumb_sm（视频需完整文件才能抽帧）。</summary>
+    public static Func<string, string, CancellationToken, Task<(byte[] Xl, byte[] Sm)>>? UploadThumbnailFromLocalFileFactory { get; set; }
+
+    public static Task<(byte[] Xl, byte[] Sm)> CreateForUploadFromLocalFileAsync(
+        string mimeType,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (UseMinimalThumbnailsForUpload)
+            return Task.FromResult((MinimalJpeg, MinimalJpeg));
+
+        if (UploadThumbnailFromLocalFileFactory is { } fileFactory)
+            return fileFactory(mimeType, localFilePath, cancellationToken);
+
+        if (IsVideo(mimeType))
+            return Task.FromResult((MinimalJpeg, MinimalJpeg));
+
+        try
+        {
+            var bytes = File.ReadAllBytes(localFilePath);
+            return CreateForUploadFromBytesAsync(mimeType, bytes, cancellationToken);
+        }
+        catch
+        {
+            return Task.FromResult((MinimalJpeg, MinimalJpeg));
+        }
+    }
+
     public static Task<(byte[] Xl, byte[] Sm)> CreateForUploadFromBytesAsync(
         string mimeType,
         byte[] imageBytes,

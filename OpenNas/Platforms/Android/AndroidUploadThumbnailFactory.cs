@@ -13,6 +13,7 @@ internal static class AndroidUploadThumbnailFactory
     public static void Register()
     {
         AppThumbnailGenerator.UploadThumbnailFromBytesFactory = CreateAsync;
+        AppThumbnailGenerator.UploadThumbnailFromLocalFileFactory = CreateFromLocalFileAsync;
     }
 
     private static Task<(byte[] Xl, byte[] Sm)> CreateAsync(
@@ -26,6 +27,27 @@ internal static class AndroidUploadThumbnailFactory
 
         return Task.FromResult(CreateFromImageBytes(imageBytes));
     }
+
+    private static Task<(byte[] Xl, byte[] Sm)> CreateFromLocalFileAsync(
+        string mimeType,
+        string localFilePath,
+        CancellationToken cancellationToken) =>
+        Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (mimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+                return CreateFromVideoFilePath(localFilePath);
+
+            try
+            {
+                var bytes = File.ReadAllBytes(localFilePath);
+                return CreateFromImageBytes(bytes);
+            }
+            catch
+            {
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+            }
+        }, cancellationToken);
 
     private static (byte[] Xl, byte[] Sm) CreateFromImageBytes(byte[] data)
     {
@@ -58,6 +80,32 @@ internal static class AndroidUploadThumbnailFactory
         }
     }
 
+    private static (byte[] Xl, byte[] Sm) CreateFromVideoFilePath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+
+        try
+        {
+            using var retriever = new MediaMetadataRetriever();
+            retriever.SetDataSource(path);
+
+            var bitmap = retriever.GetFrameAtTime(0, (int)Option.ClosestSync)
+                         ?? retriever.GetFrameAtTime(1_000_000, (int)Option.ClosestSync);
+            if (bitmap is null)
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+
+            var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
+            var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
+            bitmap.Recycle();
+            return (xl, sm);
+        }
+        catch
+        {
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+        }
+    }
+
     private static (byte[] Xl, byte[] Sm) CreateFromVideoBytes(byte[] data)
     {
         if (data.Length == 0)
@@ -67,18 +115,7 @@ internal static class AndroidUploadThumbnailFactory
         try
         {
             File.WriteAllBytes(tempPath, data);
-            using var retriever = new MediaMetadataRetriever();
-            retriever.SetDataSource(tempPath);
-
-            var bitmap = retriever.GetFrameAtTime(1_000_000, (int)Option.ClosestSync)
-                         ?? retriever.GetFrameAtTime(0, (int)Option.ClosestSync);
-            if (bitmap is null)
-                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
-
-            var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
-            var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
-            bitmap.Recycle();
-            return (xl, sm);
+            return CreateFromVideoFilePath(tempPath);
         }
         catch
         {

@@ -24,6 +24,9 @@ namespace NSynology.Foto
         public Metadata VideoMeta { get; set; }
         [JsonPropertyName("video_convert")]
         public IEnumerable<VideoConvert> VideoConvert { get; set; }
+        /// <summary>上传时写入的 mtime（overwrite / 重复检测用，与 photo.time 可能不同）。</summary>
+        [JsonPropertyName("mobile_cache_mtime")]
+        public long MobileCacheMtime { get; set; }
     }
 
     public class AccessPermission

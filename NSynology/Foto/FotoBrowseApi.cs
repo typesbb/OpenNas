@@ -1,9 +1,47 @@
+using System.Text.Json;
+
 namespace NSynology.Foto;
 
 public class FotoBrowseApi(SynologyClient synologyClient)
 {
     private readonly SynologyClient _client = synologyClient;
     private const string ThumbnailAdditional = "[\"thumbnail\"]";
+    internal const string RepairMetadataAdditional = "[\"thumbnail\",\"mobile_cache_mtime\"]";
+
+    /// <summary>拉取单条媒体最新 metadata（含 <c>mobile_cache_mtime</c> / <c>cache_key</c>）。</summary>
+    public async Task<Photo?> GetPhotoAsync(int photoId, CancellationToken cancellationToken = default)
+    {
+        if (photoId <= 0)
+            return null;
+
+        var parsed = await _client.PostAppFormAsync<ListObject<Photo>>(
+            "SYNO.Foto.Browse.Item",
+            _client.GetMaxApiVersion("SYNO.Foto.Browse.Item", 5),
+            "get",
+            [
+                new("id", $"[{photoId}]"),
+                new("additional", RepairMetadataAdditional),
+                new("geocoding_accept_language", "chs")
+            ],
+            cancellationToken);
+        return parsed?.List?.FirstOrDefault();
+    }
+
+    /// <summary>从图库删除媒体（非仅从相册移除）。</summary>
+    public Task<bool> DeletePhotosAsync(
+        IReadOnlyList<int> photoIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (photoIds.Count == 0)
+            return Task.FromResult(true);
+
+        return _client.TryPostAppFormAsync(
+            "SYNO.Foto.Browse.Item",
+            _client.GetMaxApiVersion("SYNO.Foto.Browse.Item", 1),
+            "delete",
+            [new KeyValuePair<string, string>("id", JsonSerializer.Serialize(photoIds))],
+            cancellationToken);
+    }
 
     public Task<IReadOnlyList<PhotoCategory>> GetCategoriesAsync(CancellationToken cancellationToken = default) =>
         _client.Foto.GetCategoriesAsync(cancellationToken);
