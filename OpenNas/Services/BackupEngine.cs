@@ -7,6 +7,8 @@ using OpenNas.Core.Data;
 
 using OpenNas.Media;
 
+using OpenNas.Core.Helpers;
+
 using OpenNas.Core.Models;
 using OpenNas.Core.Services;
 
@@ -499,7 +501,10 @@ public class BackupEngine
 
             Notify(force: true);
 
-            var mtime = item.DateModified > 0 ? item.DateModified : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var mtime = MediaUploadTimeHelper.ResolveUploadMtimeSeconds(
+                item.DateTaken,
+                item.DateModified,
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
             var uploadProgress = new Progress<double>(p =>
             {
@@ -937,25 +942,12 @@ public class BackupEngine
     {
 #if ANDROID
         if (_pendingDeleteUris.Count == 0) return;
-        var uris = new List<Android.Net.Uri>(_pendingDeleteUris.Count);
-        foreach (var u in _pendingDeleteUris)
-            uris.Add(Android.Net.Uri.Parse(u));
+        var uris = _pendingDeleteUris.ToList();
         _pendingDeleteUris.Clear();
-        try
-        {
-            var ctx = Platform.CurrentActivity ?? Android.App.Application.Context;
-            var pi = Android.Provider.MediaStore.CreateDeleteRequest(ctx.ContentResolver, uris);
-            if (pi != null)
-            {
-                pi.Send();
-                BackupLog.Info($"已批量请求删除 {uris.Count} 个文件");
-            }
-        }
-        catch (Exception ex)
-        {
-            BackupLog.Warn($"批量删除请求失败: {ex.Message}");
-            BackupLog.Error("批量删除请求失败", ex);
-        }
+        OpenNas.Platforms.Android.BackupPendingDeleteHelper.Enqueue(uris);
+        BackupLog.Info($"已排队 {uris.Count} 个文件待系统删除确认");
+        if (!OpenNas.Platforms.Android.BackupPendingDeleteHelper.TryLaunchDeleteConfirmation())
+            BackupLog.Info("当前无前台 Activity，待删文件已保存；打开 App 后将再次请求确认");
 #endif
         await Task.CompletedTask;
     }

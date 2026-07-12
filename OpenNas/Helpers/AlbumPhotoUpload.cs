@@ -57,7 +57,9 @@ public static class AlbumPhotoUpload
                 continue;
 
             var mime = GuessMimeType(fileName);
-            var mtime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var mtime = await UploadMtimeResolver.ResolveAsync(file, bytes, fileName, mime, cancellationToken);
+            if (mtime <= 0)
+                mtime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var result = await SynologyManager.Client.Foto.UploadToAlbumFromBytesAsync(
                 bytes,
                 fileName,

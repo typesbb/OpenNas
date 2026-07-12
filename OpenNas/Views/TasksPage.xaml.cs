@@ -16,6 +16,9 @@ public partial class TasksPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        OpenNas.Platforms.Android.BackupPendingDeleteHelper.TryLaunchDeleteConfirmation();
+#endif
         await _vm.RefreshAsync();
     }
 

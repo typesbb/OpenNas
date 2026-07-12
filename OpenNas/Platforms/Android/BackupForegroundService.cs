@@ -27,7 +27,7 @@ public class BackupForegroundService : Service
         if (ruleId is <= 0)
             ruleId = null;
         CreateChannel();
-        StartForeground(NotificationId, BuildNotification("准备中…", progress: 0, max: 1));
+        StartForeground(NotificationId, BuildNotification("准备中…", progress: 0, max: 1, done: false));
         _ = RunBackupAsync(startId, retryFailed, ruleId);
         return StartCommandResult.NotSticky;
     }
@@ -40,7 +40,7 @@ public class BackupForegroundService : Service
             if (!await MediaPermissions.EnsureReadMediaAsync())
             {
                 var nm = (NotificationManager?)GetSystemService(NotificationService);
-                nm?.Notify(NotificationId, BuildNotification("缺少照片/视频权限", progress: 0, max: 1));
+                nm?.Notify(NotificationId, BuildNotification("缺少照片/视频权限", progress: 0, max: 1, done: true));
                 return;
             }
 
@@ -54,7 +54,7 @@ public class BackupForegroundService : Service
         {
             BackupLog.Error("前台备份任务失败", ex);
             var nm = (NotificationManager?)GetSystemService(NotificationService);
-            nm?.Notify(NotificationId, BuildNotification(TrimMessage($"失败：{ex.Message}", 48), progress: 0, max: 1));
+            nm?.Notify(NotificationId, BuildNotification(TrimMessage($"失败：{ex.Message}", 48), progress: 0, max: 1, done: true));
         }
         finally
         {
@@ -77,6 +77,9 @@ public class BackupForegroundService : Service
             content = p.Failed > 0
                 ? $"{ruleLabel} · 完成 {p.Completed}/{p.Total}，失败 {p.Failed}"
                 : $"{ruleLabel} · 完成 {p.Completed}/{p.Total}";
+            var pendingDeletes = BackupPendingDeleteHelper.PendingCount;
+            if (pendingDeletes > 0)
+                content += $" · 待确认删除 {pendingDeletes} 项";
         }
         else if (p.IsPaused)
             content = $"{ruleLabel} · 已暂停 {p.Completed}/{p.Total}";
@@ -84,19 +87,37 @@ public class BackupForegroundService : Service
             content = $"{ruleLabel} · {p.Completed}/{p.Total}";
 
         var nm = (NotificationManager?)GetSystemService(NotificationService);
-        nm?.Notify(NotificationId, BuildNotification(TrimMessage(content, 48), p.Completed, max));
+        nm?.Notify(NotificationId, BuildNotification(TrimMessage(content, 48), p.Completed, max, done));
     }
 
-    private Notification BuildNotification(string content, int progress, int max)
+    private Notification BuildNotification(string content, int progress, int max, bool done = false)
     {
+        var launchIntent = new Intent(this, typeof(global::OpenNas.MainActivity));
+        launchIntent.SetAction(Intent.ActionMain);
+        launchIntent.AddCategory(Intent.CategoryLauncher);
+        launchIntent.PutExtra(global::OpenNas.MainActivity.ExtraOpenTab, "tasks");
+        launchIntent.SetFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
+
+        var contentPending = PendingIntent.GetActivity(
+            this,
+            0,
+            launchIntent,
+            PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
+
         var builder = new NotificationCompat.Builder(this, ChannelId)
             .SetContentTitle(NotificationTitle)
             .SetContentText(content)
             .SetSmallIcon(Resource.Mipmap.appicon)
-            .SetOngoing(progress < max)
+            .SetContentIntent(contentPending)
+            .SetAutoCancel(done)
             .SetOnlyAlertOnce(true);
 
-        if (max > 0)
+        if (done || progress >= max)
+            builder.SetOngoing(false);
+        else
+            builder.SetOngoing(true);
+
+        if (max > 0 && !done)
             builder.SetProgress(max, progress, false);
 
         return builder.Build();

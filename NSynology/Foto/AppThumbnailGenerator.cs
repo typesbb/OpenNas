@@ -60,9 +60,6 @@ internal static class AppThumbnailGenerator
         UploadStreamFactory openStream,
         CancellationToken cancellationToken)
     {
-        if (IsVideo(mimeType))
-            return (MinimalJpeg, MinimalJpeg);
-
         await using var stream = await openStream(cancellationToken);
         var prefix = await ReadPrefixAsync(stream, MaxBytesForThumbDecode, cancellationToken);
         return await CreateForUploadFromBytesAsync(mimeType, prefix, cancellationToken);

@@ -72,6 +72,7 @@ public class LocalMediaService : ILocalMediaService
             "_id",
             MediaStore.IMediaColumns.DisplayName,
             MediaStore.IMediaColumns.Size,
+            MediaStore.IMediaColumns.DateTaken,
             MediaStore.IMediaColumns.DateModified,
             MediaStore.IMediaColumns.MimeType,
             MediaStore.IMediaColumns.BucketId
@@ -86,6 +87,7 @@ public class LocalMediaService : ILocalMediaService
         var idCol = cursor.GetColumnIndexOrThrow("_id");
         var nameCol = cursor.GetColumnIndexOrThrow(MediaStore.IMediaColumns.DisplayName);
         var sizeCol = cursor.GetColumnIndexOrThrow(MediaStore.IMediaColumns.Size);
+        var takenCol = cursor.GetColumnIndexOrThrow(MediaStore.IMediaColumns.DateTaken);
         var modCol = cursor.GetColumnIndexOrThrow(MediaStore.IMediaColumns.DateModified);
         var mimeCol = cursor.GetColumnIndexOrThrow(MediaStore.IMediaColumns.MimeType);
 
@@ -99,6 +101,7 @@ public class LocalMediaService : ILocalMediaService
                 ContentUri = contentUri,
                 DisplayName = cursor.GetString(nameCol) ?? "",
                 Size = cursor.GetLong(sizeCol),
+                DateTaken = cursor.GetLong(takenCol),
                 DateModified = cursor.GetLong(modCol),
                 MimeType = cursor.GetString(mimeCol) ?? (isVideo ? "video/mp4" : "image/jpeg"),
                 IsVideo = isVideo,
