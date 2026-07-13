@@ -36,6 +36,8 @@ public static class PhotoSizeHelper
         return ordered.Select(g => new PhotoDateGroup(Buckets[g.Key].Label, g));
     }
 
+    public static string GetBucketLabel(long bytes) => Buckets[GetBucketIndex(bytes)].Label;
+
     private static int GetBucketIndex(long bytes)
     {
         for (var i = 0; i < Buckets.Length; i++)

@@ -1,14 +1,19 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 namespace OpenNas.Helpers;
 
-public class SelectablePhotoGroup : List<SelectablePhoto>, INotifyPropertyChanged
+public class SelectablePhotoGroup : ObservableCollection<SelectablePhoto>
 {
-    public SelectablePhotoGroup(string dateLabel, IEnumerable<SelectablePhoto> photos)
-        : base(photos)
+    public SelectablePhotoGroup(string dateLabel, IEnumerable<SelectablePhoto>? photos = null)
     {
         DateLabel = dateLabel;
+        if (photos != null)
+        {
+            foreach (var photo in photos)
+                Add(photo);
+        }
+
         RefreshCheckState();
     }
 
@@ -37,11 +42,6 @@ public class SelectablePhotoGroup : List<SelectablePhoto>, INotifyPropertyChange
         if (CheckState == state)
             return;
         CheckState = state;
-        OnPropertyChanged(nameof(CheckState));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(CheckState)));
     }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

@@ -31,7 +31,7 @@ internal static class AlbumGridUiHelper
             return false;
 
         recyclerView.SetItemAnimator(null);
-        recyclerView.SetItemViewCacheSize(12);
+        recyclerView.SetItemViewCacheSize(24);
         recyclerView.HasFixedSize = true;
 
         if (Attached.TryGetValue(recyclerView, out _))

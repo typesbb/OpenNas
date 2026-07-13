@@ -174,10 +174,12 @@ public static class NasThumbnailLoader
 
             if (cachedPath != null)
             {
-                bytes = await File.ReadAllBytesAsync(cachedPath, cancellationToken).ConfigureAwait(false);
-                if (!NasThumbnailBytes.IsLikelyPlaceholder(bytes))
+                if (!IsCachedFileLikelyPlaceholder(cachedPath))
                 {
-                    ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
+                    if (forGrid)
+                        ScheduleApplyFile(target, cachedPath, canApply, cancellationToken, forGrid: true);
+                    else
+                        ScheduleApplyBytes(target, await File.ReadAllBytesAsync(cachedPath, cancellationToken), canApply, cancellationToken, forGrid: false);
                     return;
                 }
 
@@ -204,6 +206,14 @@ public static class NasThumbnailLoader
 
             if (NasThumbnailBytes.IsLikelyPlaceholder(bytes))
                 return;
+
+            if (forGrid)
+            {
+                var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
+                if (File.Exists(path) && !IsCachedFileLikelyPlaceholder(path))
+                    ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid: true);
+                return;
+            }
 
             ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
         }
@@ -306,6 +316,18 @@ public static class NasThumbnailLoader
         catch (Exception ex)
         {
             AppLog.Debug("缩略图加载失败", ex);
+        }
+    }
+
+    private static bool IsCachedFileLikelyPlaceholder(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length <= NasThumbnailBytes.MinValidThumbnailBytes;
+        }
+        catch
+        {
+            return true;
         }
     }
 

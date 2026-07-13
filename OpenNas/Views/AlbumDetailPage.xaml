@@ -262,7 +262,7 @@
 
                                 ItemsLayout="VerticalGrid, 3"
 
-                                RemainingItemsThreshold="12"
+                                RemainingItemsThreshold="42"
 
                                 RemainingItemsThresholdReached="OnLoadMore"
 

@@ -20,7 +20,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private const string SortDescKey = "album_detail_sort_desc";
     private const string DefaultSortField = "time";
 
-    private const int PageSize = 30;
+    private const int PageSize = 50;
+    private const int AppendPerFrame = 8;
 
     private readonly Album _album;
     private readonly ConnectionService _connection;
@@ -28,7 +29,9 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
     private readonly ObservableCollection<SelectablePhotoGroup> _groups = [];
     private readonly Dictionary<int, SelectablePhoto> _selectableById = [];
     private ObservableCollection<SelectablePhoto> _flatPhotos = [];
+    private readonly Queue<Photo> _pendingDisplayPhotos = new();
     private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _displayDrainScheduled;
 
     private int _offset;
     private string _sortField;
@@ -190,7 +193,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
         try
         {
-            await LoadNextPhotoPageAsync();
+            // 网络完成后立刻释放锁，UI 分帧追加同时可继续预取下一页。
+            await LoadNextPhotoPageAsync(spreadDisplay: true);
         }
         catch (Exception ex)
         {
@@ -203,7 +207,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         }
     }
 
-    private async Task<int> LoadNextPhotoPageAsync()
+    private async Task<int> LoadNextPhotoPageAsync(bool spreadDisplay = false)
     {
         if (!_hasMore || _album.ItemCount <= _offset)
             return 0;
@@ -227,7 +231,12 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         _offset += photos.Count;
         _hasMore = photos.Count >= PageSize && _offset < _album.ItemCount;
         _photos.AddRange(photos);
-        AppendToDisplay(photos);
+
+        if (spreadDisplay || NasGridImageApplyScheduler.IsScrolling || _pendingDisplayPhotos.Count > 0)
+            EnqueuePendingDisplay(photos);
+        else
+            AppendToDisplay(photos);
+
         return photos.Count;
     }
 
@@ -265,6 +274,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private void ClearDisplay()
     {
+        _pendingDisplayPhotos.Clear();
+        Interlocked.Exchange(ref _displayDrainScheduled, 0);
         _groups.Clear();
         _flatPhotos.Clear();
     }
@@ -287,42 +298,79 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         return item;
     }
 
+    private void EnqueuePendingDisplay(IReadOnlyList<Photo> page)
+    {
+        if (page.Count == 0)
+            return;
+
+        foreach (var photo in page)
+            _pendingDisplayPhotos.Enqueue(photo);
+
+        NasGridImageApplyScheduler.RunWhenIdle(EnsureDisplayDrain);
+    }
+
+    private void EnsureDisplayDrain()
+    {
+        if (Interlocked.CompareExchange(ref _displayDrainScheduled, 1, 0) != 0)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(DrainDisplayStep);
+    }
+
+    private void DrainDisplayStep()
+    {
+        if (NasGridImageApplyScheduler.IsScrolling)
+        {
+            Interlocked.Exchange(ref _displayDrainScheduled, 0);
+            NasGridImageApplyScheduler.RunWhenIdle(EnsureDisplayDrain);
+            return;
+        }
+
+        var n = 0;
+        while (n < AppendPerFrame && _pendingDisplayPhotos.Count > 0)
+        {
+            AppendOneToDisplay(_pendingDisplayPhotos.Dequeue());
+            n++;
+        }
+
+        if (_pendingDisplayPhotos.Count == 0)
+        {
+            Interlocked.Exchange(ref _displayDrainScheduled, 0);
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(DrainDisplayStep);
+    }
+
     private void AppendToDisplay(List<Photo> page)
     {
         if (page.Count == 0)
             return;
 
-        if (UsesGroups)
-            AppendToGroups(page);
-        else
-        {
-            foreach (var photo in page)
-                _flatPhotos.Add(Wrap(photo));
-            PhotosView.ItemsSource = _flatPhotos;
-        }
+        foreach (var photo in page)
+            AppendOneToDisplay(photo);
     }
 
-    private void AppendToGroups(IReadOnlyList<Photo> page)
+    private void AppendOneToDisplay(Photo photo)
     {
-        if (AlbumPhotoSort.UsesSizeGroups(_sortField))
+        if (!UsesGroups)
         {
-            RebuildGroups();
+            _flatPhotos.Add(Wrap(photo));
             return;
         }
 
-        foreach (var photo in page)
-        {
-            var item = Wrap(photo);
-            var dateLabel = PhotoDateHelper.FormatGroupLabel(photo.Time);
-            if (_groups.Count > 0 && _groups[^1].DateLabel == dateLabel)
-            {
-                var last = _groups[^1];
-                _groups[^1] = new SelectablePhotoGroup(dateLabel, last.Append(item));
-                continue;
-            }
+        var item = Wrap(photo);
+        var label = AlbumPhotoSort.UsesSizeGroups(_sortField)
+            ? PhotoSizeHelper.GetBucketLabel(photo.FileSize)
+            : PhotoDateHelper.FormatGroupLabel(photo.Time);
 
-            _groups.Add(new SelectablePhotoGroup(dateLabel, [item]));
+        if (_groups.Count > 0 && _groups[^1].DateLabel == label)
+        {
+            _groups[^1].Add(item);
+            return;
         }
+
+        _groups.Add(new SelectablePhotoGroup(label, [item]));
     }
 
     private void RebuildGroups()

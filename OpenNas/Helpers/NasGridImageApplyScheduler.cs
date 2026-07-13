@@ -9,6 +9,7 @@ internal static class NasGridImageApplyScheduler
     private static volatile bool _isScrolling;
     private static readonly ConcurrentQueue<Action> _pending = new();
     private static int _flushScheduled;
+    private static int _flushStepsSinceIdle;
 
     public static bool IsScrolling => _isScrolling;
 
@@ -17,6 +18,7 @@ internal static class NasGridImageApplyScheduler
     public static void NotifyIdle()
     {
         _isScrolling = false;
+        _flushStepsSinceIdle = 0;
         // 滚出 RecyclerView 回调栈后再开始 flush，避免在 onScrollStateChanged 路径上卡顿。
         MainThread.BeginInvokeOnMainThread(ScheduleFlush);
     }
@@ -65,7 +67,16 @@ internal static class NasGridImageApplyScheduler
 
     private static void FlushStep()
     {
-        const int batch = 2;
+        // 惯性刚结束先慢后快，避免与列表分帧追加抢主线程。
+        var batch = _flushStepsSinceIdle switch
+        {
+            0 => 2,
+            1 => 3,
+            2 => 4,
+            _ => 8
+        };
+        _flushStepsSinceIdle++;
+
         var applied = 0;
         while (applied < batch && _pending.TryDequeue(out var action))
         {
