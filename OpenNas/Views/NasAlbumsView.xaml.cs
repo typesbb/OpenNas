@@ -158,11 +158,11 @@ public partial class NasAlbumsView : ContentView
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
         _lastDisplayFilter = null;
-        await LoadAlbumsAsync(force: true);
+        await LoadAlbumsAsync(force: true, showBusyIndicator: false);
         AlbumsRefreshView.IsRefreshing = false;
     }
 
-    private async Task LoadAlbumsAsync(bool force = false)
+    private async Task LoadAlbumsAsync(bool force = false, bool showBusyIndicator = true)
     {
         var filter = PhotosLibraryContext.NormalizeAlbumFilter(
             _libraryContext?.CurrentAlbumFilter ?? AlbumListFilter.My);
@@ -173,8 +173,11 @@ public partial class NasAlbumsView : ContentView
         var previousAlbums = _albums.ToList();
         try
         {
-            BusyIndicator.IsVisible = true;
-            BusyIndicator.IsRunning = true;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsVisible = true;
+                BusyIndicator.IsRunning = true;
+            }
             AlbumsView.IsEnabled = false;
 
             var client = SynologyManager.Client;
@@ -251,8 +254,11 @@ public partial class NasAlbumsView : ContentView
         }
         finally
         {
-            BusyIndicator.IsRunning = false;
-            BusyIndicator.IsVisible = false;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsRunning = false;
+                BusyIndicator.IsVisible = false;
+            }
             AlbumsView.IsEnabled = true;
             _loadGate.Release();
         }

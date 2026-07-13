@@ -161,7 +161,7 @@ public partial class CategoryBrowsePage : ContentPage
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
-        await LoadAsync(reset: true);
+        await LoadAsync(reset: true, showBusyIndicator: false);
         RefreshHost.IsRefreshing = false;
     }
 
@@ -171,14 +171,17 @@ public partial class CategoryBrowsePage : ContentPage
             await LoadAsync(reset: false);
     }
 
-    private async Task LoadAsync(bool reset)
+    private async Task LoadAsync(bool reset, bool showBusyIndicator = true)
     {
         if (_loading)
             return;
 
         _loading = true;
-        BusyIndicator.IsVisible = true;
-        BusyIndicator.IsRunning = true;
+        if (showBusyIndicator)
+        {
+            BusyIndicator.IsVisible = true;
+            BusyIndicator.IsRunning = true;
+        }
 
         if (reset)
         {
@@ -223,8 +226,11 @@ public partial class CategoryBrowsePage : ContentPage
         }
         finally
         {
-            BusyIndicator.IsRunning = false;
-            BusyIndicator.IsVisible = false;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsRunning = false;
+                BusyIndicator.IsVisible = false;
+            }
             _loading = false;
         }
     }

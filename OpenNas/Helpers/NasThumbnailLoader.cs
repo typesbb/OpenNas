@@ -152,8 +152,7 @@ public static class NasThumbnailLoader
         string cacheKey,
         Func<bool>? canApply,
         CancellationToken cancellationToken,
-        bool forGrid,
-        bool allowRepair = true)
+        bool forGrid)
     {
         try
         {
@@ -178,17 +177,11 @@ public static class NasThumbnailLoader
                 bytes = await File.ReadAllBytesAsync(cachedPath, cancellationToken).ConfigureAwait(false);
                 if (!NasThumbnailBytes.IsLikelyPlaceholder(bytes))
                 {
-                    ScheduleApplyFile(target, cachedPath, canApply, cancellationToken, forGrid);
+                    ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
                     return;
                 }
 
                 NasMediaCache.TryInvalidateThumbnail(id, cacheKey);
-                if (allowRepair && photo.IsVideo && PhotosAlbumMediaScope.CurrentAlbumId is > 0)
-                {
-                    _ = RepairAndReloadThumbnailAsync(
-                        target, photo, id, cacheKey, canApply, cancellationToken, forGrid);
-                    return;
-                }
             }
 
             if (forGrid && NasGridImageApplyScheduler.IsScrolling)
@@ -209,15 +202,10 @@ public static class NasThumbnailLoader
             if (bytes == null || bytes.Length == 0 || cancellationToken.IsCancellationRequested)
                 return;
 
-            if (NasThumbnailBytes.IsLikelyPlaceholder(bytes) && allowRepair && photo.IsVideo && PhotosAlbumMediaScope.CurrentAlbumId is > 0)
-            {
-                _ = RepairAndReloadThumbnailAsync(
-                    target, photo, id, cacheKey, canApply, cancellationToken, forGrid);
+            if (NasThumbnailBytes.IsLikelyPlaceholder(bytes))
                 return;
-            }
 
-            var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
-            ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid);
+            ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
         }
         catch (OperationCanceledException)
         {
@@ -226,41 +214,6 @@ public static class NasThumbnailLoader
         catch (Exception ex)
         {
             AppLog.Debug("缩略图加载失败", ex);
-        }
-    }
-
-    private static async Task RepairAndReloadThumbnailAsync(
-        WeakReference<Image> target,
-        Photo photo,
-        int id,
-        string cacheKey,
-        Func<bool>? canApply,
-        CancellationToken cancellationToken,
-        bool forGrid)
-    {
-        try
-        {
-            if (!await NasVideoThumbnailRepair.RepairAsync(photo, cancellationToken).ConfigureAwait(false))
-                return;
-
-            var thumb = photo.Additional?.Thumbnail;
-            var reloadId = thumb?.UnitId > 0 ? thumb!.UnitId : photo.Id;
-            var reloadKey = thumb?.CacheKey ?? cacheKey;
-            ClearThumbnailMemoryCacheEntry(reloadId, reloadKey);
-            ClearThumbnailMemoryCacheEntry(photo.Id, cacheKey);
-            if (id != photo.Id)
-                ClearThumbnailMemoryCacheEntry(id, cacheKey);
-            await LoadPhotoThumbnailIntoImageAsync(
-                    target, photo, reloadId, reloadKey, canApply, cancellationToken, forGrid, allowRepair: false)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // ignore
-        }
-        catch (Exception ex)
-        {
-            AppLog.Debug("视频缩略图修复后重载失败", ex);
         }
     }
 
@@ -356,6 +309,34 @@ public static class NasThumbnailLoader
         }
     }
 
+    private static void ScheduleApplyBytes(
+        WeakReference<Image> target,
+        byte[] bytes,
+        Func<bool>? canApply,
+        CancellationToken cancellationToken,
+        bool forGrid)
+    {
+        if (cancellationToken.IsCancellationRequested || bytes.Length == 0)
+            return;
+
+        var payload = bytes.ToArray();
+
+        void Apply()
+        {
+            if (cancellationToken.IsCancellationRequested || canApply != null && !canApply())
+                return;
+            if (!target.TryGetTarget(out var image))
+                return;
+
+            image.Source = ImageSource.FromStream(() => new MemoryStream(payload));
+        }
+
+        if (forGrid)
+            NasGridImageApplyScheduler.RunWhenIdle(Apply);
+        else
+            MainThread.BeginInvokeOnMainThread(Apply);
+    }
+
     private static void ScheduleApplyFile(
         WeakReference<Image> target,
         string path,
@@ -371,6 +352,8 @@ public static class NasThumbnailLoader
             if (cancellationToken.IsCancellationRequested || canApply != null && !canApply())
                 return;
             if (!target.TryGetTarget(out var image))
+                return;
+            if (!File.Exists(path))
                 return;
 
             image.Source = ImageSource.FromFile(path);

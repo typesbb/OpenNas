@@ -120,17 +120,20 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
-        await ReloadPhotosAsync();
+        await ReloadPhotosAsync(showBusyIndicator: false);
         PhotosRefreshView.IsRefreshing = false;
     }
 
     private async void OnLoadMore(object? sender, EventArgs e) => await LoadMorePhotosAsync();
 
-    private async Task ReloadPhotosAsync(bool retryAfterUpload = false)
+    private async Task ReloadPhotosAsync(bool retryAfterUpload = false, bool showBusyIndicator = true)
     {
         await _loadGate.WaitAsync();
-        BusyIndicator.IsVisible = true;
-        BusyIndicator.IsRunning = true;
+        if (showBusyIndicator)
+        {
+            BusyIndicator.IsVisible = true;
+            BusyIndicator.IsRunning = true;
+        }
 
         try
         {
@@ -168,8 +171,11 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         }
         finally
         {
-            BusyIndicator.IsRunning = false;
-            BusyIndicator.IsVisible = false;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsRunning = false;
+                BusyIndicator.IsVisible = false;
+            }
             _loadGate.Release();
         }
     }

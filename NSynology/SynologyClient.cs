@@ -1075,7 +1075,7 @@ public class SynologyClient
                 || thumbSm.Length <= AppThumbnailGenerator.MinimalJpeg.Length + 1))
         {
             throw new InvalidOperationException(
-                $"无法从视频生成有效缩略图（xl={thumbXl.Length} sm={thumbSm.Length}），请确认本地原片完整。");
+                $"无法从原文件生成有效缩略图（xl={thumbXl.Length} sm={thumbSm.Length}），请确认本地原片完整。");
         }
 
         var fileBytesLength = await ResolveUploadFileBytesLengthAsync(openStream, fileSize, cancellationToken);

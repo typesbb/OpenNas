@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Maui.ApplicationModel;
+
 using NSynology;
 
 using NSynology.Foto;
@@ -11,7 +13,7 @@ using OpenNas.Services;
 namespace OpenNas.Helpers;
 
 /// <summary>
-/// 浏览相册时发现视频缩略图为占位图，则下载原片并以 duplicate=rename 重传。
+/// 大图预览时发现照片/视频 sm 缩略图为占位图，则下载原片并以 duplicate=rename 重传。
 /// rename 会创建新条目（新 id）；校验新条目缩略图后删除旧坏条目并更新引用。
 /// </summary>
 public static class NasVideoThumbnailRepair
@@ -23,6 +25,37 @@ public static class NasVideoThumbnailRepair
     private static readonly TimeSpan CooldownDuration = TimeSpan.FromHours(6);
     private static readonly TimeSpan VerifyPollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VerifyTimeout = TimeSpan.FromMinutes(2);
+
+    /// <summary>当前环境是否可对占位缩略图尝试修复（相册上下文 + 已登录）。</summary>
+    public static bool CanRepair(Photo photo) => ShouldAttempt(photo);
+
+    /// <summary>预览页后台调度：仅当 sm 缩略图为占位图时才修复。</summary>
+    public static void ScheduleRepairIfPlaceholder(Photo photo)
+    {
+#if ANDROID
+        if (!ShouldAttempt(photo))
+            return;
+
+        _ = TryRepairIfPlaceholderAsync(photo);
+#endif
+    }
+
+    /// <summary>检测到 sm 占位缩略图时修复，成功返回 true。</summary>
+    public static async Task<bool> TryRepairIfPlaceholderAsync(
+        Photo photo,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ShouldAttempt(photo))
+            return false;
+
+        var bytes = await TryGetCachedSmThumbnailBytesAsync(photo, cancellationToken).ConfigureAwait(false);
+        if (bytes == null || !NasThumbnailBytes.IsLikelyPlaceholder(bytes))
+            return false;
+
+        AppLog.Warn(
+            $"占位缩略图（预览）id={photo.Id} {photo.Filename} type={photo.Type} bytes={bytes.Length}");
+        return await RepairAsync(photo, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>已知缩略图异常时修复，成功返回 true。</summary>
     public static Task<bool> RepairAsync(Photo photo, CancellationToken cancellationToken = default)
@@ -59,7 +92,7 @@ public static class NasVideoThumbnailRepair
 #if !ANDROID
         return false;
 #else
-        if (!photo.IsVideo || photo.Id <= 0)
+        if (photo.Id <= 0)
             return false;
 
         if (PhotosAlbumMediaScope.CurrentAlbumId is not > 0)
@@ -78,7 +111,7 @@ public static class NasVideoThumbnailRepair
         var albumId = ResolveUploadAlbumId();
         if (albumId is not > 0)
         {
-            AppLog.Debug($"视频缩略图修复跳过 id={photo.Id}：无 album_id（请先打开相册详情）");
+            AppLog.Debug($"缩略图修复跳过 id={photo.Id}：无 album_id（需从相册进入预览）");
             return false;
         }
 
@@ -97,6 +130,8 @@ public static class NasVideoThumbnailRepair
 
             await RefreshPhotoMetadataAsync(client, photo, brokenId, cancellationToken).ConfigureAwait(false);
 
+            ToastRepair("正在修复缩略图…");
+
             AppLog.Debug(
                 $"视频缩略图修复开始 id={brokenId} {photo.Filename} album={albumId} mobile_cache_mtime={photo.Additional?.MobileCacheMtime ?? 0}");
 
@@ -107,6 +142,7 @@ public static class NasVideoThumbnailRepair
                 if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
                 {
                     AppLog.Warn($"视频缩略图修复：无法下载原片 id={brokenId}");
+                    ToastRepair("缩略图修复失败");
                     return false;
                 }
 
@@ -116,6 +152,7 @@ public static class NasVideoThumbnailRepair
                 if (mtimeCandidates.Count == 0)
                 {
                     AppLog.Warn($"视频缩略图修复跳过 id={brokenId}：无有效 mtime");
+                    ToastRepair("缩略图修复失败");
                     return false;
                 }
 
@@ -164,6 +201,7 @@ public static class NasVideoThumbnailRepair
                     {
                         AppLog.Warn($"视频缩略图修复失败 id={brokenId}：无有效上传响应");
                         CooldownUntil[brokenId] = DateTime.UtcNow.Add(CooldownDuration);
+                        ToastRepair("缩略图修复失败");
                         return false;
                     }
 
@@ -177,6 +215,7 @@ public static class NasVideoThumbnailRepair
                         AppLog.Warn(
                             $"视频缩略图修复失败 id={brokenId}：新条目 id={replacementId} 缩略图仍为占位图");
                         CooldownUntil[brokenId] = DateTime.UtcNow.Add(CooldownDuration);
+                        ToastRepair("缩略图修复失败");
                         return false;
                     }
 
@@ -204,6 +243,7 @@ public static class NasVideoThumbnailRepair
                     AppLog.Debug(
                         $"视频缩略图已修复 broken_id={brokenId} replacement_id={replacementId} action={lastResult.Action} cache_key={newKey}");
                     CooldownUntil.TryRemove(brokenId, out _);
+                    ToastRepair("缩略图已修复");
                     return true;
                 }
                 finally
@@ -219,10 +259,23 @@ public static class NasVideoThumbnailRepair
         catch (Exception ex)
         {
             AppLog.Warn($"视频缩略图修复异常 id={brokenId}", ex);
-            CooldownUntil[brokenId] = DateTime.UtcNow.Add(CooldownDuration);
+            if (!IsThumbnailGenerationFailure(ex))
+                CooldownUntil[brokenId] = DateTime.UtcNow.Add(CooldownDuration);
+            ToastRepair("缩略图修复失败");
             return false;
         }
     }
+
+    private static void ToastRepair(string message)
+    {
+#if ANDROID
+        MainThread.BeginInvokeOnMainThread(() => _ = UiFeedback.ToastAsync(message));
+#endif
+    }
+
+    private static bool IsThumbnailGenerationFailure(Exception ex) =>
+        ex is InvalidOperationException ioe
+        && ioe.Message.Contains("生成有效缩略图", StringComparison.Ordinal);
 
     private static async Task ApplyReplacementPhotoAsync(
         SynologyClient client,
@@ -331,6 +384,30 @@ public static class NasVideoThumbnailRepair
     }
 
     private static int? ResolveUploadAlbumId() => PhotosAlbumMediaScope.CurrentAlbumId;
+
+    /// <summary>仅读本地磁盘缓存的 sm 缩略图，检测占位图时不访问 NAS。</summary>
+    private static async Task<byte[]?> TryGetCachedSmThumbnailBytesAsync(
+        Photo photo,
+        CancellationToken cancellationToken)
+    {
+        var thumb = photo.Additional?.Thumbnail;
+        if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
+            return null;
+
+        var unitId = thumb.UnitId > 0 ? thumb.UnitId : photo.Id;
+        if (unitId <= 0 || !NasMediaCache.TryGetThumbnailFile(unitId, thumb.CacheKey, out var cachedPath))
+            return null;
+
+        try
+        {
+            return await File.ReadAllBytesAsync(cachedPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Debug($"读取本地缩略图缓存失败 id={photo.Id}", ex);
+            return null;
+        }
+    }
 
     private static async Task RefreshPhotoMetadataAsync(
         SynologyClient client,

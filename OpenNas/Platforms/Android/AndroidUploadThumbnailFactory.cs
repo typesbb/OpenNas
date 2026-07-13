@@ -40,8 +40,7 @@ internal static class AndroidUploadThumbnailFactory
 
             try
             {
-                var bytes = File.ReadAllBytes(localFilePath);
-                return CreateFromImageBytes(bytes);
+                return CreateFromImageFilePath(localFilePath);
             }
             catch
             {
@@ -49,9 +48,40 @@ internal static class AndroidUploadThumbnailFactory
             }
         }, cancellationToken);
 
+    private static (byte[] Xl, byte[] Sm) CreateFromImageFilePath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+
+        try
+        {
+            var bounds = new BitmapFactory.Options { InJustDecodeBounds = true };
+            BitmapFactory.DecodeFile(path, bounds);
+            if (bounds.OutWidth <= 0 || bounds.OutHeight <= 0)
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+
+            var decodeOpts = new BitmapFactory.Options
+            {
+                InSampleSize = CalcInSampleSize(bounds.OutWidth, bounds.OutHeight, XlMaxEdge)
+            };
+            var bitmap = BitmapFactory.DecodeFile(path, decodeOpts);
+            if (bitmap is null)
+                return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+
+            var xl = EncodeScaled(bitmap, XlMaxEdge, 85);
+            var sm = EncodeScaled(bitmap, SmMaxEdge, 80);
+            bitmap.Recycle();
+            return (xl, sm);
+        }
+        catch
+        {
+            return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
+        }
+    }
+
     private static (byte[] Xl, byte[] Sm) CreateFromImageBytes(byte[] data)
     {
-        if (!LooksLikeJpeg(data))
+        if (data.Length == 0)
             return (AppThumbnailGenerator.MinimalJpeg, AppThumbnailGenerator.MinimalJpeg);
 
         try
@@ -126,9 +156,6 @@ internal static class AndroidUploadThumbnailFactory
             try { System.IO.File.Delete(tempPath); } catch { /* ignore */ }
         }
     }
-
-    private static bool LooksLikeJpeg(byte[] data) =>
-        data.Length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF;
 
     private static int CalcInSampleSize(int width, int height, int maxEdge)
     {

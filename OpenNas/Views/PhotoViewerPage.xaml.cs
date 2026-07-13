@@ -107,6 +107,8 @@ public partial class PhotoViewerPage : ContentPage
         var photo = _photos[_index];
         var isVideo = photo.IsVideo;
 
+        NasVideoThumbnailRepair.ScheduleRepairIfPlaceholder(photo);
+
         _currentZoomed = false;
         _imageView.IsVisible = !isVideo;
         _videoView.IsVisible = isVideo;

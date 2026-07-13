@@ -70,7 +70,7 @@ public partial class ExploreView : ContentView
 
     {
 
-        await RefreshAsync(force: true);
+        await RefreshAsync(force: true, showBusyIndicator: false);
 
         RefreshHost.IsRefreshing = false;
 
@@ -78,7 +78,7 @@ public partial class ExploreView : ContentView
 
 
 
-    public async Task RefreshAsync(bool force = false)
+    public async Task RefreshAsync(bool force = false, bool showBusyIndicator = true)
 
     {
 
@@ -96,9 +96,11 @@ public partial class ExploreView : ContentView
 
         _loading = true;
 
-        BusyIndicator.IsVisible = true;
-
-        BusyIndicator.IsRunning = true;
+        if (showBusyIndicator)
+        {
+            BusyIndicator.IsVisible = true;
+            BusyIndicator.IsRunning = true;
+        }
 
 
 
@@ -146,9 +148,11 @@ public partial class ExploreView : ContentView
 
         {
 
-            BusyIndicator.IsRunning = false;
-
-            BusyIndicator.IsVisible = false;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsRunning = false;
+                BusyIndicator.IsVisible = false;
+            }
 
             _loading = false;
 

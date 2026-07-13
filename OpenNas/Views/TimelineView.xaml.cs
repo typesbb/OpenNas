@@ -52,11 +52,11 @@ public partial class TimelineView : ContentView
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
-        await RefreshAsync(force: true);
+        await RefreshAsync(force: true, showBusyIndicator: false);
         RefreshHost.IsRefreshing = false;
     }
 
-    public async Task RefreshAsync(bool force = false)
+    public async Task RefreshAsync(bool force = false, bool showBusyIndicator = true)
     {
         var library = _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace;
         if (!force && _groups.Count > 0 && _loadedForLibrary == library)
@@ -66,8 +66,11 @@ public partial class TimelineView : ContentView
             return;
 
         _loading = true;
-        BusyIndicator.IsVisible = true;
-        BusyIndicator.IsRunning = true;
+        if (showBusyIndicator)
+        {
+            BusyIndicator.IsVisible = true;
+            BusyIndicator.IsRunning = true;
+        }
 
         try
         {
@@ -133,8 +136,11 @@ public partial class TimelineView : ContentView
         }
         finally
         {
-            BusyIndicator.IsRunning = false;
-            BusyIndicator.IsVisible = false;
+            if (showBusyIndicator)
+            {
+                BusyIndicator.IsRunning = false;
+                BusyIndicator.IsVisible = false;
+            }
             _loading = false;
         }
     }
