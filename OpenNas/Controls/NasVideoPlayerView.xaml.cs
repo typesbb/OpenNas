@@ -411,7 +411,7 @@ public partial class NasVideoPlayerView : ContentView
         view._progressCts?.Cancel();
         view._progressCts = null;
         view.EndFastForward();
-        view._playbackPath = null;
+        view.ReleasePlaybackPath();
         view._durationSeconds = 0;
         var generation = view._loadGeneration;
 
@@ -441,6 +441,7 @@ public partial class NasVideoPlayerView : ContentView
         {
             if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
             {
+                NasMediaCache.ProtectPath(cached);
                 await AssignSourceAsync(cached, generation);
                 return;
             }
@@ -489,9 +490,17 @@ public partial class NasVideoPlayerView : ContentView
 
             MediaPlayer.Source = MediaSource.FromFile(path);
             _playbackPath = path;
+            NasMediaCache.ProtectPath(path);
             ApplyDefaultSpeed();
             RefreshDuration();
         });
+    }
+
+    private void ReleasePlaybackPath()
+    {
+        if (!string.IsNullOrEmpty(_playbackPath))
+            NasMediaCache.UnprotectPath(_playbackPath);
+        _playbackPath = null;
     }
 
     private void ReportDownloadProgress(int generation, NasDownloadProgress progress)
@@ -736,7 +745,7 @@ public partial class NasVideoPlayerView : ContentView
         _progressCts?.Cancel();
         _progressCts = null;
         EndFastForward();
-        _playbackPath = null;
+        ReleasePlaybackPath();
         _durationSeconds = 0;
         MediaPlayer.Stop();
         MediaPlayer.Source = null;

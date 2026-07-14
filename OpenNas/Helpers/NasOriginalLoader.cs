@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using NSynology;
 using NSynology.Foto;
+using OpenNas.Services;
 
 namespace OpenNas.Helpers;
 
@@ -150,6 +151,9 @@ public static class NasOriginalLoader
         CancellationToken cancellationToken)
     {
         await Gate.WaitAsync(cancellationToken);
+        var temp = "";
+        string? protectedPath = null;
+        var keepProtected = false;
         try
         {
             if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
@@ -161,9 +165,13 @@ public static class NasOriginalLoader
             await using var network = await NasFotoMediaApi.GetDownloadPhotoAsync(
                 SynologyManager.Client, photo, cancellationToken);
             var path = NasMediaCache.GetOriginalFilePath(photo);
-            var temp = path + ".tmp";
+            protectedPath = path;
+            NasMediaCache.ProtectPath(path);
+            temp = path + ".tmp";
             long? totalBytes = photo.FileSize > 0 ? photo.FileSize : null;
             long received = 0;
+            var lastReportAt = 0L;
+            var lastReportBytes = 0L;
 
             await using (var file = File.Create(temp))
             {
@@ -173,7 +181,14 @@ public static class NasOriginalLoader
                 {
                     await file.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                     received += read;
-                    progress?.Report(new NasDownloadProgress(received, totalBytes, false));
+
+                    var now = Environment.TickCount64;
+                    if (received - lastReportBytes >= 512 * 1024 || now - lastReportAt >= 250)
+                    {
+                        lastReportBytes = received;
+                        lastReportAt = now;
+                        progress?.Report(new NasDownloadProgress(received, totalBytes, false));
+                    }
                 }
 
                 await file.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -182,6 +197,9 @@ public static class NasOriginalLoader
             if (File.Exists(path))
                 File.Delete(path);
             File.Move(temp, path);
+            temp = "";
+            keepProtected = true;
+            NasMediaCache.NotifyOriginalStored();
             progress?.Report(new NasDownloadProgress(received, totalBytes ?? received, true));
             return path;
         }
@@ -189,12 +207,33 @@ public static class NasOriginalLoader
         {
             throw;
         }
-        catch
+        catch (OperationCanceledException)
         {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"原文件下载失败 id={photo.Id} size={photo.FileSize}", ex);
             return null;
         }
         finally
         {
+            if (!string.IsNullOrEmpty(temp))
+            {
+                try
+                {
+                    if (File.Exists(temp))
+                        File.Delete(temp);
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            if (!keepProtected)
+                NasMediaCache.UnprotectPath(protectedPath);
+
             Gate.Release();
             InFlight.TryRemove(photo.Id, out _);
         }

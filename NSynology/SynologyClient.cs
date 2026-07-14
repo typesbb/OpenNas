@@ -432,18 +432,22 @@ public class SynologyClient
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, FormatSid(url));
         ApplySynoTokenHeader(request);
-        using var response = await HttpClient.SendAsync(
+        var response = await HttpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
-        await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
-
-        // 必须在 response 释放前读完；HttpClient 会在 Dispose 时关闭底层流。
-        await using var network = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var buffer = new MemoryStream();
-        await network.CopyToAsync(buffer, cancellationToken);
-        buffer.Position = 0;
-        return buffer;
+        try
+        {
+            await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
+            var network = await response.Content.ReadAsStreamAsync(cancellationToken);
+            // 大视频等不可整包进 MemoryStream，由调用方边读边写磁盘；流 Dispose 时再释放 response。
+            return new HttpResponseStream(response, network);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     /// <summary>官方 Photos App 的 synofoto / Cookie 资源：带 <c>id</c>+<c>did</c>，URL 不带 <c>_sid</c>。</summary>
@@ -459,17 +463,21 @@ public class SynologyClient
         var uri = new Uri(baseUri, relativePath.TrimStart('/'));
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         ApplyAppApiHeaders(request);
-        using var response = await HttpClient.SendAsync(
+        var response = await HttpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
-        await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
-
-        await using var network = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var buffer = new MemoryStream();
-        await network.CopyToAsync(buffer, cancellationToken);
-        buffer.Position = 0;
-        return buffer;
+        try
+        {
+            await EnsureBinaryResponseOrThrowAsync(response, cancellationToken);
+            var network = await response.Content.ReadAsStreamAsync(cancellationToken);
+            return new HttpResponseStream(response, network);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     private static async Task EnsureBinaryResponseOrThrowAsync(
