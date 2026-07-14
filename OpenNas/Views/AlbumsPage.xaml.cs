@@ -5,7 +5,7 @@ using OpenNas.ViewModels;
 
 namespace OpenNas.Views;
 
-public partial class AlbumsPage : ContentPage
+public partial class AlbumsPage : ContentPage, IRefreshable
 {
     private readonly ConnectionService _connection;
     private readonly PhotosLibraryContext _libraryContext;
@@ -154,4 +154,6 @@ public partial class AlbumsPage : ContentPage
     };
 
     public Task RefreshCurrentViewAsync(bool force = false) => EnsureCurrentViewLoadedAsync(force);
+
+    public Task RefreshAsync() => RefreshCurrentViewAsync(force: true);
 }

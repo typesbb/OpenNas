@@ -4,7 +4,7 @@ using OpenNas.Services;
 
 namespace OpenNas.Views;
 
-public partial class ProfilePage : ContentPage
+public partial class ProfilePage : ContentPage, IRefreshable
 {
     private const string LastUsernameKey = "last_username";
     private const string ThemeKey = "app_theme";
@@ -37,6 +37,14 @@ public partial class ProfilePage : ContentPage
         RefreshProfile();
         RefreshCacheSize();
         ThemeLabel.Text = ThemeLabels[CurrentThemeIndex];
+    }
+
+    public Task RefreshAsync()
+    {
+        RefreshProfile();
+        RefreshCacheSize();
+        ThemeLabel.Text = ThemeLabels[CurrentThemeIndex];
+        return Task.CompletedTask;
     }
 
     private void RefreshProfile()

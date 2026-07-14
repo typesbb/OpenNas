@@ -24,6 +24,14 @@ public static class MauiProgram
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+            })
+            .ConfigureMauiHandlers(handlers =>
+            {
+#if ANDROID
+                handlers.AddHandler(typeof(Shell), typeof(Platforms.Android.OpenNasShellRenderer));
+#elif IOS
+                handlers.AddHandler(typeof(Shell), typeof(Platforms.iOS.OpenNasShellRenderer));
+#endif
             });
 
         builder.Services.AddSingleton<IAuthNavigation, AuthNavigation>();

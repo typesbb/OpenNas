@@ -14,7 +14,7 @@ using OpenNas.Platforms.Android;
 
 namespace OpenNas.Views;
 
-public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDisposable
+public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDisposable, IRefreshable
 {
     private const string SortFieldKey = "album_detail_sort_field";
     private const string SortDescKey = "album_detail_sort_desc";
@@ -126,6 +126,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         await ReloadPhotosAsync(showBusyIndicator: false);
         PhotosRefreshView.IsRefreshing = false;
     }
+
+    public Task RefreshAsync() => ReloadPhotosAsync();
 
     private async void OnLoadMore(object? sender, EventArgs e) => await LoadMorePhotosAsync();
 

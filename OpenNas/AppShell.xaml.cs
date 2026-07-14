@@ -1,4 +1,5 @@
-﻿using OpenNas.Views;
+﻿using OpenNas.Helpers;
+using OpenNas.Views;
 
 namespace OpenNas;
 
@@ -30,4 +31,11 @@ public partial class AppShell : Shell
             Route = route,
             Content = page
         };
+
+    public static Task TryRefreshCurrentPageAsync()
+    {
+        if (Current?.CurrentPage is IRefreshable refreshable)
+            return refreshable.RefreshAsync();
+        return Task.CompletedTask;
+    }
 }

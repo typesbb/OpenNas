@@ -8,7 +8,7 @@ using OpenNas.ViewModels;
 
 namespace OpenNas.Views;
 
-public partial class CategoryBrowsePage : ContentPage
+public partial class CategoryBrowsePage : ContentPage, IRefreshable
 {
     private const int PageSize = 30;
 
@@ -164,6 +164,8 @@ public partial class CategoryBrowsePage : ContentPage
         await LoadAsync(reset: true, showBusyIndicator: false);
         RefreshHost.IsRefreshing = false;
     }
+
+    public Task RefreshAsync() => LoadAsync(reset: true);
 
     private async void OnLoadMore(object? sender, EventArgs e)
     {

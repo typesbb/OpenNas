@@ -1,8 +1,9 @@
+using OpenNas.Helpers;
 using OpenNas.ViewModels;
 
 namespace OpenNas.Views;
 
-public partial class TasksPage : ContentPage
+public partial class TasksPage : ContentPage, IRefreshable
 {
     private readonly BackupTaskViewModel _vm;
 
@@ -27,6 +28,8 @@ public partial class TasksPage : ContentPage
         base.OnDisappearing();
         _vm.Detach();
     }
+
+    public Task RefreshAsync() => _vm.RefreshAsync();
 
     private async void OnAddRuleClicked(object sender, EventArgs e) =>
         await _vm.AddRuleAsync(this);
