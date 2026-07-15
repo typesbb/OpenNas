@@ -83,17 +83,28 @@ public partial class NasVideoPlayerView
 
     internal void OnNativeSlideOffset(float deltaX)
     {
-        if (_isNavigating)
+        if (_isNavigating || IsZoomed)
             return;
 
         SlideHost.TranslationX = ApplyHorizontalResistance(deltaX);
     }
 
-    internal void OnNativeDismissOffset(float deltaY) =>
+    internal void OnNativeDismissOffset(float deltaY)
+    {
+        if (IsZoomed)
+            return;
+
         DismissDrag?.Invoke(this, deltaY);
+    }
 
     internal void OnNativeDismissCompleted(float totalY)
     {
+        if (IsZoomed)
+        {
+            DismissDrag?.Invoke(this, 0);
+            return;
+        }
+
         if (totalY >= GetDismissThreshold() && totalY > 0)
             DismissRequested?.Invoke(this, EventArgs.Empty);
         else
@@ -102,7 +113,7 @@ public partial class NasVideoPlayerView
 
     internal async Task OnNativeSlideCompletedAsync(float totalX)
     {
-        if (_isNavigating)
+        if (_isNavigating || IsZoomed)
         {
             await SlideHost.TranslateToAsync(0, 0, 160, Easing.CubicOut);
             return;
@@ -111,6 +122,15 @@ public partial class NasVideoPlayerView
         _navPanX = totalX;
         await CompleteHorizontalPanAsync();
     }
+
+    internal void ResetZoomFromNative()
+    {
+        ResetZoomTransform();
+    }
+
+    internal double GetNativeZoomOverscrollX() => GetZoomOverscrollX();
+
+    internal void SetNavPanForNative(double totalX) => _navPanX = totalX;
 
     partial void OnPhotoReadyForPlatform() =>
         ScheduleAndroidTouchAttach();

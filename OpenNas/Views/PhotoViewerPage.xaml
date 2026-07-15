@@ -28,38 +28,58 @@
                      Padding="8"
                      Clicked="OnFullscreenClicked" />
 
-        <Border x:Name="ActionBar"
+        <Border x:Name="DetailPanel"
                 IsVisible="False"
                 VerticalOptions="End"
-                HorizontalOptions="Center"
+                HorizontalOptions="Fill"
                 Margin="16,0,16,96"
-                Padding="8,6"
+                Padding="14,12"
                 BackgroundColor="#CC000000"
                 StrokeThickness="0">
             <Border.StrokeShape>
-                <RoundRectangle CornerRadius="20" />
+                <RoundRectangle CornerRadius="14" />
             </Border.StrokeShape>
-            <HorizontalStackLayout Spacing="8">
-                <Button x:Name="DownloadButton"
-                        Text="下载"
-                        TextColor="White"
-                        BackgroundColor="Transparent"
-                        BorderWidth="0"
-                        Padding="16,8"
-                        Clicked="OnDownloadClicked" />
-                <BoxView x:Name="ActionBarDivider"
-                         WidthRequest="1"
-                         HeightRequest="20"
-                         Color="#66FFFFFF"
-                         VerticalOptions="Center" />
-                <Button x:Name="ShareButton"
-                        Text="分享"
-                        TextColor="White"
-                        BackgroundColor="Transparent"
-                        BorderWidth="0"
-                        Padding="16,8"
-                        Clicked="OnShareClicked" />
-            </HorizontalStackLayout>
+            <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="2">
+                    <Label x:Name="DetailTitleLabel"
+                           TextColor="White"
+                           FontSize="15"
+                           FontAttributes="Bold"
+                           LineBreakMode="TailTruncation"
+                           MaxLines="2" />
+                    <Label x:Name="DetailSubtitleLabel"
+                           TextColor="#CCFFFFFF"
+                           FontSize="12"
+                           LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+                <BoxView x:Name="ActionBarDividerTop"
+                         HeightRequest="1"
+                         Color="#44FFFFFF"
+                         HorizontalOptions="Fill" />
+                <HorizontalStackLayout x:Name="ActionButtons"
+                                       Spacing="8"
+                                       HorizontalOptions="Center">
+                    <Button x:Name="DownloadButton"
+                            Text="下载"
+                            TextColor="White"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            Padding="16,8"
+                            Clicked="OnDownloadClicked" />
+                    <BoxView x:Name="ActionBarDivider"
+                             WidthRequest="1"
+                             HeightRequest="20"
+                             Color="#66FFFFFF"
+                             VerticalOptions="Center" />
+                    <Button x:Name="ShareButton"
+                            Text="分享"
+                            TextColor="White"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            Padding="16,8"
+                            Clicked="OnShareClicked" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
         </Border>
 
         <Border x:Name="ExportProgressPanel"

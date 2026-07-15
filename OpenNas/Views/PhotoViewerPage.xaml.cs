@@ -55,6 +55,7 @@ public partial class PhotoViewerPage : ContentPage
         _videoView.OnSwipeNavigateAsync = NavigateAsync;
         _videoView.FullscreenRequested += OnVideoFullscreenRequested;
         _videoView.SingleTapped += OnVideoSingleTapped;
+        _videoView.ZoomChanged += OnZoomChanged;
 
         DismissHost.Children.Add(_imageView);
         DismissHost.Children.Add(_videoView);
@@ -81,11 +82,23 @@ public partial class PhotoViewerPage : ContentPage
         // 时间线/探索等非共享相册上下文：始终允许导出；与我共享且不可下载时隐藏。
         var allowExport = PhotosAlbumMediaScope.CurrentPassphrase == null
             || PhotosAlbumMediaScope.AllowDownload;
+        ActionButtons.IsVisible = allowExport;
+        ActionBarDividerTop.IsVisible = allowExport;
         DownloadButton.IsVisible = allowExport;
         ShareButton.IsVisible = allowExport;
         ActionBarDivider.IsVisible = allowExport;
-        if (!allowExport)
-            HideActionBar();
+        if (!allowExport && !_actionBarVisible)
+            DetailPanel.IsVisible = false;
+    }
+
+    private void UpdateDetailLabels()
+    {
+        if (_photos.Count == 0)
+            return;
+
+        var photo = _photos[_index];
+        DetailTitleLabel.Text = PhotoDetailFormatter.FormatTitle(photo);
+        DetailSubtitleLabel.Text = PhotoDetailFormatter.FormatSubtitle(photo);
     }
 
     private void OnLoaded(object? sender, EventArgs e)
@@ -104,6 +117,7 @@ public partial class PhotoViewerPage : ContentPage
 
         HideActionBar();
         UpdateExportActionsVisibility();
+        UpdateDetailLabels();
         var photo = _photos[_index];
         var isVideo = photo.IsVideo;
 
@@ -113,7 +127,9 @@ public partial class PhotoViewerPage : ContentPage
         _imageView.IsVisible = !isVideo;
         _videoView.IsVisible = isVideo;
         FullscreenButton.IsVisible = !isVideo;
-        ActionBar.IsVisible = false;
+        DetailPanel.Margin = isVideo
+            ? new Thickness(16, 0, 16, 72)
+            : new Thickness(16, 0, 16, 96);
 
         if (isVideo)
         {
@@ -170,12 +186,16 @@ public partial class PhotoViewerPage : ContentPage
 
     private void OnZoomChanged(object? sender, EventArgs e)
     {
-        if (sender is ZoomableImageView zoomable && _photos[_index].IsVideo == false)
+        var zoomed = sender switch
         {
-            _currentZoomed = zoomable.IsZoomed;
-            if (_currentZoomed)
-                HideActionBar();
-        }
+            ZoomableImageView image => image.IsZoomed,
+            NasVideoPlayerView video => video.IsZoomed,
+            _ => false
+        };
+
+        _currentZoomed = zoomed;
+        if (_currentZoomed)
+            HideActionBar();
     }
 
     private void OnImageSingleTapped(object? sender, EventArgs e)
@@ -188,7 +208,7 @@ public partial class PhotoViewerPage : ContentPage
 
     private void OnVideoSingleTapped(object? sender, EventArgs e)
     {
-        if (!_photos[_index].IsVideo || _exporting)
+        if (!_photos[_index].IsVideo || _currentZoomed || _exporting)
             return;
 
         ToggleActionBar();
@@ -196,17 +216,17 @@ public partial class PhotoViewerPage : ContentPage
 
     private void ToggleActionBar()
     {
-        if (PhotosAlbumMediaScope.CurrentPassphrase != null && !PhotosAlbumMediaScope.AllowDownload)
-            return;
-
         _actionBarVisible = !_actionBarVisible;
-        ActionBar.IsVisible = _actionBarVisible;
+        UpdateExportActionsVisibility();
+        DetailPanel.IsVisible = _actionBarVisible;
+        if (_actionBarVisible)
+            UpdateDetailLabels();
     }
 
     private void HideActionBar()
     {
         _actionBarVisible = false;
-        ActionBar.IsVisible = false;
+        DetailPanel.IsVisible = false;
     }
 
     private void OnDismissDrag(object? sender, double totalY)

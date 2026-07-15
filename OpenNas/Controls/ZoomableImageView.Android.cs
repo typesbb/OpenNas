@@ -101,9 +101,9 @@ public partial class ZoomableImageView
         ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    internal void OnNativeSlideOffset(float deltaX)
+    internal void OnNativeSlideOffset(float deltaX, bool allowWhenZoomed = false)
     {
-        if (_nativeZoomed || _isNavigating)
+        if ((!allowWhenZoomed && _nativeZoomed) || _isNavigating)
             return;
 
         SlideHost.TranslationX = ApplyHorizontalResistance(deltaX);
@@ -131,11 +131,10 @@ public partial class ZoomableImageView
             DismissDrag?.Invoke(this, 0);
     }
 
-    internal async Task OnNativeSlideCompletedAsync(float totalX)
+    internal async Task OnNativeSlideCompletedAsync(float totalX, bool allowWhenZoomed = false)
     {
-        if (_nativeZoomed || _isNavigating)
+        if ((!allowWhenZoomed && _nativeZoomed) || _isNavigating)
         {
-            await SlideHost.TranslateTo(0, 0, 160, Easing.CubicOut);
             await SlideHost.TranslateToAsync(0, 0, 160, Easing.CubicOut);
             return;
         }

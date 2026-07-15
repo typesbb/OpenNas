@@ -368,7 +368,7 @@ public partial class ZoomableImageView : ContentView
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
                 _isPinching = false;
-                if (_currentScale < 1.02)
+                if (_currentScale < 1.05)
                     _ = AnimateResetZoomAsync();
                 else
                     _ = AnimatePanClampAsync();
@@ -403,12 +403,43 @@ public partial class ZoomableImageView : ContentView
                 _panY = _panStartY + e.TotalY;
                 ClampPan(allowRubberBand: true);
                 ApplyTransform();
+                var overscroll = GetManagedOverscrollX();
+                SlideHost.TranslationX = Math.Abs(overscroll) > 8
+                    ? ApplyHorizontalResistance(overscroll)
+                    : 0;
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
-                _ = AnimatePanClampAsync();
+            {
+                var edgeX = GetManagedOverscrollX();
+                if (Math.Abs(edgeX) >= NavigateThreshold)
+                {
+                    _navPanX = edgeX;
+                    _ = CompleteHorizontalPanAsync();
+                }
+                else
+                {
+                    SlideHost.TranslationX = 0;
+                    _ = AnimatePanClampAsync();
+                }
+
                 break;
+            }
         }
+    }
+
+    private double GetManagedOverscrollX()
+    {
+        if (_currentScale <= 1.01)
+            return _panX;
+
+        var scaledW = _displayWidth * _currentScale;
+        var maxX = Math.Max(0, (scaledW - _containerWidth) / 2);
+        if (_panX > maxX)
+            return _panX - maxX;
+        if (_panX < -maxX)
+            return _panX + maxX;
+        return 0;
     }
 
     internal void OnNativeSingleTap()

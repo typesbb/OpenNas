@@ -28,6 +28,8 @@ public partial class NasVideoPlayerView : ContentView
     private const double NavigateThreshold = 72;
     private const double DismissMinThreshold = 200;
     private const double DismissHeightRatio = 0.25;
+    private const double MinScale = 1;
+    private const double MaxScale = 5;
 
     private PanMode _panMode = PanMode.None;
     private double _navPanX;
@@ -41,12 +43,22 @@ public partial class NasVideoPlayerView : ContentView
     private CancellationTokenSource? _singleTapCts;
     private string? _playbackPath;
     private double _durationSeconds;
+    private double _currentScale = 1;
+    private double _panX;
+    private double _panY;
+    private double _panStartX;
+    private double _panStartY;
+    private double _previousPinchScale = 1;
+    private bool _isPinching;
+    private double _containerWidth;
+    private double _containerHeight;
 
     private const double NormalSpeed = 1;
     private const double FastSpeed = 3;
 
     private Grid Host = null!;
     private Grid SlideHost = null!;
+    private ContentView TransformHost = null!;
     private Grid TopTouchLayer = null!;
     private Image PosterImage = null!;
     private MediaElement MediaPlayer = null!;
@@ -123,6 +135,9 @@ public partial class NasVideoPlayerView : ContentView
     public event EventHandler? DismissRequested;
     public event EventHandler? FullscreenRequested;
     public event EventHandler? SingleTapped;
+    public event EventHandler? ZoomChanged;
+
+    public bool IsZoomed => _currentScale > 1.05;
 
     private void BuildUi()
     {
@@ -149,11 +164,23 @@ public partial class NasVideoPlayerView : ContentView
         MediaPlayer.PositionChanged += OnPositionChanged;
         MediaPlayer.StateChanged += OnStateChanged;
 
+        TransformHost = new ContentView
+        {
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            Content = new Grid
+            {
+                HorizontalOptions = LayoutOptions.Fill,
+                VerticalOptions = LayoutOptions.Fill,
+                Children = { PosterImage, MediaPlayer }
+            }
+        };
+
         SlideHost = new Grid
         {
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            Children = { PosterImage, MediaPlayer }
+            Children = { TransformHost }
         };
 
         TopTouchLayer = new Grid
@@ -164,6 +191,10 @@ public partial class NasVideoPlayerView : ContentView
         };
 
 #if !ANDROID
+        var pinch = new PinchGestureRecognizer();
+        pinch.PinchUpdated += OnPinchUpdated;
+        TopTouchLayer.GestureRecognizers.Add(pinch);
+
         var pan = new PanGestureRecognizer();
         pan.PanUpdated += OnPanUpdated;
         TopTouchLayer.GestureRecognizers.Add(pan);
@@ -407,6 +438,7 @@ public partial class NasVideoPlayerView : ContentView
 
         view.SlideHost.TranslationX = 0;
         view.SlideHost.TranslationY = 0;
+        view.ResetZoomTransform();
         view._loadGeneration++;
         view._progressCts?.Cancel();
         view._progressCts = null;
@@ -665,6 +697,9 @@ public partial class NasVideoPlayerView : ContentView
 
     private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
     {
+        if (IsZoomed)
+            return;
+
         _singleTapCts?.Cancel();
         _singleTapCts = new CancellationTokenSource();
         var token = _singleTapCts.Token;
@@ -747,6 +782,7 @@ public partial class NasVideoPlayerView : ContentView
         EndFastForward();
         ReleasePlaybackPath();
         _durationSeconds = 0;
+        ResetZoomTransform();
         MediaPlayer.Stop();
         MediaPlayer.Source = null;
         ErrorLabel.IsVisible = false;
@@ -762,8 +798,14 @@ public partial class NasVideoPlayerView : ContentView
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
 #if !ANDROID
-        if (_isNavigating || _isScrubbing)
+        if (_isNavigating || _isScrubbing || _isPinching)
             return;
+
+        if (IsZoomed)
+        {
+            HandleZoomPan(e);
+            return;
+        }
 
         switch (e.StatusType)
         {
@@ -807,6 +849,242 @@ public partial class NasVideoPlayerView : ContentView
 #endif
     }
 
+    private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
+    {
+#if !ANDROID
+        if (_isNavigating || _isScrubbing)
+            return;
+
+        switch (e.Status)
+        {
+            case GestureStatus.Started:
+                _previousPinchScale = 1;
+                _isPinching = true;
+                _panMode = PanMode.None;
+                break;
+            case GestureStatus.Running:
+            {
+                if (_previousPinchScale <= 0)
+                    _previousPinchScale = 1;
+
+                var scaleFactor = e.Scale / _previousPinchScale;
+                _previousPinchScale = e.Scale;
+                ApplyZoomFactor(scaleFactor, ToFocalOffsetX(e.ScaleOrigin.X), ToFocalOffsetY(e.ScaleOrigin.Y));
+                break;
+            }
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+                _isPinching = false;
+                if (_currentScale < 1.05)
+                    ResetZoomTransform();
+                else
+                    ClampZoomPan();
+                ApplyZoomTransform();
+                ZoomChanged?.Invoke(this, EventArgs.Empty);
+                break;
+        }
+#endif
+    }
+
+    private void HandleZoomPan(PanUpdatedEventArgs e)
+    {
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                _panStartX = _panX;
+                _panStartY = _panY;
+                break;
+            case GestureStatus.Running:
+                _panX = _panStartX + e.TotalX;
+                _panY = _panStartY + e.TotalY;
+                ClampZoomPan(allowRubberBand: true);
+                ApplyZoomTransform();
+                var overscroll = GetZoomOverscrollX();
+                SlideHost.TranslationX = Math.Abs(overscroll) > 8
+                    ? ApplyHorizontalResistance(overscroll)
+                    : 0;
+                break;
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+            {
+                var edgeX = GetZoomOverscrollX();
+                if (Math.Abs(edgeX) >= NavigateThreshold)
+                {
+                    _navPanX = edgeX;
+                    _ = CompleteHorizontalPanAsync();
+                }
+                else
+                {
+                    SlideHost.TranslationX = 0;
+                    ClampZoomPan();
+                    ApplyZoomTransform();
+                }
+
+                break;
+            }
+        }
+    }
+
+    internal void ApplyZoomFactor(double factor, double focalX, double focalY)
+    {
+        if (double.IsNaN(factor) || double.IsInfinity(factor) || Math.Abs(factor - 1) < 0.001)
+            return;
+
+        var newScale = Math.Clamp(_currentScale * factor, MinScale, MaxScale);
+        var actualFactor = newScale / _currentScale;
+        if (Math.Abs(actualFactor - 1) < 0.00001)
+            return;
+
+        _panX = focalX - (focalX - _panX) * actualFactor;
+        _panY = focalY - (focalY - _panY) * actualFactor;
+        _currentScale = newScale;
+        ClampZoomPan(allowRubberBand: true);
+        ApplyZoomTransform();
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void BeginZoomPan()
+    {
+        _panStartX = _panX;
+        _panStartY = _panY;
+    }
+
+    internal void UpdateZoomPan(double totalX, double totalY)
+    {
+        _panX = _panStartX + totalX;
+        _panY = _panStartY + totalY;
+        ClampZoomPan(allowRubberBand: true);
+        ApplyZoomTransform();
+    }
+
+    internal double FinishZoomPan(out double overscrollX)
+    {
+        overscrollX = GetZoomOverscrollX();
+        if (Math.Abs(overscrollX) < NavigateThreshold)
+        {
+            ClampZoomPan();
+            ApplyZoomTransform();
+            SlideHost.TranslationX = 0;
+        }
+
+        return overscrollX;
+    }
+
+    internal void UpdateZoomEdgeSlide(double overscrollX)
+    {
+        SlideHost.TranslationX = Math.Abs(overscrollX) > 8
+            ? ApplyHorizontalResistance(overscrollX)
+            : 0;
+    }
+
+    private void ApplyZoomTransform()
+    {
+        TransformHost.Scale = _currentScale;
+        TransformHost.TranslationX = _panX;
+        TransformHost.TranslationY = _panY;
+    }
+
+    private void ResetZoomTransform()
+    {
+        _currentScale = 1;
+        _panX = 0;
+        _panY = 0;
+        _previousPinchScale = 1;
+        _isPinching = false;
+        TransformHost.Scale = 1;
+        TransformHost.TranslationX = 0;
+        TransformHost.TranslationY = 0;
+        SlideHost.TranslationX = 0;
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClampZoomPan(bool allowRubberBand = false)
+    {
+        EnsureContainerSize();
+        if (_currentScale <= 1.01)
+        {
+            _panX = 0;
+            _panY = 0;
+            return;
+        }
+
+        var maxX = Math.Max(0, (_containerWidth * (_currentScale - 1)) / 2);
+        var maxY = Math.Max(0, (_containerHeight * (_currentScale - 1)) / 2);
+
+        if (allowRubberBand)
+        {
+            _panX = RubberBand(_panX, -maxX, maxX);
+            _panY = RubberBand(_panY, -maxY, maxY);
+            return;
+        }
+
+        _panX = Math.Clamp(_panX, -maxX, maxX);
+        _panY = Math.Clamp(_panY, -maxY, maxY);
+    }
+
+    private double GetZoomOverscrollX()
+    {
+        EnsureContainerSize();
+        if (_currentScale <= 1.01)
+            return _panX;
+
+        var maxX = Math.Max(0, (_containerWidth * (_currentScale - 1)) / 2);
+        if (_panX > maxX)
+            return _panX - maxX;
+        if (_panX < -maxX)
+            return _panX + maxX;
+        return 0;
+    }
+
+    private static double RubberBand(double value, double min, double max)
+    {
+        if (value < min)
+            return min + (value - min) * 0.35;
+        if (value > max)
+            return max + (value - max) * 0.35;
+        return value;
+    }
+
+    private void EnsureContainerSize()
+    {
+        if (_containerWidth > 1 && _containerHeight > 1)
+            return;
+
+        _containerWidth = Width > 1 ? Width : 360;
+        _containerHeight = Height > 1 ? Height : 640;
+    }
+
+    private double ToFocalOffsetX(double originX)
+    {
+        EnsureContainerSize();
+        return originX * _containerWidth - _containerWidth / 2;
+    }
+
+    private double ToFocalOffsetY(double originY)
+    {
+        EnsureContainerSize();
+        return originY * _containerHeight - _containerHeight / 2;
+    }
+
+    internal double ToFocalOffsetFromPixels(double x, double y, out double focalY)
+    {
+        EnsureContainerSize();
+        focalY = y - _containerHeight / 2;
+        return x - _containerWidth / 2;
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        _containerWidth = width;
+        _containerHeight = height;
+        if (!_isPinching && IsZoomed)
+        {
+            ClampZoomPan();
+            ApplyZoomTransform();
+        }
+    }
+
     private double ApplyHorizontalResistance(double deltaX)
     {
         if (deltaX > 0 && !CanGoPrevious)
@@ -816,7 +1094,7 @@ public partial class NasVideoPlayerView : ContentView
         return deltaX;
     }
 
-    private async Task CompleteHorizontalPanAsync()
+    internal async Task CompleteHorizontalPanAsync()
     {
         var width = Width > 0 ? Width : 360;
         var shouldNavigate = Math.Abs(_navPanX) >= NavigateThreshold;
@@ -831,6 +1109,12 @@ public partial class NasVideoPlayerView : ContentView
         if (!shouldNavigate || OnSwipeNavigateAsync == null)
         {
             await SlideHost.TranslateToAsync(0, 0, 180, Easing.CubicOut);
+            if (IsZoomed)
+            {
+                ClampZoomPan();
+                ApplyZoomTransform();
+            }
+
             return;
         }
 
@@ -840,6 +1124,7 @@ public partial class NasVideoPlayerView : ContentView
             MediaPlayer.Pause();
             var exitX = direction > 0 ? -width : width;
             await SlideHost.TranslateToAsync(exitX, 0, 200, Easing.CubicOut);
+            ResetZoomTransform();
             SlideHost.TranslationX = direction > 0 ? width : -width;
 
             await OnSwipeNavigateAsync(direction);
