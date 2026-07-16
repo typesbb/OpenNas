@@ -29,11 +29,14 @@ public partial class NasAlbumsView : ContentView
         _libraryContext.AlbumFilterChanged += OnContextChanged;
     }
 
-    public Task RefreshAsync(bool force = false)
+    public async Task RefreshAsync(bool force = false)
     {
+        if (_connection != null)
+            await _connection.EnsureBestEndpointAsync();
+
         if (force)
             _lastDisplayFilter = null;
-        return LoadAlbumsAsync(force);
+        await LoadAlbumsAsync(force);
     }
 
     public NasAlbumsView()
@@ -150,13 +153,15 @@ public partial class NasAlbumsView : ContentView
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            _lastDisplayFilter = null;
-            _ = LoadAlbumsAsync(force: true);
+            _ = RefreshAsync(force: true);
         });
     }
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
+        if (_connection != null)
+            await _connection.EnsureBestEndpointAsync();
+
         _lastDisplayFilter = null;
         await LoadAlbumsAsync(force: true, showBusyIndicator: false);
         AlbumsRefreshView.IsRefreshing = false;
@@ -239,7 +244,10 @@ public partial class NasAlbumsView : ContentView
                     ReplaceAlbums(previousAlbums);
             });
 
-            await ShowAlertAsync("加载超时，请检查 NAS 地址与网络后重试。");
+            if (SynologyManager.IsAddressSwitchErrorSuppressed)
+                return;
+
+            await ShowAlertAsync("加载超时，请检查网络后重试；也可到「我的」切换内外网地址。");
         }
         catch (Exception ex)
         {

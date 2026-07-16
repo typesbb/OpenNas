@@ -32,6 +32,7 @@ public partial class AppShell : Shell
             Content = page
         };
 
+    /// <summary>底部 Tab 再点当前页：走各页 RefreshAsync（相册等会先 Ensure 地址再加载）。</summary>
     public static Task TryRefreshCurrentPageAsync()
     {
         if (Current?.CurrentPage is IRefreshable refreshable)

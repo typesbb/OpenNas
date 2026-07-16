@@ -10,6 +10,7 @@ public partial class AlbumsPage : ContentPage, IRefreshable
     private readonly ConnectionService _connection;
     private readonly PhotosLibraryContext _libraryContext;
     private readonly AlbumsPageViewModel _viewModel;
+    private int _endpointRefreshDepth;
 
     public AlbumsPage(
         ConnectionService connection,
@@ -30,6 +31,7 @@ public partial class AlbumsPage : ContentPage, IRefreshable
         _libraryContext.AlbumFilterChanged += OnSpaceContextChanged;
         _libraryContext.TimelineLibraryChanged += OnSpaceContextChanged;
         _libraryContext.ExploreLibraryChanged += OnSpaceContextChanged;
+        _connection.AddressSwitched += OnAddressSwitched;
 
         Loaded += OnPageLoaded;
         UpdateViewTitle();
@@ -44,7 +46,23 @@ public partial class AlbumsPage : ContentPage, IRefreshable
         UpdateViewTitle();
         ApplyMediaScopeForCurrentView();
         UpdateSpaceBarLayout();
-        await EnsureCurrentViewLoadedAsync();
+        await RefreshCurrentViewAsync(force: true);
+    }
+
+    private void OnAddressSwitched(object? sender, EventArgs e)
+    {
+        // 主动刷新路径已在 Ensure 后自行加载，避免切址事件再刷一次
+        if (Volatile.Read(ref _endpointRefreshDepth) > 0)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            if (!IsLoaded)
+                return;
+
+            TimelineContent.InvalidateCache();
+            await LoadCurrentViewAsync(force: true);
+        });
     }
 
     private void OnViewModeChanged(object? sender, EventArgs e)
@@ -55,7 +73,7 @@ public partial class AlbumsPage : ContentPage, IRefreshable
             UpdateViewModeUi();
             UpdateToolbar();
             UpdateSpaceBarLayout();
-            _ = EnsureCurrentViewLoadedAsync();
+            _ = RefreshCurrentViewAsync(force: false);
         });
     }
 
@@ -69,7 +87,7 @@ public partial class AlbumsPage : ContentPage, IRefreshable
             if (_libraryContext.CurrentViewMode == PhotosViewMode.Timeline)
             {
                 TimelineContent.InvalidateCache();
-                _ = TimelineContent.RefreshAsync(force: true);
+                _ = RefreshCurrentViewAsync(force: true);
             }
         });
     }
@@ -146,14 +164,29 @@ public partial class AlbumsPage : ContentPage, IRefreshable
         PhotosMediaLibraryScope.Current = _libraryContext.GetActiveLibrary();
     }
 
-    private Task EnsureCurrentViewLoadedAsync(bool force = false) => _libraryContext.CurrentViewMode switch
+    private Task LoadCurrentViewAsync(bool force = false) => _libraryContext.CurrentViewMode switch
     {
         PhotosViewMode.Albums => AlbumsContent.RefreshAsync(force),
         PhotosViewMode.Timeline => TimelineContent.RefreshAsync(force),
         _ => ExploreContent.RefreshAsync(force)
     };
 
-    public Task RefreshCurrentViewAsync(bool force = false) => EnsureCurrentViewLoadedAsync(force);
+    /// <summary>先确保最优 NAS 地址，再加载当前视图（Tab 再点 / 下拉 / 进页共用）。</summary>
+    public async Task RefreshCurrentViewAsync(bool force = false)
+    {
+        Interlocked.Increment(ref _endpointRefreshDepth);
+        try
+        {
+            await _connection.EnsureBestEndpointAsync();
+            if (force)
+                TimelineContent.InvalidateCache();
+            await LoadCurrentViewAsync(force);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _endpointRefreshDepth);
+        }
+    }
 
     public Task RefreshAsync() => RefreshCurrentViewAsync(force: true);
 }

@@ -20,6 +20,10 @@ public class ConnectionService
     private readonly SemaphoreSlim _autoSwitchLock = new(1, 1);
     private DateTime _manualSwitchCooldownUntil = DateTime.MinValue;
     private DateTime _lastConnectivityEventUtc = DateTime.MinValue;
+    private DateTime _lastEnsureUtc = DateTime.MinValue;
+    private EndpointEnsureResult _lastEnsureResult = EndpointEnsureResult.Skipped;
+    private string? _lastEnsureNetworkFingerprint;
+    private bool _endpointDecisionFresh;
     private bool _networkMonitoringStarted;
     private List<NasProfile> _cachedProfiles = new();
     private string? _serverKey;
@@ -32,6 +36,9 @@ public class ConnectionService
         SynologyManager.Client != null && !string.IsNullOrEmpty(SynologyManager.Client.Sid);
 
     public event EventHandler? ConnectionChanged;
+
+    /// <summary>BaseUrl 实际变更后触发（自动/手动切换），页面可据此静默刷新。</summary>
+    public event EventHandler? AddressSwitched;
 
     /// <summary>API 层检测到 106/107 并完成登出跳转后触发。</summary>
     public event EventHandler? SessionExpired;
@@ -120,8 +127,49 @@ public class ConnectionService
     }
 
     // ============================================================
-    //  Network monitoring（30s 去抖）
+    //  Endpoint ensure（主动刷新 / 网络变化共用同一套探测与切换）
     // ============================================================
+
+    private const int ConnectivityDebounceSeconds = 3;
+    private const int ConnectivitySettleMs = 400;
+    private const int ProbeTimeoutMs = 800;
+
+    /// <summary>
+    /// 确保当前使用最优 NAS 地址。网络未变且已有可靠结论时直接复用，不重复探测。
+    /// 网络变化、上次不可达、或结论失效时才并行探测（内网优先）。
+    /// </summary>
+    public Task<EndpointEnsureResult> EnsureBestEndpointAsync(
+        CancellationToken cancellationToken = default) =>
+        EnsureBestEndpointCoreAsync(
+            respectManualCooldown: false,
+            showToastOnSwitch: true,
+            notifyAddressSwitched: false,
+            forceProbe: false,
+            cancellationToken);
+
+    /// <summary>
+    /// App 从后台回到前台：强制重新探测（WiFi→WiFi 指纹可能相同，不能只靠缓存）。
+    /// 若发生切换会通知页面静默刷新。
+    /// </summary>
+    public Task<EndpointEnsureResult> EnsureBestEndpointOnResumeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        InvalidateEndpointDecision();
+        return EnsureBestEndpointCoreAsync(
+            respectManualCooldown: false,
+            showToastOnSwitch: true,
+            notifyAddressSwitched: true,
+            forceProbe: true,
+            cancellationToken);
+    }
+
+    private Task TryAutoSwitchAsync(CancellationToken cancellationToken = default) =>
+        EnsureBestEndpointCoreAsync(
+            respectManualCooldown: true,
+            showToastOnSwitch: true,
+            notifyAddressSwitched: true,
+            forceProbe: true,
+            cancellationToken);
 
     private void StartNetworkMonitoring()
     {
@@ -132,10 +180,13 @@ public class ConnectionService
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
+        // 网络形态一变，下次刷新必须重新探测
+        InvalidateEndpointDecision();
+
         if (Connectivity.Current.NetworkAccess == NetworkAccess.None) return;
 
         var now = DateTime.UtcNow;
-        if ((now - _lastConnectivityEventUtc).TotalSeconds < 30)
+        if ((now - _lastConnectivityEventUtc).TotalSeconds < ConnectivityDebounceSeconds)
             return;
         _lastConnectivityEventUtc = now;
 
@@ -148,7 +199,7 @@ public class ConnectionService
         {
             try
             {
-                await Task.Delay(2000, token);
+                await Task.Delay(ConnectivitySettleMs, token);
                 await TryAutoSwitchAsync(token);
             }
             catch (OperationCanceledException)
@@ -161,73 +212,119 @@ public class ConnectionService
         }, token);
     }
 
-    // ============================================================
-    //  Auto-switch
-    // ============================================================
-
-    private async Task TryAutoSwitchAsync(CancellationToken cancellationToken = default)
+    private void InvalidateEndpointDecision()
     {
-        if (!AutoSwitchEnabled) return;
-        if (DateTime.UtcNow < _manualSwitchCooldownUntil) return;
+        _endpointDecisionFresh = false;
+        _lastEnsureNetworkFingerprint = null;
+    }
+
+    /// <summary>NetworkAccess + 连接类型（WiFi/蜂窝等），用于判断「网络有没有变」。</summary>
+    private static string GetNetworkFingerprint()
+    {
+        var access = Connectivity.Current.NetworkAccess;
+        var profiles = string.Join(
+            ',',
+            Connectivity.Current.ConnectionProfiles.OrderBy(static p => p));
+        return $"{access}|{profiles}";
+    }
+
+    private async Task<EndpointEnsureResult> EnsureBestEndpointCoreAsync(
+        bool respectManualCooldown,
+        bool showToastOnSwitch,
+        bool notifyAddressSwitched,
+        bool forceProbe,
+        CancellationToken cancellationToken)
+    {
+        if (!AutoSwitchEnabled)
+            return EndpointEnsureResult.Skipped;
+
+        if (respectManualCooldown && DateTime.UtcNow < _manualSwitchCooldownUntil)
+            return EndpointEnsureResult.Skipped;
 
         var profiles = _cachedProfiles.Count > 0
             ? _cachedProfiles.ToList()
             : await LoadProfilesAsync();
-        if (profiles.Count <= 1) return;
+        if (profiles.Count <= 1)
+            return EndpointEnsureResult.Skipped;
 
         var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
         var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
-        if (lanProfile == null) return;
+        if (lanProfile == null)
+            return EndpointEnsureResult.Skipped;
 
         await _autoSwitchLock.WaitAsync(cancellationToken);
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // 内网优先
-            var isLanReachable = await IsUrlReachableAsync(lanProfile.BaseUrl);
+            var fingerprint = GetNetworkFingerprint();
+
+            // 网络没变、且上次已确认最优地址 → 跳过探测（普通刷新走这里）
+            if (!forceProbe
+                && _endpointDecisionFresh
+                && fingerprint == _lastEnsureNetworkFingerprint
+                && _lastEnsureResult is EndpointEnsureResult.Ready or EndpointEnsureResult.Switched)
+            {
+                AppLog.Debug($"EnsureEndpoint: reuse ({_lastEnsureResult}), network unchanged");
+                return _lastEnsureResult == EndpointEnsureResult.Switched
+                    ? EndpointEnsureResult.Ready
+                    : _lastEnsureResult;
+            }
+
+            // 内外网并行探测；都通则优先内网
+            var lanTask = IsUrlReachableAsync(lanProfile.BaseUrl, cancellationToken);
+            var wanTask = wanProfile != null
+                ? IsUrlReachableAsync(wanProfile.BaseUrl, cancellationToken)
+                : Task.FromResult(false);
+            await Task.WhenAll(lanTask, wanTask);
+
+            var isLanReachable = await lanTask;
+            var isWanReachable = await wanTask;
             cancellationToken.ThrowIfCancellationRequested();
 
             NasProfile? targetProfile = null;
             if (isLanReachable)
-            {
                 targetProfile = lanProfile;
-            }
-            else if (wanProfile != null)
-            {
-                var isWanReachable = await IsUrlReachableAsync(wanProfile.BaseUrl);
-                if (isWanReachable)
-                    targetProfile = wanProfile;
-            }
+            else if (isWanReachable && wanProfile != null)
+                targetProfile = wanProfile;
 
-            // 同 BaseUrl 跳过重建
             var currentUrl = SynologyManager.Client?.BaseUrl?.TrimEnd('/');
             var targetUrl = targetProfile?.BaseUrl?.TrimEnd('/');
-            if (targetProfile != null && currentUrl != null
-                && string.Equals(currentUrl, targetUrl, StringComparison.OrdinalIgnoreCase))
-            {
-                AppLog.Debug($"AutoSwitch: same URL, skip (LAN reachable={isLanReachable})");
-                return;
-            }
+
+            _lastEnsureUtc = DateTime.UtcNow;
+            _lastEnsureNetworkFingerprint = fingerprint;
 
             if (targetProfile == null)
             {
                 AppLog.Warn(
-                    $"AutoSwitch: LAN reachable={isLanReachable}, WAN={wanProfile != null}, all unreachable");
-                return;
+                    $"EnsureEndpoint: LAN={isLanReachable}, WAN={isWanReachable}, all unreachable");
+                // 不可达不缓存为 fresh：下次刷新还会再探，便于恢复
+                _endpointDecisionFresh = false;
+                _lastEnsureResult = EndpointEnsureResult.Unreachable;
+                return _lastEnsureResult;
+            }
+
+            if (currentUrl != null
+                && string.Equals(currentUrl, targetUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Debug(
+                    $"EnsureEndpoint: already best (LAN={isLanReachable}, WAN={isWanReachable})");
+                _endpointDecisionFresh = true;
+                _lastEnsureResult = EndpointEnsureResult.Ready;
+                return _lastEnsureResult;
             }
 
             var toKind = NasProfileDisplay.KindLabel(targetProfile.NetworkKind);
             AppLog.Debug(
-                $"AutoSwitch: {ActiveProfile?.BaseUrl ?? "-"} -> {targetProfile.BaseUrl}, LAN reachable={isLanReachable}");
+                $"EnsureEndpoint: {ActiveProfile?.BaseUrl ?? "-"} -> {targetProfile.BaseUrl}, LAN={isLanReachable}, WAN={isWanReachable}");
 
-            ActiveProfile = targetProfile;
-            await SaveActiveProfileIdAsync(targetProfile.Id);
-            await ApplyActiveProfileAsync(restoreSid: true);
-            ConnectionChanged?.Invoke(this, EventArgs.Empty);
-
-            MainThread.BeginInvokeOnMainThread(async () =>
-                await UiFeedback.ToastAsync($"已切换到{toKind}"));
+            await SwitchToProfileAsync(
+                targetProfile,
+                toastKind: showToastOnSwitch ? toKind : null,
+                notifyAddressSwitched: notifyAddressSwitched);
+            _endpointDecisionFresh = true;
+            _lastEnsureResult = EndpointEnsureResult.Switched;
+            return _lastEnsureResult;
         }
         finally
         {
@@ -235,8 +332,10 @@ public class ConnectionService
         }
     }
 
-    /// <summary>轻量 HEAD 探测（1.5s 超时）。</summary>
-    private static async Task<bool> IsUrlReachableAsync(string baseUrl)
+    /// <summary>轻量 HEAD 探测（短超时，便于快速判定通断）。</summary>
+    private static async Task<bool> IsUrlReachableAsync(
+        string baseUrl,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -244,18 +343,57 @@ public class ConnectionService
             {
                 ServerCertificateCustomValidationCallback = (_, _, _, _) => true
             };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(1.5) };
+            using var client = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromMilliseconds(ProbeTimeoutMs)
+            };
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linked.CancelAfter(ProbeTimeoutMs);
             using var request = new HttpRequestMessage(HttpMethod.Head, baseUrl);
-            await client.SendAsync(request);
+            using var response = await client.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, linked.Token);
             return true;
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return false;
         }
         catch (HttpRequestException)
         {
             return false;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Debug($"Probe failed: {baseUrl}", ex);
+            return false;
+        }
+    }
+
+    private async Task SwitchToProfileAsync(
+        NasProfile targetProfile,
+        string? toastKind = null,
+        bool notifyAddressSwitched = true)
+    {
+        SynologyManager.BeginAddressSwitch();
+        try
+        {
+            ActiveProfile = targetProfile;
+            await SaveActiveProfileIdAsync(targetProfile.Id);
+            await ApplyActiveProfileAsync(restoreSid: true);
+            ConnectionChanged?.Invoke(this, EventArgs.Empty);
+            if (notifyAddressSwitched)
+                AddressSwitched?.Invoke(this, EventArgs.Empty);
+
+            if (!string.IsNullOrEmpty(toastKind))
+            {
+                MainThread.BeginInvokeOnMainThread(async () =>
+                    await UiFeedback.ToastAsync($"已切换到{toastKind}"));
+            }
+        }
+        finally
+        {
+            // 宽限期内抑制旧 Client 已销毁 / 挂起请求失败的误报弹窗
+            SynologyManager.EndAddressSwitch(TimeSpan.FromSeconds(3));
         }
     }
 
@@ -266,6 +404,19 @@ public class ConnectionService
     public async Task SetActiveProfileAsync(NasProfile profile)
     {
         _manualSwitchCooldownUntil = DateTime.UtcNow.AddSeconds(30);
+        InvalidateEndpointDecision();
+
+        var currentUrl = SynologyManager.Client?.BaseUrl?.TrimEnd('/');
+        var targetUrl = profile.BaseUrl?.TrimEnd('/');
+        var urlChanged = currentUrl == null
+            || !string.Equals(currentUrl, targetUrl, StringComparison.OrdinalIgnoreCase);
+
+        if (urlChanged)
+        {
+            await SwitchToProfileAsync(profile);
+            return;
+        }
+
         ActiveProfile = profile;
         await SaveActiveProfileIdAsync(profile.Id);
         await ApplyActiveProfileAsync(restoreSid: true);
@@ -332,15 +483,18 @@ public class ConnectionService
                 if (SynologyHttpTrace.IsEnabled)
                     SynologyManager.Client.ConfigureHttpTrace(true, SynologyDebugLog.Write);
 #endif
-                var validity = await SynologyManager.Client.Auth.TryValidateAppSessionAsync();
-                if (validity == false)
+                using (var validateCts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
                 {
-                    AppLog.Warn("AutoSwitch: session validation returned false, keeping stored SID");
-                    return;
-                }
+                    var validity = await SynologyManager.Client.Auth.TryValidateAppSessionAsync(validateCts.Token);
+                    if (validity == false)
+                    {
+                        AppLog.Warn("AutoSwitch: session validation returned false, keeping stored SID");
+                        return;
+                    }
 
-                if (validity == true)
-                    await PersistSessionAsync();
+                    if (validity == true)
+                        await PersistSessionAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -493,6 +647,7 @@ public class ConnectionService
     {
         _cachedProfiles = profiles;
         InvalidateServerKey();
+        InvalidateEndpointDecision();
         await SaveProfilesToFileAsync(profiles);
     }
 

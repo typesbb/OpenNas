@@ -195,7 +195,8 @@ public class SynologyClient
             CookieContainer = _cookieContainer,
             UseCookies = false,
             AutomaticDecompression = DecompressionMethods.All,
-            ConnectTimeout = TimeSpan.FromMinutes(2),
+            // 连接建立超时宜短：死内网地址可快速失败，便于探测后切到外网。
+            ConnectTimeout = TimeSpan.FromSeconds(8),
             MaxConnectionsPerServer = 1,
             PooledConnectionLifetime = TimeSpan.FromMinutes(10),
             SslOptions = new SslClientAuthenticationOptions

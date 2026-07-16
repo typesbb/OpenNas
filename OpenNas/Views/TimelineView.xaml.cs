@@ -65,6 +65,9 @@ public partial class TimelineView : ContentView
         if (_loading)
             return;
 
+        if (_connection != null)
+            await _connection.EnsureBestEndpointAsync();
+
         _loading = true;
         if (showBusyIndicator)
         {

@@ -46,6 +46,32 @@ public partial class App : Application
 #endif
     }
 
-    protected override Window CreateWindow(IActivationState? activationState) =>
-        new(Services.GetRequiredService<StartupPage>());
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        var window = new Window(Services.GetRequiredService<StartupPage>());
+        window.Resumed += OnWindowResumed;
+        return window;
+    }
+
+    private void OnWindowResumed(object? sender, EventArgs e)
+    {
+        // 后台期间可能漏掉 ConnectivityChanged（尤其 WiFi→另一 WiFi），回前台强制确认地址
+        _ = EnsureEndpointOnResumeAsync();
+    }
+
+    private static async Task EnsureEndpointOnResumeAsync()
+    {
+        try
+        {
+            var connection = Services.GetService<ConnectionService>();
+            if (connection == null)
+                return;
+
+            await connection.EnsureBestEndpointOnResumeAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn("回前台自动确认连接失败", ex);
+        }
+    }
 }

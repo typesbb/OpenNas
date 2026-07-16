@@ -94,6 +94,12 @@ public partial class ExploreView : ContentView
 
 
 
+        if (_connection != null)
+
+            await _connection.EnsureBestEndpointAsync();
+
+
+
         _loading = true;
 
         if (showBusyIndicator)

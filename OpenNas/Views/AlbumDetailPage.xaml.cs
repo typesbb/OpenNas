@@ -108,7 +108,10 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         LongPressBehavior.DetectionEnabled = !IsSelecting;
         UpdateSelectionUi();
         if (_photos.Count == 0)
+        {
+            await _connection.EnsureBestEndpointAsync();
             await ReloadPhotosAsync();
+        }
 
         UpdateSelectionUi();
     }
@@ -123,11 +126,16 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private async void OnPullRefreshing(object? sender, EventArgs e)
     {
+        await _connection.EnsureBestEndpointAsync();
         await ReloadPhotosAsync(showBusyIndicator: false);
         PhotosRefreshView.IsRefreshing = false;
     }
 
-    public Task RefreshAsync() => ReloadPhotosAsync();
+    public async Task RefreshAsync()
+    {
+        await _connection.EnsureBestEndpointAsync();
+        await ReloadPhotosAsync();
+    }
 
     private async void OnLoadMore(object? sender, EventArgs e) => await LoadMorePhotosAsync();
 
