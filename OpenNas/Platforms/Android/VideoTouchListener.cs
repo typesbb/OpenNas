@@ -49,7 +49,8 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 {
     private const int ModeNone = 0;
     private const int ModeNav = 1;
-    private const int ModeZoomDrag = 2;
+    private const int ModeSeek = 2;
+    private const int ModeZoomDrag = 3;
 
     private readonly NasVideoPlayerView _view;
     private GestureDetector? _gestureDetector;
@@ -107,7 +108,8 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
     internal void OnSingleTap()
     {
-        if (_view.IsZoomed)
+        // 滑切换/seek 松手时 GestureDetector 仍可能报 SingleTapUp，需忽略。
+        if (_view.IsZoomed || _mode == ModeNav || _mode == ModeSeek || _longPressActive)
             return;
 
         _view.OnNativeSingleTap();
@@ -179,13 +181,18 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
                     if (_mode == ModeNone)
                     {
-                        // 上下滑动切换；放大时仅拖移画面。
+                        // 上下切换媒体；左右相对滑动调节进度（非绝对位置映射）。
                         if (Math.Abs(dy) > 20 && Math.Abs(dy) > Math.Abs(dx) * 1.15)
                             _mode = ModeNav;
+                        else if (Math.Abs(dx) > 20 && Math.Abs(dx) > Math.Abs(dy) * 1.15
+                                 && _view.BeginGestureSeek())
+                            _mode = ModeSeek;
                     }
 
                     if (_mode == ModeNav)
                         _view.OnNativeSlideOffset(dy);
+                    else if (_mode == ModeSeek)
+                        _view.UpdateGestureSeek(dx);
                     break;
 
                 case MotionEventActions.Up:
@@ -201,6 +208,10 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
                     {
                         var totalY = ToDip(e.GetY()) - _startY;
                         _ = _view.OnNativeSlideCompletedAsync(totalY);
+                    }
+                    else if (_mode == ModeSeek)
+                    {
+                        _ = _view.EndGestureSeekAsync();
                     }
 
                     _mode = ModeNone;

@@ -35,6 +35,9 @@ public partial class NasVideoPlayerView : ContentView
     private bool _isNavigating;
     private int _loadGeneration;
     private bool _isScrubbing;
+    private bool _isGestureSeeking;
+    private double _seekStartSeconds;
+    private double _seekTargetSeconds;
     private bool _wasPlayingBeforeScrub;
     private bool _wasPlayingBeforeSleep;
     private CancellationTokenSource? _progressCts;
@@ -394,7 +397,7 @@ public partial class NasVideoPlayerView : ContentView
 
     public void HideControls(bool animated = true)
     {
-        if (_isScrubbing)
+        if (_isScrubbing || _isGestureSeeking)
             return;
 
         _chromeHideCts?.Cancel();
@@ -726,7 +729,7 @@ public partial class NasVideoPlayerView : ContentView
 
     private void OnPositionChanged(object? sender, MediaPositionChangedEventArgs e)
     {
-        if (_isScrubbing)
+        if (_isScrubbing || _isGestureSeeking)
             return;
 
         MainThread.BeginInvokeOnMainThread(() =>
@@ -830,6 +833,8 @@ public partial class NasVideoPlayerView : ContentView
         _progressCts = null;
         _chromeHideCts?.Cancel();
         _wasPlayingBeforeSleep = false;
+        _isGestureSeeking = false;
+        SpeedHintLabel.IsVisible = false;
         EndFastForward();
         ReleasePlaybackPath();
         _durationSeconds = 0;
@@ -849,7 +854,11 @@ public partial class NasVideoPlayerView : ContentView
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
 #if !ANDROID
-        if (_isNavigating || _isScrubbing || _isPinching)
+        if (_isNavigating || _isPinching)
+            return;
+
+        // 底部滑块拖动中时忽略页面手势；手势 seek 本身会置 _isGestureSeeking。
+        if (_isScrubbing && !_isGestureSeeking)
             return;
 
         if (IsZoomed)
@@ -867,25 +876,124 @@ public partial class NasVideoPlayerView : ContentView
             case GestureStatus.Running:
                 _navPanY = e.TotalY;
 
-                if (_panMode == PanMode.None
-                    && Math.Abs(e.TotalY) > 20
-                    && Math.Abs(e.TotalY) > Math.Abs(e.TotalX) * 1.15)
+                if (_panMode == PanMode.None)
                 {
-                    _panMode = PanMode.Vertical;
+                    if (Math.Abs(e.TotalY) > 20 && Math.Abs(e.TotalY) > Math.Abs(e.TotalX) * 1.15)
+                        _panMode = PanMode.Vertical;
+                    else if (Math.Abs(e.TotalX) > 20 && Math.Abs(e.TotalX) > Math.Abs(e.TotalY) * 1.15
+                             && BeginGestureSeek())
+                        _panMode = PanMode.Seek;
                 }
 
                 if (_panMode == PanMode.Vertical)
                     SlideHost.TranslationY = ApplyVerticalResistance(e.TotalY);
+                else if (_panMode == PanMode.Seek)
+                    UpdateGestureSeek(e.TotalX);
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
                 if (_panMode == PanMode.Vertical)
                     _ = CompleteVerticalPanAsync();
+                else if (_panMode == PanMode.Seek)
+                    _ = EndGestureSeekAsync();
 
                 _panMode = PanMode.None;
                 break;
         }
 #endif
+    }
+
+    /// <summary>
+    /// 抖音式相对 seek：以按下时进度为基准，用水平滑动距离换算偏移，而非按触点在屏幕上的绝对位置映射进度。
+    /// 右滑前进，左滑后退；横向滑满一屏约等于整段时长。
+    /// </summary>
+    internal bool BeginGestureSeek()
+    {
+        if (_isGestureSeeking || IsZoomed || _isNavigating)
+            return false;
+
+        var duration = GetSeekableDurationSeconds();
+        if (duration <= 0.5)
+            return false;
+
+        _isGestureSeeking = true;
+        _chromeHideCts?.Cancel();
+        _wasPlayingBeforeScrub = MediaPlayer.CurrentState == MediaElementState.Playing;
+        if (_wasPlayingBeforeScrub)
+            MediaPlayer.Pause();
+
+        _seekStartSeconds = Math.Clamp(MediaPlayer.Position.TotalSeconds, 0, duration);
+        if (_seekStartSeconds <= 0 && ProgressSlider.Value > 0)
+            _seekStartSeconds = Math.Clamp(ProgressSlider.Value, 0, duration);
+
+        _seekTargetSeconds = _seekStartSeconds;
+        ControlsOverlay.Opacity = 1;
+        ControlsOverlay.InputTransparent = false;
+        UpdateGestureSeekUi();
+        return true;
+    }
+
+    internal void UpdateGestureSeek(double deltaX)
+    {
+        if (!_isGestureSeeking)
+            return;
+
+        var duration = GetSeekableDurationSeconds();
+        if (duration <= 0)
+            return;
+
+        var width = Width > 1 ? Width : 360;
+        // 相对起点的偏移量，不是 fingerX/width 绝对映射。
+        var offsetSeconds = deltaX / width * duration;
+        _seekTargetSeconds = Math.Clamp(_seekStartSeconds + offsetSeconds, 0, duration);
+        UpdateGestureSeekUi();
+    }
+
+    internal async Task EndGestureSeekAsync()
+    {
+        if (!_isGestureSeeking)
+            return;
+
+        var target = _seekTargetSeconds;
+        _isGestureSeeking = false;
+        SpeedHintLabel.IsVisible = false;
+
+        try
+        {
+            await MediaPlayer.SeekTo(TimeSpan.FromSeconds(target));
+            ProgressSlider.Value = target;
+            CurrentTimeLabel.Text = FormatTime(TimeSpan.FromSeconds(target));
+            if (_wasPlayingBeforeScrub)
+                MediaPlayer.Play();
+        }
+        catch
+        {
+            // ignore seek errors
+        }
+
+        UpdatePlayPauseButton();
+        ShowControls();
+    }
+
+    private void UpdateGestureSeekUi()
+    {
+        ProgressSlider.Value = _seekTargetSeconds;
+        CurrentTimeLabel.Text = FormatTime(TimeSpan.FromSeconds(_seekTargetSeconds));
+
+        var delta = _seekTargetSeconds - _seekStartSeconds;
+        var sign = delta >= 0 ? "+" : "";
+        SpeedHintLabel.Text = $"{sign}{delta:0}s  {FormatTime(TimeSpan.FromSeconds(_seekTargetSeconds))}";
+        SpeedHintLabel.IsVisible = true;
+    }
+
+    private double GetSeekableDurationSeconds()
+    {
+        if (_durationSeconds > 0.5)
+            return _durationSeconds;
+        if (ProgressSlider.Maximum > 0.5)
+            return ProgressSlider.Maximum;
+        var player = MediaPlayer.Duration.TotalSeconds;
+        return player > 0.5 ? player : 0;
     }
 
     private void OnPinchUpdated(object? sender, PinchGestureUpdatedEventArgs e)
@@ -1145,6 +1253,7 @@ public partial class NasVideoPlayerView : ContentView
     private enum PanMode
     {
         None,
-        Vertical
+        Vertical,
+        Seek
     }
 }
