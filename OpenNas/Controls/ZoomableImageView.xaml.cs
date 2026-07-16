@@ -26,8 +26,6 @@ public partial class ZoomableImageView : ContentView
     private const double MinScale = 1;
     private const double MaxScale = 5;
     private const double NavigateThreshold = 72;
-    private const double DismissMinThreshold = 200;
-    private const double DismissHeightRatio = 0.25;
 
     private double _currentScale = 1;
     private double _panX;
@@ -44,8 +42,7 @@ public partial class ZoomableImageView : ContentView
     private int _loadGeneration;
     private bool _showThumbnailOnly;
     private PanMode _panMode = PanMode.None;
-    private double _navPanY;
-    internal double _navPanX;
+    internal double _navPanY;
     internal bool _isNavigating;
     private bool _isPinching;
     internal bool ManagedGesturesEnabled;
@@ -178,8 +175,6 @@ public partial class ZoomableImageView : ContentView
     public event EventHandler? ZoomChanged;
     public event EventHandler? SingleTapped;
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
-    public event EventHandler<double>? DismissDrag;
-    public event EventHandler? DismissRequested;
 
     protected override void OnSizeAllocated(double width, double height)
     {
@@ -403,43 +398,13 @@ public partial class ZoomableImageView : ContentView
                 _panY = _panStartY + e.TotalY;
                 ClampPan(allowRubberBand: true);
                 ApplyTransform();
-                var overscroll = GetManagedOverscrollX();
-                SlideHost.TranslationX = Math.Abs(overscroll) > 8
-                    ? ApplyHorizontalResistance(overscroll)
-                    : 0;
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
-            {
-                var edgeX = GetManagedOverscrollX();
-                if (Math.Abs(edgeX) >= NavigateThreshold)
-                {
-                    _navPanX = edgeX;
-                    _ = CompleteHorizontalPanAsync();
-                }
-                else
-                {
-                    SlideHost.TranslationX = 0;
-                    _ = AnimatePanClampAsync();
-                }
-
+                SlideHost.TranslationY = 0;
+                _ = AnimatePanClampAsync();
                 break;
-            }
         }
-    }
-
-    private double GetManagedOverscrollX()
-    {
-        if (_currentScale <= 1.01)
-            return _panX;
-
-        var scaledW = _displayWidth * _currentScale;
-        var maxX = Math.Max(0, (scaledW - _containerWidth) / 2);
-        if (_panX > maxX)
-            return _panX - maxX;
-        if (_panX < -maxX)
-            return _panX + maxX;
-        return 0;
     }
 
     internal void OnNativeSingleTap()
@@ -520,57 +485,46 @@ public partial class ZoomableImageView : ContentView
         {
             case GestureStatus.Started:
                 _panMode = PanMode.None;
-                _navPanX = 0;
                 _navPanY = 0;
                 break;
             case GestureStatus.Running:
-                _navPanX = e.TotalX;
                 _navPanY = e.TotalY;
 
-                if (_panMode == PanMode.None)
+                if (_panMode == PanMode.None
+                    && Math.Abs(e.TotalY) > 20
+                    && Math.Abs(e.TotalY) > Math.Abs(e.TotalX) * 1.15)
                 {
-                    if (Math.Abs(e.TotalX) > 20 && Math.Abs(e.TotalX) > Math.Abs(e.TotalY) * 1.15)
-                        _panMode = PanMode.Horizontal;
-                    else if (e.TotalY > 20 && e.TotalY > Math.Abs(e.TotalX) * 1.15)
-                        _panMode = PanMode.Dismiss;
+                    _panMode = PanMode.Vertical;
                 }
 
-                if (_panMode == PanMode.Horizontal)
-                    SlideHost.TranslationX = ApplyHorizontalResistance(e.TotalX);
-                else if (_panMode == PanMode.Dismiss && e.TotalY > 0)
-                    DismissDrag?.Invoke(this, e.TotalY);
+                if (_panMode == PanMode.Vertical)
+                    SlideHost.TranslationY = ApplyVerticalResistance(e.TotalY);
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
-                if (_panMode == PanMode.Horizontal)
-                    _ = CompleteHorizontalPanAsync();
-                else if (_panMode == PanMode.Dismiss)
-                {
-                    if (_navPanY >= GetDismissThreshold())
-                        DismissRequested?.Invoke(this, EventArgs.Empty);
-                    else
-                        DismissDrag?.Invoke(this, 0);
-                }
+                if (_panMode == PanMode.Vertical)
+                    _ = CompleteVerticalPanAsync();
 
                 _panMode = PanMode.None;
                 break;
         }
     }
 
-    private double ApplyHorizontalResistance(double deltaX)
+    private double ApplyVerticalResistance(double deltaY)
     {
-        if (deltaX > 0 && !CanGoPrevious)
-            return deltaX * 0.28;
-        if (deltaX < 0 && !CanGoNext)
-            return deltaX * 0.28;
-        return deltaX;
+        // 下滑=上一张，上滑=下一张
+        if (deltaY > 0 && !CanGoPrevious)
+            return deltaY * 0.28;
+        if (deltaY < 0 && !CanGoNext)
+            return deltaY * 0.28;
+        return deltaY;
     }
 
-    internal async Task CompleteHorizontalPanAsync()
+    internal async Task CompleteVerticalPanAsync()
     {
-        var width = GetContainerWidth();
-        var shouldNavigate = Math.Abs(_navPanX) >= NavigateThreshold;
-        var direction = _navPanX < 0 ? 1 : -1;
+        var height = GetContainerHeight();
+        var shouldNavigate = Math.Abs(_navPanY) >= NavigateThreshold;
+        var direction = _navPanY < 0 ? 1 : -1;
 
         if (shouldNavigate)
         {
@@ -580,21 +534,21 @@ public partial class ZoomableImageView : ContentView
 
         if (!shouldNavigate || OnSwipeNavigateAsync == null)
         {
-            await SlideHost.TranslateTo(0, 0, 180, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(0, 0, 180, Easing.CubicOut);
             return;
         }
 
         _isNavigating = true;
         try
         {
-            var exitX = direction > 0 ? -width : width;
-            await SlideHost.TranslateTo(exitX, 0, 200, Easing.CubicOut);
+            var exitY = direction > 0 ? -height : height;
+            await SlideHost.TranslateToAsync(0, exitY, 200, Easing.CubicOut);
             ResetImageTransform();
-            SlideHost.TranslationX = direction > 0 ? width : -width;
+            SlideHost.TranslationY = direction > 0 ? height : -height;
 
             await OnSwipeNavigateAsync(direction);
 
-            await SlideHost.TranslateTo(0, 0, 200, Easing.CubicOut);
+            await SlideHost.TranslateToAsync(0, 0, 200, Easing.CubicOut);
         }
         finally
         {
@@ -691,20 +645,16 @@ public partial class ZoomableImageView : ContentView
         }
     }
 
-    internal double GetDismissThreshold() =>
-        Math.Max(DismissMinThreshold, _containerHeight > 0 ? _containerHeight * DismissHeightRatio : DismissMinThreshold);
-
-    private double GetContainerWidth() =>
-        _containerWidth > 0
-            ? _containerWidth
-            : Width > 0
-                ? Width
-                : 360;
+    private double GetContainerHeight() =>
+        _containerHeight > 0
+            ? _containerHeight
+            : Height > 0
+                ? Height
+                : 640;
 
     private enum PanMode
     {
         None,
-        Horizontal,
-        Dismiss
+        Vertical
     }
 }

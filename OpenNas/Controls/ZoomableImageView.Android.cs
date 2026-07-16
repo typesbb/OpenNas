@@ -101,46 +101,24 @@ public partial class ZoomableImageView
         ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    internal void OnNativeSlideOffset(float deltaX, bool allowWhenZoomed = false)
+    internal void OnNativeSlideOffset(float deltaY)
     {
-        if ((!allowWhenZoomed && _nativeZoomed) || _isNavigating)
+        if (_nativeZoomed || _isNavigating)
             return;
 
-        SlideHost.TranslationX = ApplyHorizontalResistance(deltaX);
+        SlideHost.TranslationY = ApplyVerticalResistance(deltaY);
     }
 
-    internal void OnNativeDismissOffset(float deltaY)
+    internal async Task OnNativeSlideCompletedAsync(float totalY)
     {
-        if (_nativeZoomed)
-            return;
-
-        DismissDrag?.Invoke(this, deltaY);
-    }
-
-    internal void OnNativeDismissCompleted(float totalY)
-    {
-        if (_nativeZoomed)
-        {
-            DismissDrag?.Invoke(this, 0);
-            return;
-        }
-
-        if (totalY >= GetDismissThreshold() && totalY > 0)
-            DismissRequested?.Invoke(this, EventArgs.Empty);
-        else
-            DismissDrag?.Invoke(this, 0);
-    }
-
-    internal async Task OnNativeSlideCompletedAsync(float totalX, bool allowWhenZoomed = false)
-    {
-        if ((!allowWhenZoomed && _nativeZoomed) || _isNavigating)
+        if (_nativeZoomed || _isNavigating)
         {
             await SlideHost.TranslateToAsync(0, 0, 160, Easing.CubicOut);
             return;
         }
 
-        _navPanX = totalX;
-        await CompleteHorizontalPanAsync();
+        _navPanY = totalY;
+        await CompleteVerticalPanAsync();
     }
 
     partial void ResetPlatformTransform()

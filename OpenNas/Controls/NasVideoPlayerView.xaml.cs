@@ -26,21 +26,20 @@ public partial class NasVideoPlayerView : ContentView
         true);
 
     private const double NavigateThreshold = 72;
-    private const double DismissMinThreshold = 200;
-    private const double DismissHeightRatio = 0.25;
     private const double MinScale = 1;
     private const double MaxScale = 5;
+    private const int ChromeAutoHideMs = 2800;
 
     private PanMode _panMode = PanMode.None;
-    private double _navPanX;
     private double _navPanY;
     private bool _isNavigating;
     private int _loadGeneration;
     private bool _isScrubbing;
     private bool _wasPlayingBeforeScrub;
+    private bool _wasPlayingBeforeSleep;
     private CancellationTokenSource? _progressCts;
     private bool _isFastForwarding;
-    private CancellationTokenSource? _singleTapCts;
+    private CancellationTokenSource? _chromeHideCts;
     private string? _playbackPath;
     private double _durationSeconds;
     private double _currentScale = 1;
@@ -131,8 +130,6 @@ public partial class NasVideoPlayerView : ContentView
     private bool _isFullscreenHost;
 
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
-    public event EventHandler<double>? DismissDrag;
-    public event EventHandler? DismissRequested;
     public event EventHandler? FullscreenRequested;
     public event EventHandler? SingleTapped;
     public event EventHandler? ZoomChanged;
@@ -198,10 +195,6 @@ public partial class NasVideoPlayerView : ContentView
         var pan = new PanGestureRecognizer();
         pan.PanUpdated += OnPanUpdated;
         TopTouchLayer.GestureRecognizers.Add(pan);
-
-        var doubleTap = new TapGestureRecognizer { NumberOfTapsRequired = 2 };
-        doubleTap.Tapped += OnDoubleTapped;
-        TopTouchLayer.GestureRecognizers.Add(doubleTap);
 
         var singleTap = new TapGestureRecognizer { NumberOfTapsRequired = 1 };
         singleTap.Tapped += OnSingleTappedManaged;
@@ -298,7 +291,11 @@ public partial class NasVideoPlayerView : ContentView
             HeightRequest = 36,
             VerticalOptions = LayoutOptions.Center
         };
-        PlayPauseButton.Clicked += (_, _) => TogglePlayPause();
+        PlayPauseButton.Clicked += (_, _) =>
+        {
+            TogglePlayPause();
+            ShowControls();
+        };
 
         FullscreenButton = new ImageButton
         {
@@ -380,11 +377,76 @@ public partial class NasVideoPlayerView : ContentView
 
         Content = Host;
         UpdateChromeVisibility();
+        ShowControls();
     }
 
     private void UpdateChromeVisibility()
     {
         FullscreenButton.IsVisible = !IsFullscreenHost;
+    }
+
+    public void ShowControls()
+    {
+        ControlsOverlay.Opacity = 1;
+        ControlsOverlay.InputTransparent = false;
+        ScheduleHideControls();
+    }
+
+    public void HideControls(bool animated = true)
+    {
+        if (_isScrubbing)
+            return;
+
+        _chromeHideCts?.Cancel();
+        ControlsOverlay.InputTransparent = true;
+        if (!animated)
+        {
+            ControlsOverlay.Opacity = 0;
+            return;
+        }
+
+        _ = ControlsOverlay.FadeToAsync(0, 320, Easing.CubicOut);
+    }
+
+    private void ScheduleHideControls()
+    {
+        _chromeHideCts?.Cancel();
+        _chromeHideCts = new CancellationTokenSource();
+        var token = _chromeHideCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(ChromeAutoHideMs, token);
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                        HideControls();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
+    }
+
+    /// <summary>息屏/进后台时暂停；回前台时若原先在播则恢复。</summary>
+    public void HandleAppSleep()
+    {
+        _wasPlayingBeforeSleep = MediaPlayer.CurrentState == MediaElementState.Playing;
+        if (_wasPlayingBeforeSleep)
+            MediaPlayer.Pause();
+        UpdatePlayPauseButton();
+    }
+
+    public void HandleAppResume()
+    {
+        if (!_wasPlayingBeforeSleep)
+            return;
+
+        _wasPlayingBeforeSleep = false;
+        MediaPlayer.Play();
+        UpdatePlayPauseButton();
     }
 
     private void ApplyDefaultSpeed()
@@ -591,6 +653,7 @@ public partial class NasVideoPlayerView : ContentView
 
             UpdatePlayPauseButton();
             ApplyDefaultSpeed();
+            ShowControls();
         });
     }
 
@@ -689,36 +752,20 @@ public partial class NasVideoPlayerView : ContentView
         UpdatePlayPauseButton();
     }
 
-    private void OnDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        _singleTapCts?.Cancel();
-        TogglePlayPause();
-    }
-
     private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
     {
         if (IsZoomed)
             return;
 
-        _singleTapCts?.Cancel();
-        _singleTapCts = new CancellationTokenSource();
-        var token = _singleTapCts.Token;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(300, token);
-                MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        });
+        TogglePlayPause();
+        ShowControls();
+        SingleTapped?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnScrubDragStarted(object? sender, EventArgs e)
     {
         _isScrubbing = true;
+        _chromeHideCts?.Cancel();
         _wasPlayingBeforeScrub = MediaPlayer.CurrentState == MediaElementState.Playing;
         if (_wasPlayingBeforeScrub)
             MediaPlayer.Pause();
@@ -737,6 +784,8 @@ public partial class NasVideoPlayerView : ContentView
         {
             // ignore seek errors
         }
+
+        ShowControls();
     }
 
     private void OnScrubValueChanged(object? sender, ValueChangedEventArgs e)
@@ -779,6 +828,8 @@ public partial class NasVideoPlayerView : ContentView
         _loadGeneration++;
         _progressCts?.Cancel();
         _progressCts = null;
+        _chromeHideCts?.Cancel();
+        _wasPlayingBeforeSleep = false;
         EndFastForward();
         ReleasePlaybackPath();
         _durationSeconds = 0;
@@ -811,37 +862,25 @@ public partial class NasVideoPlayerView : ContentView
         {
             case GestureStatus.Started:
                 _panMode = PanMode.None;
-                _navPanX = 0;
                 _navPanY = 0;
                 break;
             case GestureStatus.Running:
-                _navPanX = e.TotalX;
                 _navPanY = e.TotalY;
 
-                if (_panMode == PanMode.None)
+                if (_panMode == PanMode.None
+                    && Math.Abs(e.TotalY) > 20
+                    && Math.Abs(e.TotalY) > Math.Abs(e.TotalX) * 1.15)
                 {
-                    if (Math.Abs(e.TotalX) > 20 && Math.Abs(e.TotalX) > Math.Abs(e.TotalY) * 1.15)
-                        _panMode = PanMode.Horizontal;
-                    else if (e.TotalY > 20 && e.TotalY > Math.Abs(e.TotalX) * 1.15)
-                        _panMode = PanMode.Dismiss;
+                    _panMode = PanMode.Vertical;
                 }
 
-                if (_panMode == PanMode.Horizontal)
-                    SlideHost.TranslationX = ApplyHorizontalResistance(e.TotalX);
-                else if (_panMode == PanMode.Dismiss && e.TotalY > 0)
-                    DismissDrag?.Invoke(this, e.TotalY);
+                if (_panMode == PanMode.Vertical)
+                    SlideHost.TranslationY = ApplyVerticalResistance(e.TotalY);
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
-                if (_panMode == PanMode.Horizontal)
-                    _ = CompleteHorizontalPanAsync();
-                else if (_panMode == PanMode.Dismiss)
-                {
-                    if (_navPanY >= GetDismissThreshold())
-                        DismissRequested?.Invoke(this, EventArgs.Empty);
-                    else
-                        DismissDrag?.Invoke(this, 0);
-                }
+                if (_panMode == PanMode.Vertical)
+                    _ = CompleteVerticalPanAsync();
 
                 _panMode = PanMode.None;
                 break;
@@ -899,29 +938,13 @@ public partial class NasVideoPlayerView : ContentView
                 _panY = _panStartY + e.TotalY;
                 ClampZoomPan(allowRubberBand: true);
                 ApplyZoomTransform();
-                var overscroll = GetZoomOverscrollX();
-                SlideHost.TranslationX = Math.Abs(overscroll) > 8
-                    ? ApplyHorizontalResistance(overscroll)
-                    : 0;
                 break;
             case GestureStatus.Completed:
             case GestureStatus.Canceled:
-            {
-                var edgeX = GetZoomOverscrollX();
-                if (Math.Abs(edgeX) >= NavigateThreshold)
-                {
-                    _navPanX = edgeX;
-                    _ = CompleteHorizontalPanAsync();
-                }
-                else
-                {
-                    SlideHost.TranslationX = 0;
-                    ClampZoomPan();
-                    ApplyZoomTransform();
-                }
-
+                SlideHost.TranslationY = 0;
+                ClampZoomPan();
+                ApplyZoomTransform();
                 break;
-            }
         }
     }
 
@@ -957,24 +980,11 @@ public partial class NasVideoPlayerView : ContentView
         ApplyZoomTransform();
     }
 
-    internal double FinishZoomPan(out double overscrollX)
+    internal void FinishZoomPan()
     {
-        overscrollX = GetZoomOverscrollX();
-        if (Math.Abs(overscrollX) < NavigateThreshold)
-        {
-            ClampZoomPan();
-            ApplyZoomTransform();
-            SlideHost.TranslationX = 0;
-        }
-
-        return overscrollX;
-    }
-
-    internal void UpdateZoomEdgeSlide(double overscrollX)
-    {
-        SlideHost.TranslationX = Math.Abs(overscrollX) > 8
-            ? ApplyHorizontalResistance(overscrollX)
-            : 0;
+        ClampZoomPan();
+        ApplyZoomTransform();
+        SlideHost.TranslationY = 0;
     }
 
     private void ApplyZoomTransform()
@@ -995,6 +1005,7 @@ public partial class NasVideoPlayerView : ContentView
         TransformHost.TranslationX = 0;
         TransformHost.TranslationY = 0;
         SlideHost.TranslationX = 0;
+        SlideHost.TranslationY = 0;
         ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -1020,20 +1031,6 @@ public partial class NasVideoPlayerView : ContentView
 
         _panX = Math.Clamp(_panX, -maxX, maxX);
         _panY = Math.Clamp(_panY, -maxY, maxY);
-    }
-
-    private double GetZoomOverscrollX()
-    {
-        EnsureContainerSize();
-        if (_currentScale <= 1.01)
-            return _panX;
-
-        var maxX = Math.Max(0, (_containerWidth * (_currentScale - 1)) / 2);
-        if (_panX > maxX)
-            return _panX - maxX;
-        if (_panX < -maxX)
-            return _panX + maxX;
-        return 0;
     }
 
     private static double RubberBand(double value, double min, double max)
@@ -1085,20 +1082,20 @@ public partial class NasVideoPlayerView : ContentView
         }
     }
 
-    private double ApplyHorizontalResistance(double deltaX)
+    private double ApplyVerticalResistance(double deltaY)
     {
-        if (deltaX > 0 && !CanGoPrevious)
-            return deltaX * 0.28;
-        if (deltaX < 0 && !CanGoNext)
-            return deltaX * 0.28;
-        return deltaX;
+        if (deltaY > 0 && !CanGoPrevious)
+            return deltaY * 0.28;
+        if (deltaY < 0 && !CanGoNext)
+            return deltaY * 0.28;
+        return deltaY;
     }
 
-    internal async Task CompleteHorizontalPanAsync()
+    internal async Task CompleteVerticalPanAsync()
     {
-        var width = Width > 0 ? Width : 360;
-        var shouldNavigate = Math.Abs(_navPanX) >= NavigateThreshold;
-        var direction = _navPanX < 0 ? 1 : -1;
+        var height = Height > 0 ? Height : 640;
+        var shouldNavigate = Math.Abs(_navPanY) >= NavigateThreshold;
+        var direction = _navPanY < 0 ? 1 : -1;
 
         if (shouldNavigate)
         {
@@ -1122,23 +1119,21 @@ public partial class NasVideoPlayerView : ContentView
         try
         {
             MediaPlayer.Pause();
-            var exitX = direction > 0 ? -width : width;
-            await SlideHost.TranslateToAsync(exitX, 0, 200, Easing.CubicOut);
+            var exitY = direction > 0 ? -height : height;
+            await SlideHost.TranslateToAsync(0, exitY, 200, Easing.CubicOut);
             ResetZoomTransform();
-            SlideHost.TranslationX = direction > 0 ? width : -width;
+            SlideHost.TranslationY = direction > 0 ? height : -height;
 
             await OnSwipeNavigateAsync(direction);
 
             await SlideHost.TranslateToAsync(0, 0, 200, Easing.CubicOut);
+            ShowControls();
         }
         finally
         {
             _isNavigating = false;
         }
     }
-
-    internal double GetDismissThreshold() =>
-        Math.Max(DismissMinThreshold, Height > 0 ? Height * DismissHeightRatio : DismissMinThreshold);
 
     private static string FormatTime(TimeSpan time)
     {
@@ -1150,7 +1145,6 @@ public partial class NasVideoPlayerView : ContentView
     private enum PanMode
     {
         None,
-        Horizontal,
-        Dismiss
+        Vertical
     }
 }

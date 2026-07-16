@@ -6,7 +6,10 @@
              BackgroundColor="Black">
     <Grid>
         <Grid x:Name="MediaHost" />
-        <Grid VerticalOptions="Start"
+        <Grid x:Name="ChromeLayer"
+              InputTransparent="True"
+              CascadeInputTransparent="False"
+              VerticalOptions="Start"
               Padding="8,44,8,0"
               ColumnDefinitions="Auto,*,Auto">
             <ImageButton x:Name="BackButton"

@@ -36,13 +36,8 @@ public sealed class VideoGestureListener : GestureDetector.SimpleOnGestureListen
 
     public override void OnLongPress(MotionEvent e) => _owner.OnLongPress();
 
-    public override bool OnDoubleTap(MotionEvent e)
-    {
-        _owner.OnDoubleTap();
-        return true;
-    }
-
-    public override bool OnSingleTapConfirmed(MotionEvent e)
+    // 视频已无双击逻辑，用 SingleTapUp 避免 OnSingleTapConfirmed 的约 300ms 延迟。
+    public override bool OnSingleTapUp(MotionEvent e)
     {
         _owner.OnSingleTap();
         return true;
@@ -54,9 +49,7 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 {
     private const int ModeNone = 0;
     private const int ModeNav = 1;
-    private const int ModeDismiss = 2;
-    private const int ModeZoomDrag = 3;
-    private const float EdgeNavThreshold = 72f;
+    private const int ModeZoomDrag = 2;
 
     private readonly NasVideoPlayerView _view;
     private GestureDetector? _gestureDetector;
@@ -111,8 +104,6 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
         _gestureConsumed = true;
         _view.OnNativeLongPress();
     }
-
-    internal void OnDoubleTap() => _view.OnNativeDoubleTap();
 
     internal void OnSingleTap()
     {
@@ -183,23 +174,18 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
                     if (_mode == ModeZoomDrag)
                     {
                         _view.UpdateZoomPan(dx, dy);
-                        var overscroll = _view.GetNativeZoomOverscrollX();
-                        _view.UpdateZoomEdgeSlide(overscroll);
                         break;
                     }
 
                     if (_mode == ModeNone)
                     {
-                        if (Math.Abs(dx) > 20 && Math.Abs(dx) > Math.Abs(dy) * 1.15)
+                        // 上下滑动切换；放大时仅拖移画面。
+                        if (Math.Abs(dy) > 20 && Math.Abs(dy) > Math.Abs(dx) * 1.15)
                             _mode = ModeNav;
-                        else if (dy > 20 && dy > Math.Abs(dx) * 1.15)
-                            _mode = ModeDismiss;
                     }
 
                     if (_mode == ModeNav)
-                        _view.OnNativeSlideOffset(dx);
-                    else if (_mode == ModeDismiss && dy > 0)
-                        _view.OnNativeDismissOffset(dy);
+                        _view.OnNativeSlideOffset(dy);
                     break;
 
                 case MotionEventActions.Up:
@@ -209,22 +195,12 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
                     if (_mode == ModeZoomDrag)
                     {
-                        var overscroll = _view.FinishZoomPan(out _);
-                        if (Math.Abs(overscroll) >= EdgeNavThreshold)
-                        {
-                            _view.SetNavPanForNative(overscroll);
-                            _ = _view.CompleteHorizontalPanAsync();
-                        }
+                        _view.FinishZoomPan();
                     }
                     else if (_mode == ModeNav)
                     {
-                        var totalX = ToDip(e.GetX()) - _startX;
-                        _ = _view.OnNativeSlideCompletedAsync(totalX);
-                    }
-                    else if (_mode == ModeDismiss)
-                    {
                         var totalY = ToDip(e.GetY()) - _startY;
-                        _view.OnNativeDismissCompleted(totalY);
+                        _ = _view.OnNativeSlideCompletedAsync(totalY);
                     }
 
                     _mode = ModeNone;

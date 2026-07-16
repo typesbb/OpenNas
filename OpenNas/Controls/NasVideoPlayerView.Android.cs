@@ -76,42 +76,25 @@ public partial class NasVideoPlayerView
 
     internal void OnNativeLongPressReleased() => EndFastForward();
 
-    internal void OnNativeDoubleTap() => TogglePlayPause();
+    internal void OnNativeSingleTap()
+    {
+        TogglePlayPause();
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ShowControls();
+            SingleTapped?.Invoke(this, EventArgs.Empty);
+        });
+    }
 
-    internal void OnNativeSingleTap() =>
-        MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
-
-    internal void OnNativeSlideOffset(float deltaX)
+    internal void OnNativeSlideOffset(float deltaY)
     {
         if (_isNavigating || IsZoomed)
             return;
 
-        SlideHost.TranslationX = ApplyHorizontalResistance(deltaX);
+        SlideHost.TranslationY = ApplyVerticalResistance(deltaY);
     }
 
-    internal void OnNativeDismissOffset(float deltaY)
-    {
-        if (IsZoomed)
-            return;
-
-        DismissDrag?.Invoke(this, deltaY);
-    }
-
-    internal void OnNativeDismissCompleted(float totalY)
-    {
-        if (IsZoomed)
-        {
-            DismissDrag?.Invoke(this, 0);
-            return;
-        }
-
-        if (totalY >= GetDismissThreshold() && totalY > 0)
-            DismissRequested?.Invoke(this, EventArgs.Empty);
-        else
-            DismissDrag?.Invoke(this, 0);
-    }
-
-    internal async Task OnNativeSlideCompletedAsync(float totalX)
+    internal async Task OnNativeSlideCompletedAsync(float totalY)
     {
         if (_isNavigating || IsZoomed)
         {
@@ -119,18 +102,14 @@ public partial class NasVideoPlayerView
             return;
         }
 
-        _navPanX = totalX;
-        await CompleteHorizontalPanAsync();
+        _navPanY = totalY;
+        await CompleteVerticalPanAsync();
     }
 
     internal void ResetZoomFromNative()
     {
         ResetZoomTransform();
     }
-
-    internal double GetNativeZoomOverscrollX() => GetZoomOverscrollX();
-
-    internal void SetNavPanForNative(double totalX) => _navPanX = totalX;
 
     partial void OnPhotoReadyForPlatform() =>
         ScheduleAndroidTouchAttach();

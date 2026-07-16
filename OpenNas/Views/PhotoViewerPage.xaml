@@ -6,27 +6,44 @@
              BackgroundColor="Black">
     <Grid>
         <Grid x:Name="DismissHost" />
-        <ImageButton x:Name="BackButton"
-                     Source="icon_back.png"
-                     BackgroundColor="#44FFFFFF"
-                     CornerRadius="22"
-                     HorizontalOptions="Start"
-                     VerticalOptions="Start"
-                     Margin="8,44,0,0"
-                     WidthRequest="44"
-                     HeightRequest="44"
-                     Padding="10"
-                     Clicked="OnBackClicked" />
-        <ImageButton x:Name="FullscreenButton"
-                     Source="icon_fullscreen.png"
-                     BackgroundColor="Transparent"
-                     HorizontalOptions="End"
-                     VerticalOptions="End"
-                     Margin="0,0,12,24"
-                     WidthRequest="44"
-                     HeightRequest="44"
-                     Padding="8"
-                     Clicked="OnFullscreenClicked" />
+
+        <!-- 空白区域穿透到手势层；仅按钮可点 -->
+        <Grid x:Name="ChromeLayer"
+              InputTransparent="True"
+              CascadeInputTransparent="False">
+            <ImageButton x:Name="BackButton"
+                         Source="icon_back.png"
+                         BackgroundColor="#44FFFFFF"
+                         CornerRadius="22"
+                         HorizontalOptions="Start"
+                         VerticalOptions="Start"
+                         Margin="8,44,0,0"
+                         WidthRequest="44"
+                         HeightRequest="44"
+                         Padding="10"
+                         Clicked="OnBackClicked" />
+            <ImageButton x:Name="InfoButton"
+                         Source="icon_info.png"
+                         BackgroundColor="#44FFFFFF"
+                         CornerRadius="22"
+                         HorizontalOptions="End"
+                         VerticalOptions="Start"
+                         Margin="0,44,8,0"
+                         WidthRequest="44"
+                         HeightRequest="44"
+                         Padding="10"
+                         Clicked="OnInfoClicked" />
+            <ImageButton x:Name="FullscreenButton"
+                         Source="icon_fullscreen.png"
+                         BackgroundColor="Transparent"
+                         HorizontalOptions="End"
+                         VerticalOptions="End"
+                         Margin="0,0,12,24"
+                         WidthRequest="44"
+                         HeightRequest="44"
+                         Padding="8"
+                         Clicked="OnFullscreenClicked" />
+        </Grid>
 
         <Border x:Name="DetailPanel"
                 IsVisible="False"

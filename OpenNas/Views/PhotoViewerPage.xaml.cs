@@ -7,6 +7,8 @@ namespace OpenNas.Views;
 
 public partial class PhotoViewerPage : ContentPage
 {
+    private const int ChromeAutoHideMs = 2800;
+
     private readonly IReadOnlyList<Photo> _photos;
     private readonly ZoomableImageView _imageView;
     private readonly NasVideoPlayerView _videoView;
@@ -15,10 +17,12 @@ public partial class PhotoViewerPage : ContentPage
     private int _index;
     private bool _currentZoomed;
     private bool _initialized;
-    private bool _isDismissing;
     private bool _actionBarVisible;
+    private bool _chromeVisible = true;
     private bool _exporting;
+    private bool _windowEventsHooked;
     private CancellationTokenSource? _exportCts;
+    private CancellationTokenSource? _chromeHideCts;
 
     public PhotoViewerPage(
         IReadOnlyList<Photo> photos,
@@ -40,8 +44,6 @@ public partial class PhotoViewerPage : ContentPage
         };
         _imageView.ZoomChanged += OnZoomChanged;
         _imageView.SingleTapped += OnImageSingleTapped;
-        _imageView.DismissDrag += OnDismissDrag;
-        _imageView.DismissRequested += OnDismissRequested;
         _imageView.OnSwipeNavigateAsync = NavigateAsync;
 
         _videoView = new NasVideoPlayerView
@@ -50,8 +52,6 @@ public partial class PhotoViewerPage : ContentPage
             VerticalOptions = LayoutOptions.Fill,
             IsVisible = false
         };
-        _videoView.DismissDrag += OnDismissDrag;
-        _videoView.DismissRequested += OnDismissRequested;
         _videoView.OnSwipeNavigateAsync = NavigateAsync;
         _videoView.FullscreenRequested += OnVideoFullscreenRequested;
         _videoView.SingleTapped += OnVideoSingleTapped;
@@ -66,16 +66,55 @@ public partial class PhotoViewerPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        HookWindowLifecycle();
         PhotosMediaLibraryScope.Current = _mediaLibrary;
         if (PhotosAlbumMediaScope.CurrentPassphrase != null)
             PhotosMediaLibraryScope.Current = PhotosLibrary.PersonalSpace;
         UpdateExportActionsVisibility();
+        ShowChrome();
         if (_initialized || _photos.Count == 0)
             return;
 
         _initialized = true;
         ShowCurrent();
     }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        UnhookWindowLifecycle();
+        _chromeHideCts?.Cancel();
+        try { _exportCts?.Cancel(); } catch (ObjectDisposedException) { }
+        _videoView.Stop();
+        DismissHost.TranslationY = 0;
+        DismissHost.Opacity = 1;
+    }
+
+    private void HookWindowLifecycle()
+    {
+        if (_windowEventsHooked || Window == null)
+            return;
+
+        Window.Stopped += OnWindowStopped;
+        Window.Resumed += OnWindowResumed;
+        _windowEventsHooked = true;
+    }
+
+    private void UnhookWindowLifecycle()
+    {
+        if (!_windowEventsHooked || Window == null)
+            return;
+
+        Window.Stopped -= OnWindowStopped;
+        Window.Resumed -= OnWindowResumed;
+        _windowEventsHooked = false;
+    }
+
+    private void OnWindowStopped(object? sender, EventArgs e) =>
+        _videoView.HandleAppSleep();
+
+    private void OnWindowResumed(object? sender, EventArgs e) =>
+        _videoView.HandleAppResume();
 
     private void UpdateExportActionsVisibility()
     {
@@ -103,6 +142,7 @@ public partial class PhotoViewerPage : ContentPage
 
     private void OnLoaded(object? sender, EventArgs e)
     {
+        HookWindowLifecycle();
         if (_initialized)
             return;
 
@@ -137,6 +177,7 @@ public partial class PhotoViewerPage : ContentPage
             _videoView.CanGoPrevious = _index > 0;
             _videoView.CanGoNext = _index < _photos.Count - 1;
             _videoView.Photo = photo;
+            _videoView.ShowControls();
         }
         else
         {
@@ -146,6 +187,8 @@ public partial class PhotoViewerPage : ContentPage
             _imageView.Photo = photo;
             PrefetchNeighbors(_index);
         }
+
+        ShowChrome();
     }
 
     private void PrefetchNeighbors(int centerIndex)
@@ -203,14 +246,24 @@ public partial class PhotoViewerPage : ContentPage
         if (_photos[_index].IsVideo || _currentZoomed || _exporting)
             return;
 
-        ToggleActionBar();
+        if (_chromeVisible)
+            HideChrome();
+        else
+            ShowChrome();
     }
 
     private void OnVideoSingleTapped(object? sender, EventArgs e)
     {
+        // 播放/暂停已在控件内处理；此处只同步页面 chrome。
         if (!_photos[_index].IsVideo || _currentZoomed || _exporting)
             return;
 
+        ShowChrome();
+    }
+
+    private void OnInfoClicked(object? sender, EventArgs e)
+    {
+        ShowChrome();
         ToggleActionBar();
     }
 
@@ -220,7 +273,14 @@ public partial class PhotoViewerPage : ContentPage
         UpdateExportActionsVisibility();
         DetailPanel.IsVisible = _actionBarVisible;
         if (_actionBarVisible)
+        {
             UpdateDetailLabels();
+            _chromeHideCts?.Cancel();
+        }
+        else
+        {
+            ScheduleHideChrome();
+        }
     }
 
     private void HideActionBar()
@@ -229,65 +289,66 @@ public partial class PhotoViewerPage : ContentPage
         DetailPanel.IsVisible = false;
     }
 
-    private void OnDismissDrag(object? sender, double totalY)
+    private void ShowChrome()
     {
-        if (_currentZoomed || _isDismissing)
-            return;
+        _chromeVisible = true;
+        SetChromeButtonsHitTest(true);
+        ChromeLayer.Opacity = 1;
+        ScheduleHideChrome();
+    }
 
-        if (totalY <= 0)
-        {
-            _ = AnimateDismissResetAsync();
-            return;
-        }
-
+    private void HideChrome(bool animated = true)
+    {
+        _chromeHideCts?.Cancel();
+        _chromeVisible = false;
         HideActionBar();
-        DismissHost.TranslationY = totalY;
-        var threshold = _photos[_index].IsVideo
-            ? _videoView.GetDismissThreshold()
-            : _imageView.GetDismissThreshold();
-        DismissHost.Opacity = Math.Clamp(1 - totalY / (threshold * 1.6), 0.35, 1);
-    }
-
-    private async void OnDismissRequested(object? sender, EventArgs e)
-    {
-        if (_currentZoomed || _isDismissing)
+        SetChromeButtonsHitTest(false);
+        if (!animated)
         {
-            await AnimateDismissResetAsync();
+            ChromeLayer.Opacity = 0;
             return;
         }
 
-        _isDismissing = true;
-        try
-        {
-            await AnimateDismissOutAsync();
-            await Navigation.PopAsync();
-        }
-        finally
-        {
-            _isDismissing = false;
-        }
+        _ = ChromeLayer.FadeToAsync(0, 320, Easing.CubicOut);
     }
 
-    private Task AnimateDismissOutAsync()
+    private void SetChromeButtonsHitTest(bool enabled)
     {
-        var height = Height > 0 ? Height : DismissHost.Height > 0 ? DismissHost.Height : 800;
-        return Task.WhenAll(
-            DismissHost.TranslateToAsync(0, height, 240, Easing.CubicIn),
-            DismissHost.FadeToAsync(0, 240, Easing.CubicIn));
+        BackButton.InputTransparent = !enabled;
+        InfoButton.InputTransparent = !enabled;
+        FullscreenButton.InputTransparent = !enabled;
     }
 
-    private Task AnimateDismissResetAsync()
+    private void ScheduleHideChrome()
     {
-        return Task.WhenAll(
-            DismissHost.TranslateToAsync(0, 0, 180, Easing.CubicOut),
-            DismissHost.FadeToAsync(1, 180, Easing.CubicOut));
+        _chromeHideCts?.Cancel();
+        _chromeHideCts = new CancellationTokenSource();
+        var token = _chromeHideCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(ChromeAutoHideMs, token);
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    if (!token.IsCancellationRequested && !_actionBarVisible)
+                        HideChrome();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        });
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>
         await Navigation.PopAsync();
 
-    private async void OnFullscreenClicked(object? sender, EventArgs e) =>
+    private async void OnFullscreenClicked(object? sender, EventArgs e)
+    {
+        ShowChrome();
         await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
+    }
 
     private async void OnVideoFullscreenRequested(object? sender, EventArgs e) =>
         await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
@@ -310,6 +371,7 @@ public partial class PhotoViewerPage : ContentPage
 
         _exporting = true;
         HideActionBar();
+        _chromeHideCts?.Cancel();
         ExportProgressPanel.IsVisible = true;
         ExportStatusLabel.Text = "正在下载…";
         ExportProgressBar.Progress = 0;
@@ -354,6 +416,7 @@ public partial class PhotoViewerPage : ContentPage
             _exportCts?.Dispose();
             _exportCts = null;
             _exporting = false;
+            ShowChrome();
         }
     }
 
@@ -364,6 +427,7 @@ public partial class PhotoViewerPage : ContentPage
 
         _exporting = true;
         HideActionBar();
+        _chromeHideCts?.Cancel();
         ExportProgressPanel.IsVisible = true;
         ExportStatusLabel.Text = "正在准备分享…";
         ExportProgressBar.Progress = 0;
@@ -396,15 +460,7 @@ public partial class PhotoViewerPage : ContentPage
             _exportCts?.Dispose();
             _exportCts = null;
             _exporting = false;
+            ShowChrome();
         }
-    }
-
-    protected override void OnDisappearing()
-    {
-        base.OnDisappearing();
-        try { _exportCts?.Cancel(); } catch (ObjectDisposedException) { }
-        _videoView.Stop();
-        DismissHost.TranslationY = 0;
-        DismissHost.Opacity = 1;
     }
 }

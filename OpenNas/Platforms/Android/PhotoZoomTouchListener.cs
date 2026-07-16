@@ -61,9 +61,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
     private const int ModeNone = 0;
     private const int ModeDrag = 1;
     private const int ModeNav = 2;
-    private const int ModeDismiss = 3;
-
-    private const float EdgeNavThreshold = 72f;
 
     private readonly ZoomableImageView _view;
     private readonly Matrix _matrix = new();
@@ -81,7 +78,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
     private int _mode = ModeNone;
     private float _navStartX;
     private float _navStartY;
-    private float _edgeOverscrollX;
     private bool _usesMatrix;
     private bool _isPinchZoomed;
 
@@ -178,7 +174,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
                     _start.Set(e.GetX(), e.GetY());
                     _navStartX = e.GetX();
                     _navStartY = e.GetY();
-                    _edgeOverscrollX = 0f;
                     _mode = IsZoomed() ? ModeDrag : ModeNone;
                     break;
 
@@ -191,27 +186,19 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
                     {
                         _matrix.Set(_savedMatrix);
                         _matrix.PostTranslate(e.GetX() - _start.X, e.GetY() - _start.Y);
-                        _edgeOverscrollX = ComputeOverscrollX();
                         EnforceBounds(allowOverscroll: true);
                         ApplyMatrix();
-                        if (Math.Abs(_edgeOverscrollX) > 8f)
-                            _view.OnNativeSlideOffset(_edgeOverscrollX, allowWhenZoomed: true);
-                        else
-                            _view.OnNativeSlideOffset(0, allowWhenZoomed: true);
                     }
                     else if (_mode == ModeNone && e.PointerCount == 1 && !IsZoomed())
                     {
                         var dx = e.GetX() - _navStartX;
                         var dy = e.GetY() - _navStartY;
-                        if (Math.Abs(dx) > 16 && Math.Abs(dx) > Math.Abs(dy) * 1.15)
+                        // 上下滑动切换；放大时仅拖移画面，不做边缘切图。
+                        if (Math.Abs(dy) > 16 && Math.Abs(dy) > Math.Abs(dx) * 1.15)
                             _mode = ModeNav;
-                        else if (dy > 16 && dy > Math.Abs(dx) * 1.15)
-                            _mode = ModeDismiss;
 
                         if (_mode == ModeNav)
-                            _view.OnNativeSlideOffset(dx);
-                        else if (_mode == ModeDismiss && dy > 0)
-                            _view.OnNativeDismissOffset(dy);
+                            _view.OnNativeSlideOffset(dy);
                     }
                     break;
 
@@ -219,30 +206,15 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
                 case MotionEventActions.PointerUp:
                     if (_mode == ModeDrag)
                     {
-                        if (Math.Abs(_edgeOverscrollX) >= EdgeNavThreshold)
-                        {
-                            _ = _view.OnNativeSlideCompletedAsync(_edgeOverscrollX, allowWhenZoomed: true);
-                        }
-                        else
-                        {
-                            _view.OnNativeSlideOffset(0, allowWhenZoomed: true);
-                            EnforceBounds();
-                            ApplyMatrix();
-                            SnapToMinIfNeeded();
-                            _view.NotifyNativeZoomChanged(IsZoomed());
-                        }
-
-                        _edgeOverscrollX = 0f;
+                        EnforceBounds();
+                        ApplyMatrix();
+                        SnapToMinIfNeeded();
+                        _view.NotifyNativeZoomChanged(IsZoomed());
                     }
                     else if (_mode == ModeNav)
                     {
-                        var totalX = e.GetX() - _navStartX;
-                        _ = _view.OnNativeSlideCompletedAsync(totalX);
-                    }
-                    else if (_mode == ModeDismiss)
-                    {
                         var totalY = e.GetY() - _navStartY;
-                        _view.OnNativeDismissCompleted(totalY);
+                        _ = _view.OnNativeSlideCompletedAsync(totalY);
                     }
 
                     _mode = ModeNone;
@@ -345,39 +317,6 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
             PrepareDisplay();
         else
             _isPinchZoomed = IsZoomed();
-    }
-
-    /// <summary>
-    /// 放大后拖到左右边缘再继续拉动时的过冲量：&gt;0 上一张，&lt;0 下一张。
-    /// </summary>
-    private float ComputeOverscrollX()
-    {
-        if (_imageView == null)
-            return 0f;
-
-        var drawable = _imageView.Drawable;
-        if (drawable == null)
-            return 0f;
-
-        _drawRect.Set(0, 0, drawable.IntrinsicWidth, drawable.IntrinsicHeight);
-        _matrix.MapRect(_drawRect);
-
-        var viewW = _imageView.Width;
-        if (viewW <= 0)
-            return 0f;
-
-        if (_drawRect.Width() <= viewW + 0.5f)
-        {
-            var centerDelta = viewW / 2f - (_drawRect.Left + _drawRect.Right) / 2f;
-            return -centerDelta;
-        }
-
-        if (_drawRect.Left > 0.5f)
-            return _drawRect.Left;
-        if (_drawRect.Right < viewW - 0.5f)
-            return _drawRect.Right - viewW;
-
-        return 0f;
     }
 
     private void EnforceBounds(bool allowOverscroll = false)
