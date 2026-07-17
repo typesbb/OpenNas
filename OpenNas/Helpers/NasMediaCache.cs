@@ -12,11 +12,11 @@ namespace OpenNas.Helpers;
 /// </summary>
 public static class NasMediaCache
 {
-    /// <summary>缩略图配额（独立）。</summary>
-    private const long MaxThumbnailCacheBytes = 150L * 1024 * 1024;
+    /// <summary>缩略图配额（独立）。与原片合计约 1GB。</summary>
+    private const long MaxThumbnailCacheBytes = 200L * 1024 * 1024;
 
-    /// <summary>原片/视频配额（独立）。</summary>
-    private const long MaxOriginalCacheBytes = 500L * 1024 * 1024;
+    /// <summary>原片/视频配额（独立）。大视频占大头，避免刚看完就被淘汰。</summary>
+    private const long MaxOriginalCacheBytes = 800L * 1024 * 1024;
 
     private static readonly object StatsLock = new();
     private static readonly ConcurrentDictionary<string, byte> ProtectedPaths =
@@ -26,6 +26,8 @@ public static class NasMediaCache
     private static long _cachedThumbBytes;
     private static long _cachedOriginalBytes;
     private static bool _statsValid;
+    /// <summary>上次打开大图/视频时保留的路径；再次打开同一文件时跳过淘汰。</summary>
+    private static string? _lastRetainOriginalPath;
 
     private static readonly string RootDir = Path.Combine(FileSystem.CacheDirectory, "nas-media");
     private static readonly string ThumbnailDir = Path.Combine(RootDir, "thumbnails");
@@ -85,7 +87,7 @@ public static class NasMediaCache
             File.Delete(path);
         File.Move(temp, path);
         InvalidateStats();
-        _ = EvictThumbnailsIfNeededAsync();
+        EvictThumbnailsIfNeeded();
     }
 
     public static string GetOriginalFilePath(Photo photo)
@@ -104,7 +106,21 @@ public static class NasMediaCache
 
         try
         {
-            return new FileInfo(path).Length > 0;
+            var info = new FileInfo(path);
+            if (info.Length <= 0)
+                return false;
+
+            // 刷新访问时间失败不能当成未命中，否则会反复重新下载。
+            try
+            {
+                info.LastWriteTimeUtc = DateTime.UtcNow;
+            }
+            catch
+            {
+                // Android 部分机型可能拒绝改时间戳，忽略即可。
+            }
+
+            return true;
         }
         catch
         {
@@ -133,11 +149,27 @@ public static class NasMediaCache
         return path;
     }
 
-    /// <summary>进度下载等自行写盘完成后调用，刷新统计并按需淘汰原片。</summary>
+    /// <summary>进度下载等自行写盘完成后调用，仅刷新统计；淘汰改到下次打开大图/视频前。</summary>
     public static void NotifyOriginalStored()
     {
         InvalidateStats();
-        _ = EvictOriginalsIfNeededAsync();
+    }
+
+    /// <summary>
+    /// 打开大图/视频前调用：换到其他文件时若配额将满则淘汰一次。
+    /// 再次打开同一文件不淘汰；退出预览也不淘汰。
+    /// </summary>
+    /// <param name="retainPath">本次要保留的原片路径（已命中缓存时传入）。</param>
+    public static void PrepareOriginalCacheForLoad(string? retainPath = null)
+    {
+        if (!string.IsNullOrEmpty(retainPath)
+            && string.Equals(retainPath, _lastRetainOriginalPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _lastRetainOriginalPath = retainPath;
+        EvictOriginalsIfNeeded(retainPath);
     }
 
     /// <summary>标记路径正被播放/下载使用，原片淘汰时跳过。</summary>
@@ -153,8 +185,6 @@ public static class NasMediaCache
             return;
 
         ProtectedPaths.TryRemove(path, out _);
-        // 大视频停止使用后立刻检查原片配额，避免长期占满无法清理。
-        _ = EvictOriginalsIfNeededAsync();
     }
 
     public static int GetFileCount()
@@ -182,9 +212,9 @@ public static class NasMediaCache
         }
 
         if (thumbs >= MaxThumbnailCacheBytes * 9 / 10)
-            _ = EvictThumbnailsIfNeededAsync();
+            EvictThumbnailsIfNeeded();
         if (originals >= MaxOriginalCacheBytes * 9 / 10)
-            _ = EvictOriginalsIfNeededAsync();
+            EvictOriginalsIfNeeded(retainPath: null);
 
         return total;
     }
@@ -194,6 +224,7 @@ public static class NasMediaCache
         NasThumbnailLoader.ClearMemoryCache();
         NasOriginalLoader.ClearMemoryCache();
         ProtectedPaths.Clear();
+        _lastRetainOriginalPath = null;
         InvalidateStats();
 
         if (!Directory.Exists(RootDir))
@@ -270,13 +301,17 @@ public static class NasMediaCache
         return (total, count);
     }
 
-    private static Task EvictThumbnailsIfNeededAsync() =>
-        EvictDirectoryIfNeededAsync(ThumbnailDir, MaxThumbnailCacheBytes, respectProtected: false);
+    private static void EvictThumbnailsIfNeeded() =>
+        EvictDirectoryIfNeeded(ThumbnailDir, MaxThumbnailCacheBytes, respectProtected: false, retainPath: null);
 
-    private static Task EvictOriginalsIfNeededAsync() =>
-        EvictDirectoryIfNeededAsync(OriginalDir, MaxOriginalCacheBytes, respectProtected: true);
+    private static void EvictOriginalsIfNeeded(string? retainPath) =>
+        EvictDirectoryIfNeeded(OriginalDir, MaxOriginalCacheBytes, respectProtected: true, retainPath);
 
-    private static Task EvictDirectoryIfNeededAsync(string dir, long maxBytes, bool respectProtected)
+    private static void EvictDirectoryIfNeeded(
+        string dir,
+        long maxBytes,
+        bool respectProtected,
+        string? retainPath)
     {
         List<(string Path, long Size)> evictionOrder;
         long currentSize;
@@ -288,10 +323,10 @@ public static class NasMediaCache
                 : _cachedOriginalBytes;
 
             if (currentSize < maxBytes * 9 / 10)
-                return Task.CompletedTask;
+                return;
 
             if (!Directory.Exists(dir))
-                return Task.CompletedTask;
+                return;
 
             evictionOrder = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
                 .Where(f => !f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
@@ -300,7 +335,7 @@ public static class NasMediaCache
                     try
                     {
                         var fi = new FileInfo(f);
-                        return (Path: f, Size: fi.Length, LastWrite: fi.LastWriteTime);
+                        return (Path: f, Size: fi.Length, LastWrite: fi.LastWriteTimeUtc);
                     }
                     catch
                     {
@@ -318,6 +353,10 @@ public static class NasMediaCache
             if (currentSize <= targetSize)
                 break;
 
+            if (!string.IsNullOrEmpty(retainPath)
+                && string.Equals(file.Path, retainPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             // 仅原片：跳过下载/播放中的文件。未受保护的大视频可以删，否则配额会永久卡死。
             if (respectProtected && ProtectedPaths.ContainsKey(file.Path))
                 continue;
@@ -332,8 +371,6 @@ public static class NasMediaCache
 
         lock (StatsLock)
             RefreshStats();
-
-        return Task.CompletedTask;
     }
 
     private static void EnsureDirectories()

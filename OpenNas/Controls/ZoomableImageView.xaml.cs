@@ -220,11 +220,15 @@ public partial class ZoomableImageView : ContentView
 
         if (NasMediaCache.TryGetOriginalFile(photo, out var cachedOriginal))
         {
+            // 同一文件再次打开不淘汰；换图时淘汰且永不删当前文件。
+            NasMediaCache.PrepareOriginalCacheForLoad(cachedOriginal);
             view._showThumbnailOnly = false;
             view.PhotoImage.Source = ImageSource.FromFile(cachedOriginal);
             view.NotifyDisplayReady();
             return;
         }
+
+        NasMediaCache.PrepareOriginalCacheForLoad();
 
         var thumb = photo.Additional?.Thumbnail;
         var thumbId = thumb?.UnitId > 0 ? thumb!.UnitId : photo.Id;

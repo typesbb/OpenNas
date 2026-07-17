@@ -9,7 +9,7 @@ public static class NasThumbnailLoader
 {
 #pragma warning disable CA1068 // CancellationToken ordering: forGrid mode switch comes last by design
     private static readonly SemaphoreSlim ThumbnailGate = new(2, 2);
-    private const int MaxMemoryCacheEntries = 200;
+    private const int MaxMemoryCacheEntries = 500;
     private static readonly ConcurrentDictionary<string, Task<byte[]?>> MemoryCache = new();
     private static readonly ConcurrentQueue<string> MemoryCacheOrder = new();
 

@@ -538,11 +538,14 @@ public partial class NasVideoPlayerView : ContentView
         {
             if (NasMediaCache.TryGetOriginalFile(photo, out var cached))
             {
+                // 同一文件再次打开不淘汰；换片时淘汰且永不删当前文件。
                 NasMediaCache.ProtectPath(cached);
+                NasMediaCache.PrepareOriginalCacheForLoad(cached);
                 await AssignSourceAsync(cached, generation);
                 return;
             }
 
+            NasMediaCache.PrepareOriginalCacheForLoad();
             ShowDownloadProgress(0, photo.FileSize > 0 ? photo.FileSize : null);
 
             var path = await NasOriginalLoader.EnsureCachedWithProgressAsync(

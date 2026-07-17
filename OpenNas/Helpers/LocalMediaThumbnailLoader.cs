@@ -4,7 +4,7 @@ namespace OpenNas.Helpers;
 
 public static class LocalMediaThumbnailLoader
 {
-    private const int MaxCacheEntries = 32;
+    private const int MaxCacheEntries = 96;
     private static readonly SemaphoreSlim DecodeGate = new(3, 3);
     private static readonly ConcurrentDictionary<string, byte[]> ByteCache = new();
     private static readonly ConcurrentDictionary<string, ImageSource> ImageCache = new();
