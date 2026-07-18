@@ -49,6 +49,9 @@ public partial class FullscreenMediaPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+#endif
         HookWindowLifecycle();
         ShowChrome();
         if (_initialized || _photos.Count == 0)
@@ -92,8 +95,13 @@ public partial class FullscreenMediaPage : ContentPage
     private void OnWindowStopped(object? sender, EventArgs e) =>
         _videoView.HandleAppSleep();
 
-    private void OnWindowResumed(object? sender, EventArgs e) =>
+    private void OnWindowResumed(object? sender, EventArgs e)
+    {
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+#endif
         _videoView.HandleAppResume();
+    }
 
     private void ShowCurrent()
     {
@@ -109,7 +117,7 @@ public partial class FullscreenMediaPage : ContentPage
 
         if (isVideo)
         {
-            _imageView.Photo = null;
+            _imageView.LoadPhoto(null);
             _videoView.CanGoPrevious = _index > 0;
             _videoView.CanGoNext = _index < _photos.Count - 1;
             _videoView.Photo = photo;
@@ -121,7 +129,10 @@ public partial class FullscreenMediaPage : ContentPage
             _videoView.Photo = null;
             _imageView.CanGoPrevious = _index > 0;
             _imageView.CanGoNext = _index < _photos.Count - 1;
-            _imageView.Photo = photo;
+            string? seed = null;
+            if (Helpers.NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var thumbPath))
+                seed = thumbPath;
+            _imageView.LoadPhoto(photo, seed);
         }
 
         ShowChrome();
@@ -199,7 +210,7 @@ public partial class FullscreenMediaPage : ContentPage
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>
-        await Navigation.PopModalAsync();
+        await Navigation.PopAsync(animated: false);
 
     private void OnRotateClicked(object? sender, EventArgs e)
     {

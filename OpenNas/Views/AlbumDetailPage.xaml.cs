@@ -449,7 +449,14 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
             index = 0;
 
         _retainAlbumScopeOnDisappear = true;
-        await Navigation.PushAsync(new PhotoViewerPage(_photos, index, _connection));
+        var thumbBytes = GridThumbnailCapture.TryCapture(sender, item.Photo);
+        NasThumbnailLoader.TryFindCachedThumbnailPath(item.Photo, out var thumbPath);
+        var viewer = new PhotoViewerPage(
+            _photos, index, _connection,
+            seedThumbnailPath: thumbPath,
+            seedThumbnailBytes: thumbBytes);
+        Shell.SetTabBarIsVisible(viewer, false);
+        await Navigation.PushAsync(viewer);
     }
 
     private async void OnBackClicked(object? sender, EventArgs e)

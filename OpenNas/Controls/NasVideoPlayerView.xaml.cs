@@ -2,6 +2,7 @@ using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Views;
 using NSynology.Foto;
 using OpenNas.Helpers;
+using OpenNas.Services;
 
 namespace OpenNas.Controls;
 
@@ -44,6 +45,7 @@ public partial class NasVideoPlayerView : ContentView
     private bool _isFastForwarding;
     private CancellationTokenSource? _chromeHideCts;
     private string? _playbackPath;
+    private string? _seedPosterPath;
     private double _durationSeconds;
     private double _currentScale = 1;
     private double _panX;
@@ -139,6 +141,13 @@ public partial class NasVideoPlayerView : ContentView
 
     public bool IsZoomed => _currentScale > 1.05;
 
+    /// <summary>设置视频；可选传入网格缩略图路径作缓冲封面。</summary>
+    public void LoadVideo(Photo? photo, string? seedPosterPath = null)
+    {
+        _seedPosterPath = seedPosterPath;
+        Photo = photo;
+    }
+
     private void BuildUi()
     {
         PosterImage = new Image
@@ -146,7 +155,8 @@ public partial class NasVideoPlayerView : ContentView
             Aspect = Aspect.AspectFit,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            InputTransparent = true
+            InputTransparent = true,
+            ZIndex = 2
         };
 
         MediaPlayer = new MediaElement
@@ -157,7 +167,10 @@ public partial class NasVideoPlayerView : ContentView
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             BackgroundColor = Colors.Black,
-            InputTransparent = true
+            InputTransparent = true,
+            // 下载/打开完成前隐藏，否则黑底会盖住封面缩略图。
+            IsVisible = false,
+            ZIndex = 1
         };
         MediaPlayer.MediaOpened += OnMediaOpened;
         MediaPlayer.MediaFailed += OnMediaFailed;
@@ -166,10 +179,12 @@ public partial class NasVideoPlayerView : ContentView
 
         TransformHost = new ContentView
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             Content = new Grid
             {
+                SafeAreaEdges = SafeAreaEdges.None,
                 HorizontalOptions = LayoutOptions.Fill,
                 VerticalOptions = LayoutOptions.Fill,
                 Children = { PosterImage, MediaPlayer }
@@ -178,6 +193,7 @@ public partial class NasVideoPlayerView : ContentView
 
         SlideHost = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             Children = { TransformHost }
@@ -185,6 +201,7 @@ public partial class NasVideoPlayerView : ContentView
 
         TopTouchLayer = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             BackgroundColor = Colors.Transparent,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill
@@ -347,6 +364,7 @@ public partial class NasVideoPlayerView : ContentView
 
         ControlsOverlay = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             VerticalOptions = LayoutOptions.End,
             Padding = new Thickness(0, 0, 0, 12),
             RowDefinitions =
@@ -362,6 +380,7 @@ public partial class NasVideoPlayerView : ContentView
 
         Host = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             RowDefinitions =
@@ -520,12 +539,32 @@ public partial class NasVideoPlayerView : ContentView
         }
 
         view.ErrorLabel.IsVisible = false;
+        view.MediaPlayer.IsVisible = false;
         view.PosterImage.IsVisible = true;
         view.HideDownloadProgress();
         view.UpdateChromeVisibility();
-        NasThumbnailLoader.TryLoadPhotoThumbnail(view.PosterImage, photo);
+        view.ApplyPosterSeed(photo);
         view.OnPhotoReadyForPlatform();
         _ = view.LoadVideoAsync(photo, generation);
+    }
+
+    private void ApplyPosterSeed(Photo photo)
+    {
+        var path = _seedPosterPath;
+        _seedPosterPath = null;
+
+        if ((string.IsNullOrEmpty(path) || !File.Exists(path))
+            && NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var cached))
+            path = cached;
+
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+        {
+            PosterImage.Source = ImageSource.FromFile(path);
+            AppLog.Debug($"视频封面占位 path={path} id={photo.Id}");
+            return;
+        }
+
+        NasThumbnailLoader.TryLoadPhotoThumbnail(PosterImage, photo);
     }
 
     private async Task LoadVideoAsync(Photo photo, int generation)
@@ -589,6 +628,7 @@ public partial class NasVideoPlayerView : ContentView
                 return;
 
             MediaPlayer.Source = MediaSource.FromFile(path);
+            MediaPlayer.IsVisible = true;
             _playbackPath = path;
             NasMediaCache.ProtectPath(path);
             ApplyDefaultSpeed();
@@ -650,6 +690,7 @@ public partial class NasVideoPlayerView : ContentView
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
+            MediaPlayer.IsVisible = true;
             PosterImage.IsVisible = false;
             LoadingIndicator.IsRunning = false;
             LoadingIndicator.IsVisible = false;
@@ -844,6 +885,7 @@ public partial class NasVideoPlayerView : ContentView
         ResetZoomTransform();
         MediaPlayer.Stop();
         MediaPlayer.Source = null;
+        MediaPlayer.IsVisible = false;
         ErrorLabel.IsVisible = false;
         LoadingIndicator.IsVisible = false;
         LoadingIndicator.IsRunning = false;

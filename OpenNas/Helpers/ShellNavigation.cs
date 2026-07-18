@@ -4,6 +4,9 @@ public static class ShellNavigation
 {
     public static Task PushAsync(Page page)
     {
+        // 二级页不显示底部 TabBar；返回一级页后由页面自身默认值恢复。
+        Shell.SetTabBarIsVisible(page, false);
+
         if (Shell.Current != null)
             return Shell.Current.Navigation.PushAsync(page);
 

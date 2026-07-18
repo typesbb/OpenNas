@@ -68,7 +68,12 @@ public static class NasOriginalLoader
             if (canApply != null && !canApply())
                 return;
 
+#if ANDROID
+            // 只贴原生 Bitmap；勿设 Image.Source（会与 SetImageBitmap 打架清屏）。
+            Platforms.Android.NativeImageBitmap.SetBitmapFromFile(image, path);
+#else
             image.Source = ImageSource.FromFile(path);
+#endif
             onApplied?.Invoke();
         });
     }

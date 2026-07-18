@@ -1,5 +1,6 @@
 using NSynology.Foto;
 using OpenNas.Helpers;
+using OpenNas.Services;
 
 namespace OpenNas.Controls;
 
@@ -41,6 +42,8 @@ public partial class ZoomableImageView : ContentView
     private double _imageHeight;
     private int _loadGeneration;
     private bool _showThumbnailOnly;
+    private string? _seedThumbnailPath;
+    private byte[]? _seedThumbnailBytes;
     private PanMode _panMode = PanMode.None;
     internal double _navPanY;
     internal bool _isNavigating;
@@ -71,11 +74,13 @@ public partial class ZoomableImageView : ContentView
         {
             Aspect = Aspect.AspectFit,
             HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Fill
+            VerticalOptions = LayoutOptions.Fill,
+            BackgroundColor = Colors.Transparent
         };
 
         TransformHost = new ContentView
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
             Content = PhotoImage
@@ -83,16 +88,20 @@ public partial class ZoomableImageView : ContentView
 
         SlideHost = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
+            ZIndex = 1,
             Children = { TransformHost }
         };
 
+        // 勿设 BackgroundColor：部分 Android 上 Transparent 会盖住下层。
         TouchLayer = new Grid
         {
-            BackgroundColor = Colors.Transparent,
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
-            VerticalOptions = LayoutOptions.Fill
+            VerticalOptions = LayoutOptions.Fill,
+            ZIndex = 10
         };
 
         LoadingIndicator = new ActivityIndicator
@@ -109,6 +118,7 @@ public partial class ZoomableImageView : ContentView
 
         Host = new Grid
         {
+            SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             Children = { SlideHost, TouchLayer, LoadingIndicator }
@@ -154,6 +164,14 @@ public partial class ZoomableImageView : ContentView
         set => SetValue(PhotoProperty, value);
     }
 
+    /// <summary>设置照片；可选传入网格正在显示的缩略图路径/字节，保证首帧占位。</summary>
+    public void LoadPhoto(Photo? photo, string? seedThumbnailPath = null, byte[]? seedThumbnailBytes = null)
+    {
+        _seedThumbnailPath = seedThumbnailPath;
+        _seedThumbnailBytes = seedThumbnailBytes is { Length: > 0 } ? seedThumbnailBytes : null;
+        Photo = photo;
+    }
+
     public bool CanGoPrevious
     {
         get => (bool)GetValue(CanGoPreviousProperty);
@@ -174,6 +192,8 @@ public partial class ZoomableImageView : ContentView
 
     public event EventHandler? ZoomChanged;
     public event EventHandler? SingleTapped;
+    /// <summary>原图已贴到界面（可撤掉外部占位）。</summary>
+    public event EventHandler? ContentReady;
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
 
     protected override void OnSizeAllocated(double width, double height)
@@ -211,52 +231,156 @@ public partial class ZoomableImageView : ContentView
         if (newValue is not Photo photo)
         {
             view.PhotoImage.Source = null;
+#if ANDROID
+            // 清掉原生位图
+            if (view.PhotoImage.Handler?.PlatformView is global::Android.Widget.ImageView iv)
+                iv.SetImageDrawable(null);
+#endif
             return;
         }
 
         view.UpdateImageDimensions(photo);
         view.UpdateTransformHostLayout();
         view._showThumbnailOnly = true;
+        view.ApplyThumbnailThenLoadOriginal(photo, generation);
+    }
+
+    private void ApplyThumbnailThenLoadOriginal(Photo photo, int generation)
+    {
+        // 同一张 Image：先贴缩略图，原图就绪后原地替换。绝不先清空成黑屏。
+        var bytes = _seedThumbnailBytes;
+        _seedThumbnailBytes = null;
+        var path = _seedThumbnailPath;
+        _seedThumbnailPath = null;
+
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        {
+            if (NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var cached))
+                path = cached;
+        }
+
+#if ANDROID
+        PhotoImage.Source = null;
+        if (bytes is { Length: > 0 })
+            Platforms.Android.NativeImageBitmap.SetBitmapFromBytes(PhotoImage, bytes);
+        else if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            Platforms.Android.NativeImageBitmap.SetBitmapFromFile(PhotoImage, path);
+        // 无缩略图时保持空白，由页面级 FromFile 占位顶住；禁止 TryLoadPhotoThumbnail（会设 Source 清屏）。
+#else
+        if (bytes is { Length: > 0 })
+        {
+            var copy = bytes;
+            PhotoImage.Source = ImageSource.FromStream(() => new MemoryStream(copy));
+        }
+        else if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            PhotoImage.Source = ImageSource.FromFile(path);
+        else
+            NasThumbnailLoader.TryLoadPhotoThumbnail(
+                PhotoImage,
+                photo,
+                () => generation == _loadGeneration && _showThumbnailOnly,
+                forGrid: false);
+#endif
+
+        AppLog.Debug(
+            bytes is { Length: > 0 }
+                ? $"大图先贴缩略图 bytes={bytes.Length} id={photo.Id}"
+                : $"大图先贴缩略图 path={path} id={photo.Id}");
 
         if (NasMediaCache.TryGetOriginalFile(photo, out var cachedOriginal))
         {
-            // 同一文件再次打开不淘汰；换图时淘汰且永不删当前文件。
             NasMediaCache.PrepareOriginalCacheForLoad(cachedOriginal);
-            view._showThumbnailOnly = false;
-            view.PhotoImage.Source = ImageSource.FromFile(cachedOriginal);
-            view.NotifyDisplayReady();
+            // 延后一帧再换原图，让缩略图先画出来。
+            _ = SwapToOriginalAsync(cachedOriginal, generation);
             return;
         }
 
         NasMediaCache.PrepareOriginalCacheForLoad();
-
-        var thumb = photo.Additional?.Thumbnail;
-        var thumbId = thumb?.UnitId > 0 ? thumb!.UnitId : photo.Id;
-        if (thumb != null && !string.IsNullOrEmpty(thumb.CacheKey) &&
-            NasMediaCache.TryGetThumbnailFile(thumbId, thumb.CacheKey, out var cachedThumb))
-        {
-            view.PhotoImage.Source = ImageSource.FromFile(cachedThumb);
-        }
-
-        NasThumbnailLoader.TryLoadPhotoThumbnail(
-            view.PhotoImage,
-            photo,
-            () => generation == view._loadGeneration && view._showThumbnailOnly,
-            forGrid: false);
-
         NasOriginalLoader.TryLoad(
-            view.PhotoImage,
+            PhotoImage,
             photo,
-            loading => view.UpdateLoading(generation, loading),
-            () => generation == view._loadGeneration,
-            () =>
-            {
-                if (generation != view._loadGeneration)
-                    return;
+            loading => UpdateLoading(generation, loading),
+            () => generation == _loadGeneration,
+            () => RevealOriginal(generation));
+    }
 
-                view._showThumbnailOnly = false;
-                view.NotifyDisplayReady();
+    private async Task SwapToOriginalAsync(string originalPath, int generation)
+    {
+        try
+        {
+            await Task.Delay(48);
+            if (generation != _loadGeneration)
+                return;
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (generation != _loadGeneration)
+                    return;
+#if ANDROID
+                Platforms.Android.NativeImageBitmap.SetBitmapFromFile(PhotoImage, originalPath);
+#else
+                PhotoImage.Source = ImageSource.FromFile(originalPath);
+#endif
+                RevealOriginal(generation);
             });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void RevealOriginal(int generation)
+    {
+        if (generation != _loadGeneration)
+            return;
+
+        _showThumbnailOnly = false;
+        NotifyDisplayReady();
+        _ = FinishRevealWhenPaintedAsync(generation);
+    }
+
+    private async Task FinishRevealWhenPaintedAsync(int generation)
+    {
+        try
+        {
+#if ANDROID
+            var stable = 0;
+            for (var i = 0; i < 80 && generation == _loadGeneration; i++)
+            {
+                var painted = false;
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    painted = Platforms.Android.NativeImageBitmap.HasDrawable(PhotoImage);
+                });
+                if (painted)
+                {
+                    stable++;
+                    if (stable >= 3)
+                        break;
+                }
+                else
+                    stable = 0;
+
+                await Task.Delay(40);
+            }
+
+            if (stable < 3 || generation != _loadGeneration)
+                return;
+#else
+            await Task.Delay(160);
+#endif
+            if (generation != _loadGeneration)
+                return;
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (generation == _loadGeneration)
+                    ContentReady?.Invoke(this, EventArgs.Empty);
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     internal void NotifyDisplayReady()
@@ -316,8 +440,8 @@ public partial class ZoomableImageView : ContentView
         if (generation != _loadGeneration)
             return;
 
-        // 大图已有缩略图占位时不反复闪 loading 指示器
-        if (loading && PhotoImage.Source != null && _showThumbnailOnly)
+        // 已有缩略图时不闪 loading
+        if (loading && _showThumbnailOnly)
             return;
 
         LoadingIndicator.IsVisible = loading;

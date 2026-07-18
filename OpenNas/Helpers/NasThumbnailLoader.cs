@@ -12,8 +12,181 @@ public static class NasThumbnailLoader
     private const int MaxMemoryCacheEntries = 500;
     private static readonly ConcurrentDictionary<string, Task<byte[]?>> MemoryCache = new();
     private static readonly ConcurrentQueue<string> MemoryCacheOrder = new();
+    private static readonly ConcurrentDictionary<string, byte[]> ThumbnailBytesCache = new();
+    private static readonly ConcurrentQueue<string> ThumbnailBytesOrder = new();
+    /// <summary>网格成功贴图后的路径，按 Photo.Id 索引，大图预览优先用。</summary>
+    private static readonly ConcurrentDictionary<int, string> DisplayedThumbnailByPhotoId = new();
 
-    public static void ClearMemoryCache() => MemoryCache.Clear();
+    public static void ClearMemoryCache()
+    {
+        MemoryCache.Clear();
+        ThumbnailBytesCache.Clear();
+        DisplayedThumbnailByPhotoId.Clear();
+    }
+
+    public static void RememberDisplayedThumbnail(int photoId, string path)
+    {
+        if (photoId <= 0 || string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+
+        DisplayedThumbnailByPhotoId[photoId] = path;
+        AppLog.Debug($"登记缩略图占位 id={photoId} path={path}");
+    }
+
+    /// <summary>
+    /// 同步取可用缩略图 Source。Android Release 上必须用 FromFile，FromStream 常解码失败成空白。
+    /// </summary>
+    public static bool TryGetImmediateThumbnailSource(Photo photo, out ImageSource? source)
+    {
+        source = null;
+        if (!TryFindCachedThumbnailPath(photo, out var path) || string.IsNullOrEmpty(path))
+        {
+            // 仅有内存字节时先落盘，再 FromFile。
+            if (!TryMaterializeBytesCacheToFile(photo, out path))
+                return false;
+        }
+
+        RememberDisplayedThumbnail(photo.Id, path);
+        source = ImageSource.FromFile(path);
+        return true;
+    }
+
+    private static bool TryMaterializeBytesCacheToFile(Photo photo, out string path)
+    {
+        path = "";
+        var thumb = photo.Additional?.Thumbnail;
+        if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
+            return false;
+
+        foreach (var id in CollectThumbnailIds(photo))
+        {
+            foreach (var albumId in new int?[] { PhotosAlbumMediaScope.CurrentAlbumId, null })
+            {
+                foreach (var passphrase in new[] { PhotosAlbumMediaScope.CurrentPassphrase, null })
+                {
+                    var key = BuildMemoryCacheKey(id, thumb.CacheKey, "unit", albumId, passphrase);
+                    if (!ThumbnailBytesCache.TryGetValue(key, out var bytes)
+                        || bytes.Length <= NasThumbnailBytes.MinValidThumbnailBytes)
+                        continue;
+
+                    path = NasMediaCache.GetThumbnailFilePath(id, thumb.CacheKey);
+                    try
+                    {
+                        if (!IsUsableThumbnailFile(path))
+                            File.WriteAllBytes(path, bytes);
+                        if (IsUsableThumbnailFile(path))
+                            return true;
+                    }
+                    catch
+                    {
+                        // try next key
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>查找网格已显示或磁盘上的缩略图路径。</summary>
+    public static bool TryFindCachedThumbnailPath(Photo photo, out string path)
+    {
+        path = "";
+
+        if (photo.Id > 0
+            && DisplayedThumbnailByPhotoId.TryGetValue(photo.Id, out var displayed)
+            && IsUsableThumbnailFile(displayed))
+        {
+            path = displayed;
+            return true;
+        }
+
+        var thumb = photo.Additional?.Thumbnail;
+        var cacheKey = thumb?.CacheKey;
+        foreach (var id in CollectThumbnailIds(photo))
+        {
+            if (!string.IsNullOrEmpty(cacheKey)
+                && NasMediaCache.TryGetThumbnailFile(id, cacheKey, out var keyed)
+                && IsUsableThumbnailFile(keyed))
+            {
+                path = keyed;
+                return true;
+            }
+
+            // cacheKey 对不上时按 id 前缀扫目录（网格已落盘的 sm 缩略图）。
+            if (TryFindThumbnailByIdPrefix(id, out var scanned))
+            {
+                path = scanned;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static HashSet<int> CollectThumbnailIds(Photo photo)
+    {
+        var ids = new HashSet<int>();
+        var thumb = photo.Additional?.Thumbnail;
+        if (thumb?.UnitId > 0)
+            ids.Add(thumb.UnitId);
+        if (photo.Id > 0)
+            ids.Add(photo.Id);
+        return ids;
+    }
+
+    private static bool TryFindThumbnailByIdPrefix(int id, out string path)
+    {
+        path = "";
+        if (id <= 0)
+            return false;
+
+        try
+        {
+            var dir = NasMediaCache.ThumbnailsDirectory;
+            if (!Directory.Exists(dir))
+                return false;
+
+            foreach (var file in Directory.EnumerateFiles(dir, $"{id}_*.jpg"))
+            {
+                if (!IsUsableThumbnailFile(file))
+                    continue;
+
+                path = file;
+                return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsUsableThumbnailFile(string path)
+    {
+        try
+        {
+            // 占位查找放宽到 >0；严格占位图检测留给 NasThumbnailBytes。
+            return File.Exists(path) && new FileInfo(path).Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void RememberThumbnailBytes(string key, byte[] bytes)
+    {
+        if (bytes.Length <= NasThumbnailBytes.MinValidThumbnailBytes)
+            return;
+
+        ThumbnailBytesCache[key] = bytes;
+        ThumbnailBytesOrder.Enqueue(key);
+        while (ThumbnailBytesCache.Count > MaxMemoryCacheEntries && ThumbnailBytesOrder.TryDequeue(out var oldKey))
+            ThumbnailBytesCache.TryRemove(oldKey, out _);
+    }
 
     private static void TrimMemoryCache()
     {
@@ -176,10 +349,8 @@ public static class NasThumbnailLoader
             {
                 if (!IsCachedFileLikelyPlaceholder(cachedPath))
                 {
-                    if (forGrid)
-                        ScheduleApplyFile(target, cachedPath, canApply, cancellationToken, forGrid: true);
-                    else
-                        ScheduleApplyBytes(target, await File.ReadAllBytesAsync(cachedPath, cancellationToken), canApply, cancellationToken, forGrid: false);
+                    RememberDisplayedThumbnail(photo.Id, cachedPath);
+                    ScheduleApplyFile(target, cachedPath, canApply, cancellationToken, forGrid, photoId: photo.Id);
                     return;
                 }
 
@@ -207,15 +378,23 @@ public static class NasThumbnailLoader
             if (NasThumbnailBytes.IsLikelyPlaceholder(bytes))
                 return;
 
+            var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
+            // 下载落盘后立刻记住，不等 idle Apply，大图预览才能同步命中。
+            if (File.Exists(path) && !IsCachedFileLikelyPlaceholder(path))
+                RememberDisplayedThumbnail(photo.Id, path);
+
             if (forGrid)
             {
-                var path = NasMediaCache.GetThumbnailFilePath(id, cacheKey);
                 if (File.Exists(path) && !IsCachedFileLikelyPlaceholder(path))
-                    ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid: true);
+                    ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid: true, photoId: photo.Id);
                 return;
             }
 
-            ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
+            // 预览占位优先 FromFile，避免 FromStream 与原图竞态时黑屏。
+            if (File.Exists(path) && !IsCachedFileLikelyPlaceholder(path))
+                ScheduleApplyFile(target, path, canApply, cancellationToken, forGrid: false, photoId: photo.Id);
+            else
+                ScheduleApplyBytes(target, bytes, canApply, cancellationToken, forGrid);
         }
         catch (OperationCanceledException)
         {
@@ -231,7 +410,9 @@ public static class NasThumbnailLoader
     {
         var albumId = PhotosAlbumMediaScope.CurrentAlbumId;
         var passphrase = PhotosAlbumMediaScope.CurrentPassphrase;
-        MemoryCache.TryRemove(BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase), out _);
+        var key = BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase);
+        MemoryCache.TryRemove(key, out _);
+        ThumbnailBytesCache.TryRemove(key, out _);
     }
 
     private static async Task<byte[]?> DownloadThumbnailBytesAsync(
@@ -242,6 +423,10 @@ public static class NasThumbnailLoader
         string? passphrase)
     {
         var key = BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase);
+        if (ThumbnailBytesCache.TryGetValue(key, out var cached)
+            && cached.Length > NasThumbnailBytes.MinValidThumbnailBytes)
+            return cached;
+
         var bytes = await MemoryCache
             .GetOrAdd(
                 key,
@@ -250,6 +435,8 @@ public static class NasThumbnailLoader
             .ConfigureAwait(false);
         MemoryCacheOrder.Enqueue(key);
         TrimMemoryCache();
+        if (bytes is { Length: > 0 })
+            RememberThumbnailBytes(key, bytes);
         return bytes;
     }
 
@@ -341,7 +528,11 @@ public static class NasThumbnailLoader
         if (cancellationToken.IsCancellationRequested || bytes.Length == 0)
             return;
 
+        // Android Release 上 ImageSource.FromStream 常解码失败；落临时文件走 FromFile。
         var payload = bytes.ToArray();
+        var tempPath = Path.Combine(
+            NasMediaCache.ThumbnailsDirectory,
+            $"tmp_{Guid.NewGuid():N}.jpg");
 
         void Apply()
         {
@@ -350,7 +541,16 @@ public static class NasThumbnailLoader
             if (!target.TryGetTarget(out var image))
                 return;
 
-            image.Source = ImageSource.FromStream(() => new MemoryStream(payload));
+            try
+            {
+                Directory.CreateDirectory(NasMediaCache.ThumbnailsDirectory);
+                File.WriteAllBytes(tempPath, payload);
+                image.Source = ImageSource.FromFile(tempPath);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Debug("缩略图临时落盘失败", ex);
+            }
         }
 
         if (forGrid)
@@ -364,7 +564,8 @@ public static class NasThumbnailLoader
         string path,
         Func<bool>? canApply,
         CancellationToken cancellationToken,
-        bool forGrid)
+        bool forGrid,
+        int photoId = 0)
     {
         if (cancellationToken.IsCancellationRequested)
             return;
@@ -379,6 +580,8 @@ public static class NasThumbnailLoader
                 return;
 
             image.Source = ImageSource.FromFile(path);
+            if (photoId > 0)
+                RememberDisplayedThumbnail(photoId, path);
         }
 
         if (forGrid)
@@ -453,7 +656,9 @@ public static class NasThumbnailLoader
                 return null;
 
             await NasMediaCache.WriteThumbnailAsync(id, cacheKey, bytes, cancellationToken).ConfigureAwait(false);
-            MemoryCacheOrder.Enqueue(BuildMemoryCacheKey(id, cacheKey, type, albumId, passphrase));
+            var key = BuildMemoryCacheKey(id, cacheKey, type, albumId, passphrase);
+            RememberThumbnailBytes(key, bytes);
+            MemoryCacheOrder.Enqueue(key);
             TrimMemoryCache();
             return bytes;
         }
@@ -473,6 +678,7 @@ public static class NasThumbnailLoader
         finally
         {
             ThumbnailGate.Release();
+            // 仅移除 in-flight Task，字节缓存保留供大图预览即时占位。
             var resolvedAlbumId = albumId ?? PhotosAlbumMediaScope.CurrentAlbumId;
             var resolvedPassphrase = passphrase ?? PhotosAlbumMediaScope.CurrentPassphrase;
             MemoryCache.TryRemove(

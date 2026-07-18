@@ -3,14 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.FullscreenMediaPage"
              Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             SafeAreaEdges="None"
              BackgroundColor="Black">
-    <Grid>
-        <Grid x:Name="MediaHost" />
+    <Grid SafeAreaEdges="None">
+        <Grid x:Name="MediaHost" SafeAreaEdges="None" />
         <Grid x:Name="ChromeLayer"
+              SafeAreaEdges="None"
               InputTransparent="True"
               CascadeInputTransparent="False"
               VerticalOptions="Start"
-              Padding="8,44,8,0"
+              Padding="8,36,8,0"
               ColumnDefinitions="Auto,*,Auto">
             <ImageButton x:Name="BackButton"
                          Grid.Column="0"

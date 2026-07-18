@@ -5,6 +5,7 @@
              xmlns:controls="clr-namespace:OpenNas.Controls"
              x:Class="OpenNas.Views.CategoryBrowsePage"
              Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*">
         <Grid Grid.Row="0"

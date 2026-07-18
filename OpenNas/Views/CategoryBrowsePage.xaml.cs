@@ -276,8 +276,12 @@ public partial class CategoryBrowsePage : ContentPage, IRefreshable
             index = 0;
 
         PhotosAlbumMediaScope.Clear();
+        var thumbBytes = GridThumbnailCapture.TryCapture(sender, photo);
+        NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var thumbPath);
         await ShellNavigation.PushAsync(new PhotoViewerPage(
-            _photos, index, _connection, _libraryContext?.ExploreLibrary ?? PhotosLibrary.PersonalSpace));
+            _photos, index, _connection, _libraryContext?.ExploreLibrary ?? PhotosLibrary.PersonalSpace,
+            seedThumbnailPath: thumbPath,
+            seedThumbnailBytes: thumbBytes));
     }
 
     private async void OnBrowseItemTapped(object? sender, TappedEventArgs e)

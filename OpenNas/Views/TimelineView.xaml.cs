@@ -269,9 +269,13 @@ public partial class TimelineView : ContentView
             index = 0;
 
         PhotosAlbumMediaScope.Clear();
+        var thumbBytes = GridThumbnailCapture.TryCapture(sender, photo);
+        NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var thumbPath);
         await ShellNavigation.PushAsync(new PhotoViewerPage(
             _flatPhotos, index, _connection,
-            _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace));
+            _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace,
+            seedThumbnailPath: thumbPath,
+            seedThumbnailBytes: thumbBytes));
     }
 
     private sealed class PendingTimelineSection

@@ -34,6 +34,16 @@ namespace OpenNas
         {
             base.OnResume();
             OpenNas.Platforms.Android.BackupPendingDeleteHelper.TryLaunchDeleteConfirmation(this);
+            if (Platforms.Android.FullscreenOrientationHelper.WantImmersive)
+                Platforms.Android.FullscreenOrientationHelper.Apply();
+        }
+
+        public override void OnWindowFocusChanged(bool hasFocus)
+        {
+            base.OnWindowFocusChanged(hasFocus);
+            // 系统在重新获得焦点时会清掉 Immersive 标志，必须在这里重设。
+            if (hasFocus && Platforms.Android.FullscreenOrientationHelper.WantImmersive)
+                Platforms.Android.FullscreenOrientationHelper.Apply();
         }
 
         protected override void OnActivityResult(int requestCode, Result resultCode, Android.Content.Intent? intent)

@@ -14,6 +14,8 @@ public partial class PhotoViewerPage : ContentPage
     private readonly NasVideoPlayerView _videoView;
     private readonly ConnectionService _connection;
     private readonly PhotosLibrary _mediaLibrary;
+    private string? _seedThumbnailPath;
+    private byte[]? _seedThumbnailBytes;
     private int _index;
     private bool _currentZoomed;
     private bool _initialized;
@@ -28,22 +30,28 @@ public partial class PhotoViewerPage : ContentPage
         IReadOnlyList<Photo> photos,
         int startIndex,
         ConnectionService connection,
-        PhotosLibrary mediaLibrary = PhotosLibrary.PersonalSpace)
+        PhotosLibrary mediaLibrary = PhotosLibrary.PersonalSpace,
+        string? seedThumbnailPath = null,
+        byte[]? seedThumbnailBytes = null)
     {
         InitializeComponent();
         _photos = photos;
         _index = Math.Clamp(startIndex, 0, Math.Max(0, photos.Count - 1));
         _connection = connection;
         _mediaLibrary = mediaLibrary;
+        _seedThumbnailPath = seedThumbnailPath;
+        _seedThumbnailBytes = seedThumbnailBytes is { Length: > 0 } ? seedThumbnailBytes : null;
 
         _imageView = new ZoomableImageView
         {
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            IsVisible = true
+            IsVisible = true,
+            BackgroundColor = Colors.Transparent
         };
         _imageView.ZoomChanged += OnZoomChanged;
         _imageView.SingleTapped += OnImageSingleTapped;
+        _imageView.ContentReady += OnImageContentReady;
         _imageView.OnSwipeNavigateAsync = NavigateAsync;
 
         _videoView = new NasVideoPlayerView
@@ -60,12 +68,30 @@ public partial class PhotoViewerPage : ContentPage
         DismissHost.Children.Add(_imageView);
         DismissHost.Children.Add(_videoView);
 
+        // 构造期就贴上占位（仅照片；视频用播放器内封面，避免叠两层）。
+        var startPhoto = _photos.Count > 0 ? _photos[_index] : null;
+        if (startPhoto is { IsVideo: false })
+        {
+            var path = ResolveSeedPath(_seedThumbnailPath, _seedThumbnailBytes, startPhoto.Id);
+            if (string.IsNullOrEmpty(path)
+                && NasThumbnailLoader.TryFindCachedThumbnailPath(startPhoto, out var found))
+                path = found;
+            if (!string.IsNullOrEmpty(path))
+            {
+                _seedThumbnailPath = path;
+                ShowPageThumbnailPlaceholderPath(path);
+            }
+        }
+
         Loaded += OnLoaded;
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+#endif
         HookWindowLifecycle();
         PhotosMediaLibraryScope.Current = _mediaLibrary;
         if (PhotosAlbumMediaScope.CurrentPassphrase != null)
@@ -88,6 +114,11 @@ public partial class PhotoViewerPage : ContentPage
         _videoView.Stop();
         DismissHost.TranslationY = 0;
         DismissHost.Opacity = 1;
+#if ANDROID
+        // 进入全屏页时保持沉浸式，由全屏页负责退出。
+        if (Navigation.NavigationStack.LastOrDefault() is not FullscreenMediaPage)
+            Platforms.Android.FullscreenOrientationHelper.ExitImmersive();
+#endif
     }
 
     private void HookWindowLifecycle()
@@ -113,8 +144,13 @@ public partial class PhotoViewerPage : ContentPage
     private void OnWindowStopped(object? sender, EventArgs e) =>
         _videoView.HandleAppSleep();
 
-    private void OnWindowResumed(object? sender, EventArgs e) =>
+    private void OnWindowResumed(object? sender, EventArgs e)
+    {
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+#endif
         _videoView.HandleAppResume();
+    }
 
     private void UpdateExportActionsVisibility()
     {
@@ -173,10 +209,23 @@ public partial class PhotoViewerPage : ContentPage
 
         if (isVideo)
         {
-            _imageView.Photo = null;
+            _imageView.LoadPhoto(null);
+            // 视频只留播放器内封面，不再叠页面级占位。
+            HidePageThumbnailPlaceholder();
+
+            var seedPath = _seedThumbnailPath;
+            var seedBytes = _seedThumbnailBytes;
+            _seedThumbnailPath = null;
+            _seedThumbnailBytes = null;
+
+            seedPath = ResolveSeedPath(seedPath, seedBytes, photo.Id);
+            if (string.IsNullOrEmpty(seedPath)
+                && NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var found))
+                seedPath = found;
+
             _videoView.CanGoPrevious = _index > 0;
             _videoView.CanGoNext = _index < _photos.Count - 1;
-            _videoView.Photo = photo;
+            _videoView.LoadVideo(photo, seedPath);
             _videoView.ShowControls();
         }
         else
@@ -184,12 +233,74 @@ public partial class PhotoViewerPage : ContentPage
             _videoView.Stop();
             _videoView.Photo = null;
             UpdateNavigationBounds();
-            _imageView.Photo = photo;
+            // 首张用点击捕获的缩略图；滑动切图走缓存。
+            var seedPath = _seedThumbnailPath;
+            var seedBytes = _seedThumbnailBytes;
+            _seedThumbnailPath = null;
+            _seedThumbnailBytes = null;
+
+            seedPath = ResolveSeedPath(seedPath, seedBytes, photo.Id);
+            if (string.IsNullOrEmpty(seedPath)
+                && NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var found))
+                seedPath = found;
+
+            if (!string.IsNullOrEmpty(seedPath))
+                ShowPageThumbnailPlaceholderPath(seedPath);
+            else
+                HidePageThumbnailPlaceholder();
+
+            // 路径已落盘，不必再传 bytes。
+            _imageView.LoadPhoto(photo, seedPath);
             PrefetchNeighbors(_index);
         }
 
         ShowChrome();
     }
+
+    private static string? ResolveSeedPath(string? path, byte[]? bytes, int photoId)
+    {
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            return path;
+
+        if (bytes is { Length: > 0 })
+        {
+            try
+            {
+                var dir = NasMediaCache.ThumbnailsDirectory;
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, photoId > 0 ? $"seed_{photoId}.jpg" : $"seed_tmp_{Guid.NewGuid():N}.jpg");
+                File.WriteAllBytes(file, bytes);
+                if (photoId > 0)
+                    NasThumbnailLoader.RememberDisplayedThumbnail(photoId, file);
+                return file;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Debug("缩略图字节落盘失败", ex);
+            }
+        }
+
+        return null;
+    }
+
+    private void ShowPageThumbnailPlaceholderPath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+
+        ThumbnailPlaceholder.Source = ImageSource.FromFile(path);
+        ThumbnailPlaceholder.IsVisible = true;
+        AppLog.Debug($"页面缩略图占位 path={path}");
+    }
+
+    private void HidePageThumbnailPlaceholder()
+    {
+        ThumbnailPlaceholder.IsVisible = false;
+        ThumbnailPlaceholder.Source = null;
+    }
+
+    private void OnImageContentReady(object? sender, EventArgs e) =>
+        MainThread.BeginInvokeOnMainThread(HidePageThumbnailPlaceholder);
 
     private void PrefetchNeighbors(int centerIndex)
     {

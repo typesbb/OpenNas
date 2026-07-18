@@ -3,12 +3,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OpenNas.Views.PhotoViewerPage"
              Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             SafeAreaEdges="None"
              BackgroundColor="Black">
-    <Grid>
-        <Grid x:Name="DismissHost" />
+    <Grid SafeAreaEdges="None">
+        <Grid x:Name="DismissHost" SafeAreaEdges="None" />
+
+        <!-- 页面级缩略图占位：只用 FromFile，盖在媒体层之上 -->
+        <Image x:Name="ThumbnailPlaceholder"
+               Aspect="AspectFit"
+               InputTransparent="True"
+               IsVisible="False"
+               ZIndex="100"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill" />
 
         <!-- 空白区域穿透到手势层；仅按钮可点 -->
         <Grid x:Name="ChromeLayer"
+              SafeAreaEdges="None"
+              ZIndex="30"
               InputTransparent="True"
               CascadeInputTransparent="False">
             <ImageButton x:Name="BackButton"
@@ -17,7 +30,7 @@
                          CornerRadius="22"
                          HorizontalOptions="Start"
                          VerticalOptions="Start"
-                         Margin="8,44,0,0"
+                         Margin="8,36,0,0"
                          WidthRequest="44"
                          HeightRequest="44"
                          Padding="10"
@@ -28,7 +41,7 @@
                          CornerRadius="22"
                          HorizontalOptions="End"
                          VerticalOptions="Start"
-                         Margin="0,44,8,0"
+                         Margin="0,36,8,0"
                          WidthRequest="44"
                          HeightRequest="44"
                          Padding="10"
