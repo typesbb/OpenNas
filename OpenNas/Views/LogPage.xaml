@@ -8,23 +8,25 @@
              Shell.TabBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*" Padding="0">
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="16,12,16,6">
-            <Button Grid.Column="0"
-                    Text="‹"
-                    FontSize="24"
-                    Style="{StaticResource ToolbarIconButton}"
-                    Clicked="OnBackClicked"
-                    VerticalOptions="Center" />
-            <Label Grid.Column="1"
-                   Text="日志"
+        <Grid Grid.Row="0" Padding="16,12,16,6">
+            <Label Text="日志"
                    Style="{StaticResource PageTitle}"
                    HorizontalOptions="Center"
-                   VerticalOptions="Center" />
-            <Button Grid.Column="2"
-                    Text="清理"
-                    Style="{StaticResource CompactSecondaryButton}"
-                    Clicked="OnClearClicked"
-                    VerticalOptions="Center" />
+                   VerticalOptions="Center"
+                   InputTransparent="True" />
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <Button Grid.Column="0"
+                        Text="‹"
+                        FontSize="24"
+                        Style="{StaticResource ToolbarIconButton}"
+                        Clicked="OnBackClicked"
+                        VerticalOptions="Center" />
+                <Button Grid.Column="2"
+                        Text="清理"
+                        Style="{StaticResource CompactSecondaryButton}"
+                        Clicked="OnClearClicked"
+                        VerticalOptions="Center" />
+            </Grid>
         </Grid>
         <CollectionView Grid.Row="1"
                         ItemsSource="{Binding Entries}"

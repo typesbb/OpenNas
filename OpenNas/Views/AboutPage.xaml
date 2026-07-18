@@ -7,23 +7,22 @@
              Shell.TabBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0"
-              Padding="4,8,8,4"
-              ColumnDefinitions="Auto,*,Auto"
-              ColumnSpacing="4">
-            <Button Grid.Column="0"
-                    Text="‹"
-                    FontSize="28"
-                    Style="{StaticResource ToolbarIconButton}"
-                    SemanticProperties.Hint="返回"
-                    Clicked="OnBackClicked" />
-            <Label Grid.Column="1"
-                   Text="关于"
+        <Grid Grid.Row="0" Padding="4,8,4,4">
+            <Label Text="关于"
                    FontFamily="OpenSansSemibold"
                    FontSize="18"
                    HorizontalOptions="Center"
                    VerticalOptions="Center"
+                   InputTransparent="True"
                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                <Button Grid.Column="0"
+                        Text="‹"
+                        FontSize="28"
+                        Style="{StaticResource ToolbarIconButton}"
+                        SemanticProperties.Hint="返回"
+                        Clicked="OnBackClicked" />
+            </Grid>
         </Grid>
 
         <ScrollView Grid.Row="1">

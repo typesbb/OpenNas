@@ -8,23 +8,22 @@
              Shell.TabBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
     <Grid RowDefinitions="Auto,*">
-        <Grid Grid.Row="0"
-              Padding="4,8,8,4"
-              ColumnDefinitions="Auto,*,Auto"
-              ColumnSpacing="4">
-            <Button Grid.Column="0"
-                    Text="‹"
-                    FontSize="28"
-                    Style="{StaticResource ToolbarIconButton}"
-                    Clicked="OnBackClicked" />
+        <Grid Grid.Row="0" Padding="4,8,4,4">
             <Label x:Name="TitleLabel"
-                   Grid.Column="1"
                    FontFamily="OpenSansSemibold"
                    FontSize="18"
                    HorizontalOptions="Center"
                    VerticalOptions="Center"
+                   InputTransparent="True"
                    LineBreakMode="TailTruncation"
                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                <Button Grid.Column="0"
+                        Text="‹"
+                        FontSize="28"
+                        Style="{StaticResource ToolbarIconButton}"
+                        Clicked="OnBackClicked" />
+            </Grid>
         </Grid>
 
         <Grid x:Name="ContentHost" Grid.Row="1">
