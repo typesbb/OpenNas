@@ -86,12 +86,25 @@
                                VerticalOptions="Center" />
                     </Grid>
                 </Border>
-<Button Text="退出登录"
+
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAboutClicked" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="关于" VerticalOptions="Center" FontSize="15" />
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Button Text="退出登录"
                         Style="{StaticResource DangerTextButton}"
                         Margin="0,8,0,0"
                         Clicked="OnLogoutClicked" />
 
-                <Label Text="OpenNas — NAS 相册与文件管理"
+                <Label Text="OpenNas — 你的 NAS 客户端"
                        Style="{StaticResource MicroCaption}"
                        HorizontalOptions="Center"
                        Margin="0,16,0,8" />

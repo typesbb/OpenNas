@@ -94,6 +94,9 @@ public partial class ProfilePage : ContentPage, IRefreshable
     private async void OnLogClicked(object? sender, EventArgs e) =>
         await ShellNavigation.PushAsync(_services.GetRequiredService<LogPage>());
 
+    private async void OnAboutClicked(object? sender, EventArgs e) =>
+        await ShellNavigation.PushAsync(_services.GetRequiredService<AboutPage>());
+
     private async void OnClearCacheClicked(object? sender, EventArgs e)
     {
         var bytes = NasMediaCache.GetTotalSizeBytes();

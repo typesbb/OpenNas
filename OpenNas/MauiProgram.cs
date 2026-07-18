@@ -54,6 +54,7 @@ public static class MauiProgram
         builder.Services.AddTransient<LogPage>();
         builder.Services.AddTransient<ConnectionSettingsPage>();
         builder.Services.AddTransient<BackupSettingsPage>();
+        builder.Services.AddTransient<AboutPage>();
 
 #if DEBUG
         builder.Logging.AddDebug();

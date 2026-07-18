@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OpenNas.Views.AboutPage"
+             Title="关于"
+             Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource AppBackground}, Dark={StaticResource AppBackgroundDark}}">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Grid.Row="0"
+              Padding="4,8,8,4"
+              ColumnDefinitions="Auto,*,Auto"
+              ColumnSpacing="4">
+            <Button Grid.Column="0"
+                    Text="‹"
+                    FontSize="28"
+                    Style="{StaticResource ToolbarIconButton}"
+                    SemanticProperties.Hint="返回"
+                    Clicked="OnBackClicked" />
+            <Label Grid.Column="1"
+                   Text="关于"
+                   FontFamily="OpenSansSemibold"
+                   FontSize="18"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <VerticalStackLayout Spacing="4" HorizontalOptions="Center" Margin="0,8,0,4">
+                    <Label Text="OpenNas"
+                           FontFamily="OpenSansSemibold"
+                           FontSize="24"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource TextPrimaryDark}}" />
+                    <Label x:Name="VersionLabel"
+                           Style="{StaticResource Caption}"
+                           HorizontalOptions="Center" />
+                    <Label Text="让 NAS 触手可及。"
+                           Style="{StaticResource Caption}"
+                           HorizontalOptions="Center"
+                           Margin="0,4,0,0" />
+                </VerticalStackLayout>
+
+                <Border Style="{StaticResource CardBorder}">
+                    <Label Text="OpenNas 是一款面向个人 NAS 的客户端。当前优先支持 Synology（群晖），后续将逐步接入更多 NAS，并持续完善文件管理等能力。"
+                           FontSize="14"
+                           LineHeight="1.35" />
+                </Border>
+
+                <Label Text="现在可用" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource CardBorder}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="• 浏览相册、时间线与探索分类" FontSize="14" />
+                        <Label Text="• 查看原图与全屏视频" FontSize="14" />
+                        <Label Text="• 管理相册：新建、排序、上传、移动与删除" FontSize="14" />
+                        <Label Text="• 将本机相册自动备份到 NAS" FontSize="14" />
+                        <Label Text="• 支持内网 / 外网双地址与自动切换" FontSize="14" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="后续规划" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource CardBorder}">
+                    <Label Text="将逐步加入文件管理，并支持更多 NAS。"
+                           FontSize="14"
+                           LineHeight="1.35" />
+                </Border>
+
+                <Label Text="关于数据" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource CardBorder}">
+                    <Label Text="内容始终保存在你自己的 NAS 上。OpenNas 只负责连接与同步，不会把数据上传到第三方云服务。"
+                           FontSize="14"
+                           LineHeight="1.35" />
+                </Border>
+
+                <Label Text="开源" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnGitHubTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="GitHub" FontSize="15" />
+                            <Label Text="github.com/typesbb/OpenNas"
+                                   Style="{StaticResource MicroCaption}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Label Text="反馈" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnIssuesTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="GitHub Issues" FontSize="15" />
+                            <Label Text="提交问题与建议" Style="{StaticResource MicroCaption}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnEmailTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="邮箱" FontSize="15" />
+                            <Label Text="typesbb@qq.com" Style="{StaticResource MicroCaption}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRowBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnQqGroupTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="QQ 群" FontSize="15" />
+                            <Label Text="79757800（点击复制）" Style="{StaticResource MicroCaption}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="20"
+                               TextColor="{AppThemeBinding Light={StaticResource TextMuted}, Dark={StaticResource TextSecondaryDark}}"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Label Text="作者" Style="{StaticResource SectionTitle}" />
+                <Border Style="{StaticResource CardBorder}">
+                    <Label Text="typesbb + AI（人机敏捷结对编程）" FontSize="14" />
+                </Border>
+
+                <Label Text="OpenNas — 你的 NAS 客户端"
+                       Style="{StaticResource MicroCaption}"
+                       HorizontalOptions="Center"
+                       Margin="0,8,0,16" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
