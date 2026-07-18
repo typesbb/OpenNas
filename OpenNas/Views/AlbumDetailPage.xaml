@@ -454,9 +454,9 @@
 
                 </Border.Shadow>
 
-                <Grid ColumnDefinitions="*,*,*"
+                <Grid ColumnDefinitions="*,*,*,*"
 
-                      ColumnSpacing="8">
+                      ColumnSpacing="6">
 
                     <Button x:Name="DownloadSelectedButton"
 
@@ -472,17 +472,27 @@
 
                             Grid.Column="1"
 
-                            Text="移动到相册"
+                            Text="移动"
 
                             Style="{StaticResource SecondaryButton}"
 
                             Clicked="OnMoveSelectedClicked" />
 
-                    <Button x:Name="DeleteSelectedButton"
+                    <Button x:Name="RemoveSelectedButton"
 
                             Grid.Column="2"
 
-                            Text="从相册删除"
+                            Text="移除"
+
+                            Style="{StaticResource SecondaryButton}"
+
+                            Clicked="OnRemoveSelectedClicked" />
+
+                    <Button x:Name="DeleteSelectedButton"
+
+                            Grid.Column="3"
+
+                            Text="删除"
 
                             Style="{StaticResource DangerTextButton}"
 

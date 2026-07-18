@@ -528,6 +528,8 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
 
     private async void OnMoveSelectedClicked(object? sender, EventArgs e) => await MoveSelectedAsync();
 
+    private async void OnRemoveSelectedClicked(object? sender, EventArgs e) => await RemoveSelectedAsync();
+
     private async void OnDeleteSelectedClicked(object? sender, EventArgs e) => await DeleteSelectedAsync();
 
     private void EnterSelectionMode(SelectablePhoto item, bool suppressNextTap = false)
@@ -604,9 +606,11 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         AddPhotoButton.IsVisible = !IsSelecting && _canUpload;
         DownloadSelectedButton.IsVisible = _canDownload;
         MoveSelectedButton.IsVisible = _canManage;
-        DeleteSelectedButton.IsVisible = _canManage;
+        RemoveSelectedButton.IsVisible = _canManage;
+        DeleteSelectedButton.IsVisible = _canManage && !AlbumShareHelper.IsSharedWithMe(_album);
         DownloadSelectedButton.IsEnabled = hasSelection && !_downloading;
         MoveSelectedButton.IsEnabled = hasSelection && !_downloading;
+        RemoveSelectedButton.IsEnabled = hasSelection && !_downloading;
         DeleteSelectedButton.IsEnabled = hasSelection && !_downloading;
     }
 
@@ -779,7 +783,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         }
     }
 
-    private async Task DeleteSelectedAsync()
+    private async Task RemoveSelectedAsync()
     {
         var selected = GetSelectedPhotos();
         if (selected.Count == 0)
@@ -792,25 +796,84 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
         }
 
         var confirm = await DisplayAlertAsync(_album.Name,
-            $"确定要从 {_album.Name} 中移除 {selected.Count} 张照片？", "移除", "取消");
-
+            $"确定要从 {_album.Name} 中移除 {selected.Count} 项？文件仍保留在 NAS 图库中。",
+            "移除",
+            "取消");
         if (!confirm)
             return;
 
+        await RemoveSelectedFromAlbumAsync(selected);
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        var selected = GetSelectedPhotos();
+        if (selected.Count == 0)
+            return;
+
+        if (SynologyManager.Client == null)
+        {
+            await DisplayAlertAsync(_album.Name, "未连接 NAS，请重新登录。", "确定");
+            return;
+        }
+
+        if (AlbumShareHelper.IsSharedWithMe(_album))
+            return;
+
+        var confirm = await DisplayAlertAsync(
+            "删除",
+            $"确定要从 NAS 图库删除这 {selected.Count} 项？此操作通常不可恢复。",
+            "删除",
+            "取消");
+        if (!confirm)
+            return;
+
+        await DeleteSelectedFromNasAsync(selected);
+    }
+
+    private async Task RemoveSelectedFromAlbumAsync(IReadOnlyList<Photo> selected)
+    {
         BusyIndicator.IsVisible = true;
         BusyIndicator.IsRunning = true;
         try
         {
-            var removed = await SynologyManager.Client.Foto.RemovePhotosFromAlbumAsync(_album.Id, selected);
+            var removed = await SynologyManager.Client!.Foto.RemovePhotosFromAlbumAsync(_album.Id, selected);
             if (!removed)
-                throw new InvalidOperationException("从相册移除照片失败。");
+                throw new InvalidOperationException("从相册移除失败。");
 
             ExitSelectionMode();
             await ReloadPhotosAsync();
         }
         catch (Exception ex)
         {
-            AppLog.Error($"删除照片失败 {_album.Name}", ex);
+            AppLog.Error($"从相册移除失败 {_album.Name}", ex);
+            await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"移除失败：{ex.Message}");
+        }
+        finally
+        {
+            BusyIndicator.IsRunning = false;
+            BusyIndicator.IsVisible = false;
+        }
+    }
+
+    private async Task DeleteSelectedFromNasAsync(IReadOnlyList<Photo> selected)
+    {
+        BusyIndicator.IsVisible = true;
+        BusyIndicator.IsRunning = true;
+        try
+        {
+            var ids = selected.Select(p => p.Id).ToList();
+            var deleted = await SynologyManager.Client!.FotoBrowse.DeletePhotosAsync(ids);
+            if (!deleted)
+                throw new InvalidOperationException("从 NAS 删除失败。");
+
+            ExitSelectionMode();
+            await ReloadPhotosAsync();
+            await UiFeedback.ToastAsync($"已删除 {selected.Count} 项");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"从 NAS 删除失败 {_album.Name}", ex);
             await UiFeedback.ShowApiErrorAsync(this, _album.Name, ex, $"删除失败：{ex.Message}");
         }
         finally
