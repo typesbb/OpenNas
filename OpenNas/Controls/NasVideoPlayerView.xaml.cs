@@ -133,6 +133,9 @@ public partial class NasVideoPlayerView : ContentView
 
     public bool IsDownloading => DownloadChrome.IsVisible;
 
+    /// <summary>手势左右滑 seek 是否仍在进行（含异常中断后的残留）。</summary>
+    public bool IsGestureSeeking => _isGestureSeeking;
+
     /// <summary>设置视频；可选传入网格缩略图路径作缓冲封面。</summary>
     public void LoadVideo(Photo? photo, string? seedPosterPath = null)
     {
@@ -1014,8 +1017,8 @@ public partial class NasVideoPlayerView : ContentView
             _seekStartSeconds = Math.Clamp(ProgressSlider.Value, 0, duration);
 
         _seekTargetSeconds = _seekStartSeconds;
-        ControlsOverlay.Opacity = 1;
-        ControlsOverlay.InputTransparent = false;
+        // 手势进行中勿抢占触控：否则后续 Up 可能到不了触摸层，seek 状态会卡住。
+        PlaybackChrome.Opacity = 1;
         UpdateGestureSeekUi();
         return true;
     }
@@ -1036,10 +1039,38 @@ public partial class NasVideoPlayerView : ContentView
         UpdateGestureSeekUi();
     }
 
+    /// <summary>中断手势 seek：隐藏提示、恢复播放，不强制 Seek（由 End 负责落点）。</summary>
+    internal void CancelGestureSeek()
+    {
+        if (!_isGestureSeeking)
+        {
+            SpeedHintLabel.IsVisible = false;
+            return;
+        }
+
+        _isGestureSeeking = false;
+        SpeedHintLabel.IsVisible = false;
+        try
+        {
+            if (_wasPlayingBeforeScrub
+                && MediaPlayer.CurrentState != MediaElementState.Playing)
+                MediaPlayer.Play();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        UpdatePlayPauseButton();
+    }
+
     internal async Task EndGestureSeekAsync()
     {
         if (!_isGestureSeeking)
+        {
+            SpeedHintLabel.IsVisible = false;
             return;
+        }
 
         var target = _seekTargetSeconds;
         _isGestureSeeking = false;

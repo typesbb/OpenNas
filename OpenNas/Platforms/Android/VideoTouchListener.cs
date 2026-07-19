@@ -90,6 +90,7 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
         _touchTarget = null;
         _gestureDetector = null;
         _scaleDetector = null;
+        AbortActiveSeekOrNav(applySeek: false);
         _mode = ModeNone;
         _longPressActive = false;
         _gestureConsumed = false;
@@ -122,6 +123,8 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
     internal void OnScaleBegin()
     {
+        // 捏合会清掉 ModeSeek；必须先结束手势 seek，否则 _isGestureSeeking 卡住。
+        AbortActiveSeekOrNav(applySeek: true);
         _isPinching = true;
         _mode = ModeNone;
         _gestureConsumed = true;
@@ -153,6 +156,23 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
             _view.ResetZoomFromNative();
     }
 
+    /// <summary>手势模式被中断时，清掉可能残留的 seek / 竖滑状态。</summary>
+    private void AbortActiveSeekOrNav(bool applySeek)
+    {
+        if (_mode == ModeSeek || _view.IsGestureSeeking)
+        {
+            if (applySeek)
+                _ = _view.EndGestureSeekAsync();
+            else
+                _view.CancelGestureSeek();
+        }
+
+        if (_mode == ModeNav)
+            _ = _view.OnNativeSlideCompletedAsync(0);
+        if (_mode == ModeZoomDrag)
+            _view.FinishZoomPan();
+    }
+
     public bool OnTouch(AView? v, MotionEvent? e)
     {
         if (v == null || e == null)
@@ -166,12 +186,19 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
             switch (e.ActionMasked)
             {
                 case MotionEventActions.Down:
-                    // 缩放与否都从 ModeNone 开始，这样长按能触发；移动后再决定 pan/seek/nav。
+                    // 上一轮若漏掉 Up/Cancel，先清掉卡住的 seek。
+                    AbortActiveSeekOrNav(applySeek: false);
                     _mode = ModeNone;
                     _gestureConsumed = false;
                     _longPressActive = false;
                     _startX = ToDip(e.GetX());
                     _startY = ToDip(e.GetY());
+                    break;
+
+                case MotionEventActions.PointerDown:
+                    // 第二指介入：结束单指 seek/nav，交给捏合。
+                    AbortActiveSeekOrNav(applySeek: true);
+                    _mode = ModeNone;
                     break;
 
                 case MotionEventActions.Move:
@@ -183,8 +210,7 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
                     if (_view.IsZoomed)
                     {
-                        // 缩放态：单指拖动画布；切换/seek 与未缩放相同走下方分支时已被 IsZoomed 挡住，
-                        // 这里用拖拽平移，长按仍可 3 倍速。
+                        // 缩放态：单指拖动画布；长按仍可 3 倍速。
                         if (_mode == ModeNone && (Math.Abs(dx) > 12 || Math.Abs(dy) > 12))
                         {
                             _mode = ModeZoomDrag;
@@ -217,31 +243,51 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
                 case MotionEventActions.Up:
                 case MotionEventActions.Cancel:
-                    if (_longPressActive)
-                        _view.OnNativeLongPressReleased();
+                case MotionEventActions.PointerUp:
+                    if (e.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel)
+                    {
+                        if (_longPressActive)
+                            _view.OnNativeLongPressReleased();
 
-                    if (_mode == ModeZoomDrag)
-                    {
-                        _view.FinishZoomPan();
+                        if (_mode == ModeZoomDrag)
+                            _view.FinishZoomPan();
+                        else if (_mode == ModeNav)
+                            _ = _view.OnNativeSlideCompletedAsync(ToDip(e.GetY()) - _startY);
+                        else if (_mode == ModeSeek || _view.IsGestureSeeking)
+                            _ = _view.EndGestureSeekAsync();
+
+                        _mode = ModeNone;
+                        _longPressActive = false;
+                        _gestureConsumed = false;
                     }
-                    else if (_mode == ModeNav)
+                    else if (_mode == ModeSeek || _view.IsGestureSeeking)
                     {
-                        var totalY = ToDip(e.GetY()) - _startY;
-                        _ = _view.OnNativeSlideCompletedAsync(totalY);
-                    }
-                    else if (_mode == ModeSeek)
-                    {
+                        // 多指时首指抬起也可能需要结束 seek。
                         _ = _view.EndGestureSeekAsync();
+                        if (_mode == ModeSeek)
+                            _mode = ModeNone;
                     }
-
-                    _mode = ModeNone;
-                    _longPressActive = false;
-                    _gestureConsumed = false;
                     break;
             }
         }
         catch
         {
+            // 异常时也尽量清状态，避免 seek 提示永久卡住。
+            try
+            {
+                AbortActiveSeekOrNav(applySeek: false);
+                if (_longPressActive)
+                    _view.OnNativeLongPressReleased();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            _mode = ModeNone;
+            _longPressActive = false;
+            _gestureConsumed = false;
+            _isPinching = false;
             return false;
         }
 
