@@ -13,15 +13,13 @@ public partial class ZoomableImageView
     private AView? _androidTouchTarget;
     private ImageView? _androidImageView;
     private bool _androidAttachScheduled;
+    private bool _androidRefitScheduled;
 
     partial void InitializePlatform()
     {
         PhotoImage.PropertyChanged += OnPhotoImagePropertyChanged;
         ScheduleAndroidTouchAttach();
     }
-
-    private void OnPlatformLoaded(object? sender, EventArgs e) =>
-        ScheduleAndroidTouchAttach();
 
     private void OnPhotoImagePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -99,6 +97,37 @@ public partial class ZoomableImageView
 
         _nativeZoomed = isZoomed;
         ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>旋转/窗口尺寸变化后，等原生 ImageView 量到新尺寸再重建居中 Matrix。</summary>
+    private void ScheduleAndroidRefit()
+    {
+        if (_androidRefitScheduled)
+            return;
+
+        _androidRefitScheduled = true;
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                // 等几帧，让 ImageView 随窗口旋转完成重新测量。
+                for (var i = 0; i < 6; i++)
+                {
+                    await Task.Delay(16);
+                    if (_androidImageView is { Width: > 0, Height: > 0 })
+                        break;
+                }
+
+                await Task.Delay(32);
+                SlideHost.TranslationX = 0;
+                SlideHost.TranslationY = 0;
+                _androidTouchListener?.PrepareDisplay();
+            }
+            finally
+            {
+                _androidRefitScheduled = false;
+            }
+        });
     }
 
     internal void OnNativeSlideOffset(float deltaY)

@@ -98,18 +98,23 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
 
     internal void OnLongPress()
     {
-        if (_gestureConsumed || _mode != ModeNone || _view.IsZoomed || _isPinching)
+        // 缩放态也要能长按 3 倍速；仅在已进入切换/seek/捏合时忽略。
+        if (_gestureConsumed || _isPinching)
+            return;
+        if (_mode is ModeNav or ModeSeek)
             return;
 
         _longPressActive = true;
         _gestureConsumed = true;
+        _mode = ModeNone;
         _view.OnNativeLongPress();
     }
 
     internal void OnSingleTap()
     {
         // 滑切换/seek 松手时 GestureDetector 仍可能报 SingleTapUp，需忽略。
-        if (_view.IsZoomed || _mode == ModeNav || _mode == ModeSeek || _longPressActive)
+        // 缩放后也要能唤出控件，不再因 IsZoomed 直接丢掉点击。
+        if (_mode == ModeNav || _mode == ModeSeek || _longPressActive)
             return;
 
         _view.OnNativeSingleTap();
@@ -120,7 +125,11 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
         _isPinching = true;
         _mode = ModeNone;
         _gestureConsumed = true;
-        _longPressActive = false;
+        if (_longPressActive)
+        {
+            _longPressActive = false;
+            _view.OnNativeLongPressReleased();
+        }
     }
 
     internal void OnScale(ScaleGestureDetector detector)
@@ -157,27 +166,38 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
             switch (e.ActionMasked)
             {
                 case MotionEventActions.Down:
-                    _mode = _view.IsZoomed ? ModeZoomDrag : ModeNone;
+                    // 缩放与否都从 ModeNone 开始，这样长按能触发；移动后再决定 pan/seek/nav。
+                    _mode = ModeNone;
                     _gestureConsumed = false;
                     _longPressActive = false;
                     _startX = ToDip(e.GetX());
                     _startY = ToDip(e.GetY());
-                    if (_mode == ModeZoomDrag)
-                        _view.BeginZoomPan();
                     break;
 
                 case MotionEventActions.Move:
-                    if (_isPinching || _longPressActive || (_gestureConsumed && _mode != ModeZoomDrag))
+                    if (_isPinching || _longPressActive)
                         break;
 
                     var dx = ToDip(e.GetX()) - _startX;
                     var dy = ToDip(e.GetY()) - _startY;
 
-                    if (_mode == ModeZoomDrag)
+                    if (_view.IsZoomed)
                     {
-                        _view.UpdateZoomPan(dx, dy);
+                        // 缩放态：单指拖动画布；切换/seek 与未缩放相同走下方分支时已被 IsZoomed 挡住，
+                        // 这里用拖拽平移，长按仍可 3 倍速。
+                        if (_mode == ModeNone && (Math.Abs(dx) > 12 || Math.Abs(dy) > 12))
+                        {
+                            _mode = ModeZoomDrag;
+                            _view.BeginZoomPan();
+                        }
+
+                        if (_mode == ModeZoomDrag)
+                            _view.UpdateZoomPan(dx, dy);
                         break;
                     }
+
+                    if (_gestureConsumed)
+                        break;
 
                     if (_mode == ModeNone)
                     {

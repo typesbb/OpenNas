@@ -28,7 +28,7 @@ public partial class NasVideoPlayerView : ContentView
 
     private const double NavigateThreshold = 72;
     private const double MinScale = 1;
-    private const double MaxScale = 5;
+    private const double MaxScale = 40;
     private const int ChromeAutoHideMs = 2800;
 
     private PanMode _panMode = PanMode.None;
@@ -44,6 +44,7 @@ public partial class NasVideoPlayerView : ContentView
     private CancellationTokenSource? _progressCts;
     private bool _isFastForwarding;
     private CancellationTokenSource? _chromeHideCts;
+    private long _lastProgressUiTick;
     private string? _playbackPath;
     private string? _seedPosterPath;
     private double _durationSeconds;
@@ -69,14 +70,17 @@ public partial class NasVideoPlayerView : ContentView
     private ActivityIndicator LoadingIndicator = null!;
     private Label ErrorLabel = null!;
     private Grid ControlsOverlay = null!;
+    private Grid PlaybackChrome = null!;
+    private VerticalStackLayout DownloadChrome = null!;
     private ProgressBar DownloadProgressBar = null!;
     private Label DownloadLabel = null!;
     private Slider ProgressSlider = null!;
     private Label CurrentTimeLabel = null!;
     private Label DurationLabel = null!;
     private Button PlayPauseButton = null!;
-    private ImageButton FullscreenButton = null!;
+    private Button RotateButton = null!;
     private Label SpeedHintLabel = null!;
+    private bool _controlsVisible = true;
 
     public NasVideoPlayerView()
     {
@@ -118,28 +122,16 @@ public partial class NasVideoPlayerView : ContentView
         set => SetValue(CanGoNextProperty, value);
     }
 
-    public bool IsFullscreenHost
-    {
-        get => _isFullscreenHost;
-        set
-        {
-            if (_isFullscreenHost == value)
-                return;
-
-            _isFullscreenHost = value;
-            if (FullscreenButton != null)
-                UpdateChromeVisibility();
-        }
-    }
-
-    private bool _isFullscreenHost;
-
     public Func<int, Task>? OnSwipeNavigateAsync { get; set; }
-    public event EventHandler? FullscreenRequested;
     public event EventHandler? SingleTapped;
     public event EventHandler? ZoomChanged;
+    public event EventHandler? RotateRequested;
 
     public bool IsZoomed => _currentScale > 1.05;
+
+    public bool AreControlsVisible => _controlsVisible;
+
+    public bool IsDownloading => DownloadChrome.IsVisible;
 
     /// <summary>设置视频；可选传入网格缩略图路径作缓冲封面。</summary>
     public void LoadVideo(Photo? photo, string? seedPosterPath = null)
@@ -317,15 +309,23 @@ public partial class NasVideoPlayerView : ContentView
             ShowControls();
         };
 
-        FullscreenButton = new ImageButton
+        RotateButton = new Button
         {
-            Source = "icon_fullscreen.png",
+            Text = "↻",
+            FontSize = 18,
+            TextColor = Colors.White,
             BackgroundColor = Colors.Transparent,
-            WidthRequest = 32,
-            HeightRequest = 32,
-            Padding = 4
+            BorderWidth = 0,
+            Padding = 0,
+            WidthRequest = 36,
+            HeightRequest = 36,
+            VerticalOptions = LayoutOptions.Center
         };
-        FullscreenButton.Clicked += (_, _) => FullscreenRequested?.Invoke(this, EventArgs.Empty);
+        RotateButton.Clicked += (_, _) =>
+        {
+            ShowControls();
+            RotateRequested?.Invoke(this, EventArgs.Empty);
+        };
 
         SpeedHintLabel = new Label
         {
@@ -354,64 +354,75 @@ public partial class NasVideoPlayerView : ContentView
                 new ColumnDefinition(GridLength.Auto)
             },
             Margin = new Thickness(8, 0, 8, 0),
-            Children = { PlayPauseButton, CurrentTimeLabel, ProgressSlider, DurationLabel, FullscreenButton }
+            Children = { PlayPauseButton, CurrentTimeLabel, ProgressSlider, DurationLabel, RotateButton }
         };
         Grid.SetColumn(PlayPauseButton, 0);
         Grid.SetColumn(CurrentTimeLabel, 1);
         Grid.SetColumn(ProgressSlider, 2);
         Grid.SetColumn(DurationLabel, 3);
-        Grid.SetColumn(FullscreenButton, 4);
+        Grid.SetColumn(RotateButton, 4);
+        PlaybackChrome = timeRow;
 
+        DownloadChrome = new VerticalStackLayout
+        {
+            Spacing = 4,
+            Margin = new Thickness(12, 0, 12, 8),
+            HorizontalOptions = LayoutOptions.Fill,
+            IsVisible = false,
+            Children = { DownloadProgressBar, DownloadLabel }
+        };
+
+        // 播放控件可自动隐藏；下载进度条独立，加载中不跟着藏。
         ControlsOverlay = new Grid
         {
             SafeAreaEdges = SafeAreaEdges.None,
             VerticalOptions = LayoutOptions.End,
-            Padding = new Thickness(0, 0, 0, 12),
+            HorizontalOptions = LayoutOptions.Fill,
+            InputTransparent = true,
+            CascadeInputTransparent = false,
+            Padding = new Thickness(0, 0, 0, 20),
             RowDefinitions =
             {
                 new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
                 new RowDefinition(GridLength.Auto)
             },
-            Children = { DownloadProgressBar, DownloadLabel, timeRow }
+            Children = { DownloadChrome, PlaybackChrome }
         };
-        Grid.SetRow(DownloadLabel, 1);
-        Grid.SetRow(timeRow, 2);
+        Grid.SetRow(DownloadChrome, 0);
+        Grid.SetRow(PlaybackChrome, 1);
 
+        // 控制条叠在视频上，不要单独占一行——否则底部会永远空出一截黑边。
         Host = new Grid
         {
             SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            RowDefinitions =
-            {
-                new RowDefinition(GridLength.Star),
-                new RowDefinition(GridLength.Auto)
-            },
             Children = { SlideHost, TopTouchLayer, LoadingIndicator, ErrorLabel, SpeedHintLabel, ControlsOverlay }
         };
-        Grid.SetRow(TopTouchLayer, 0);
-        Grid.SetRow(SlideHost, 0);
-        Grid.SetRow(LoadingIndicator, 0);
-        Grid.SetRow(ErrorLabel, 0);
-        Grid.SetRow(SpeedHintLabel, 0);
-        Grid.SetRow(ControlsOverlay, 1);
 
         Content = Host;
-        UpdateChromeVisibility();
-        ShowControls();
+        ShowControls(autoHide: false);
     }
 
-    private void UpdateChromeVisibility()
+    public void ShowControls(bool autoHide = true)
     {
-        FullscreenButton.IsVisible = !IsFullscreenHost;
-    }
-
-    public void ShowControls()
-    {
+        _controlsVisible = true;
+        PlaybackChrome.Opacity = 1;
+        PlaybackChrome.InputTransparent = false;
         ControlsOverlay.Opacity = 1;
         ControlsOverlay.InputTransparent = false;
-        ScheduleHideControls();
+        if (autoHide)
+            ScheduleHideControls();
+        else
+            _chromeHideCts?.Cancel();
+    }
+
+    public void ToggleControls()
+    {
+        if (_controlsVisible)
+            HideControls();
+        else
+            ShowControls();
     }
 
     public void HideControls(bool animated = true)
@@ -420,14 +431,20 @@ public partial class NasVideoPlayerView : ContentView
             return;
 
         _chromeHideCts?.Cancel();
-        ControlsOverlay.InputTransparent = true;
+        _controlsVisible = false;
+        PlaybackChrome.InputTransparent = true;
+
+        // 有下载进度时保留整层可显示进度；否则穿透点击。
+        if (!IsDownloading)
+            ControlsOverlay.InputTransparent = true;
+
         if (!animated)
         {
-            ControlsOverlay.Opacity = 0;
+            PlaybackChrome.Opacity = 0;
             return;
         }
 
-        _ = ControlsOverlay.FadeToAsync(0, 320, Easing.CubicOut);
+        _ = PlaybackChrome.FadeToAsync(0, 320, Easing.CubicOut);
     }
 
     private void ScheduleHideControls()
@@ -476,22 +493,6 @@ public partial class NasVideoPlayerView : ContentView
         MediaPlayer.Speed = _isFastForwarding ? FastSpeed : NormalSpeed;
     }
 
-    private void OnPipClicked(object? sender, EventArgs e)
-    {
-#if ANDROID
-        if (MediaPlayer.Source != null && MediaPlayer.CurrentState != MediaElementState.Playing)
-            MediaPlayer.Play();
-
-        if (Platforms.Android.VideoPictureInPictureHelper.TryEnter())
-            return;
-
-        var windows = Application.Current?.Windows;
-        var page = windows is { Count: > 0 } ? windows[0].Page : null;
-        if (page != null)
-            _ = page.DisplayAlertAsync("小窗播放", "当前无法进入画中画，请确认系统已允许本应用使用画中画。", "确定");
-#endif
-    }
-
     private void StartFastForward()
     {
         if (_isFastForwarding || MediaPlayer.Source == null)
@@ -499,6 +500,7 @@ public partial class NasVideoPlayerView : ContentView
 
         _isFastForwarding = true;
         MediaPlayer.Speed = FastSpeed;
+        SpeedHintLabel.Text = "3倍速";
         SpeedHintLabel.IsVisible = true;
 
         if (MediaPlayer.CurrentState != MediaElementState.Playing)
@@ -542,7 +544,6 @@ public partial class NasVideoPlayerView : ContentView
         view.MediaPlayer.IsVisible = false;
         view.PosterImage.IsVisible = true;
         view.HideDownloadProgress();
-        view.UpdateChromeVisibility();
         view.ApplyPosterSeed(photo);
         view.OnPhotoReadyForPlatform();
         _ = view.LoadVideoAsync(photo, generation);
@@ -585,7 +586,14 @@ public partial class NasVideoPlayerView : ContentView
             }
 
             NasMediaCache.PrepareOriginalCacheForLoad();
-            ShowDownloadProgress(0, photo.FileSize > 0 ? photo.FileSize : null);
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (generation != _loadGeneration)
+                    return;
+                ShowDownloadProgress(0, photo.FileSize > 0 ? photo.FileSize : null);
+                // 播放条仍可自动隐藏；仅下载进度条常显。
+                ShowControls();
+            });
 
             var path = await NasOriginalLoader.EnsureCachedWithProgressAsync(
                 photo,
@@ -602,21 +610,17 @@ public partial class NasVideoPlayerView : ContentView
             }
 
             await AssignSourceAsync(path, generation);
-            HideDownloadProgress();
+            await MainThread.InvokeOnMainThreadAsync(HideDownloadProgress);
         }
         catch (OperationCanceledException)
         {
-            // ignore
+            if (generation == _loadGeneration)
+                SetLoading(generation, false);
         }
         catch
         {
             if (generation == _loadGeneration)
                 ShowError(generation, "视频加载失败。");
-        }
-        finally
-        {
-            if (generation == _loadGeneration)
-                SetLoading(generation, false);
         }
     }
 
@@ -665,8 +669,13 @@ public partial class NasVideoPlayerView : ContentView
 
     private void ShowDownloadProgress(long received, long? total)
     {
+        DownloadChrome.IsVisible = true;
         DownloadProgressBar.IsVisible = true;
         DownloadLabel.IsVisible = true;
+        // 进度条独立显示；播放条仍可按普通逻辑自动隐藏。
+        ControlsOverlay.Opacity = 1;
+        if (!_controlsVisible)
+            ControlsOverlay.InputTransparent = true;
 
         if (total is > 0)
         {
@@ -682,8 +691,11 @@ public partial class NasVideoPlayerView : ContentView
 
     private void HideDownloadProgress()
     {
+        DownloadChrome.IsVisible = false;
         DownloadProgressBar.IsVisible = false;
         DownloadLabel.IsVisible = false;
+        if (!_controlsVisible)
+            ControlsOverlay.InputTransparent = true;
     }
 
     private void OnMediaOpened(object? sender, EventArgs e)
@@ -776,10 +788,18 @@ public partial class NasVideoPlayerView : ContentView
         if (_isScrubbing || _isGestureSeeking)
             return;
 
+        // 播放进度回调很频繁，节流后再刷 UI，减轻主线程压力。
+        var now = Environment.TickCount64;
+        if (now - _lastProgressUiTick < 200)
+            return;
+        _lastProgressUiTick = now;
+
+        var seconds = e.Position.TotalSeconds;
+        var text = FormatTime(e.Position);
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            ProgressSlider.Value = e.Position.TotalSeconds;
-            CurrentTimeLabel.Text = FormatTime(e.Position);
+            ProgressSlider.Value = seconds;
+            CurrentTimeLabel.Text = text;
         });
     }
 
@@ -789,23 +809,42 @@ public partial class NasVideoPlayerView : ContentView
         PlayPauseButton.Text = playing ? "❚❚" : "▶";
     }
 
-    private void TogglePlayPause()
+    private async void TogglePlayPause()
     {
         if (MediaPlayer.CurrentState == MediaElementState.Playing)
+        {
             MediaPlayer.Pause();
-        else
-            MediaPlayer.Play();
+            UpdatePlayPauseButton();
+            return;
+        }
 
+        // 播完后停在末尾，需先 Seek 到开头才能再次 Play。
+        var duration = MediaPlayer.Duration;
+        var position = MediaPlayer.Position;
+        var atEnd = duration.TotalSeconds > 0.5
+            && position >= duration - TimeSpan.FromMilliseconds(500);
+        if (atEnd)
+        {
+            try
+            {
+                await MediaPlayer.SeekTo(TimeSpan.Zero);
+                ProgressSlider.Value = 0;
+                CurrentTimeLabel.Text = "0:00";
+            }
+            catch
+            {
+                // ignore seek errors
+            }
+        }
+
+        MediaPlayer.Play();
         UpdatePlayPauseButton();
     }
 
     private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
     {
-        if (IsZoomed)
-            return;
-
         TogglePlayPause();
-        ShowControls();
+        ToggleControls();
         SingleTapped?.Invoke(this, EventArgs.Empty);
     }
 
@@ -855,6 +894,7 @@ public partial class NasVideoPlayerView : ContentView
             LoadingIndicator.IsRunning = false;
             LoadingIndicator.IsVisible = false;
             HideDownloadProgress();
+            ShowControls();
         });
     }
 
@@ -867,6 +907,8 @@ public partial class NasVideoPlayerView : ContentView
         {
             LoadingIndicator.IsVisible = loading;
             LoadingIndicator.IsRunning = loading;
+            if (loading)
+                ShowControls();
         });
     }
 
@@ -1226,9 +1268,20 @@ public partial class NasVideoPlayerView : ContentView
     protected override void OnSizeAllocated(double width, double height)
     {
         base.OnSizeAllocated(width, height);
+        var hadSize = _containerWidth > 1 && _containerHeight > 1;
+        var orientationFlipped = hadSize
+            && ((_containerWidth < _containerHeight) != (width < height));
+
         _containerWidth = width;
         _containerHeight = height;
-        if (!_isPinching && IsZoomed)
+
+        if (orientationFlipped)
+        {
+            SlideHost.TranslationX = 0;
+            SlideHost.TranslationY = 0;
+            ResetZoomTransform();
+        }
+        else if (!_isPinching && IsZoomed)
         {
             ClampZoomPan();
             ApplyZoomTransform();

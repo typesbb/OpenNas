@@ -77,6 +77,10 @@ internal static class FullscreenOrientationHelper
                     | SystemUiFlags.ImmersiveSticky);
 #pragma warning restore CS0618
             }
+
+            // 隐藏系统栏后强制重新布局，避免内容仍按「有导航栏」的高度居中。
+            window.DecorView.RequestLayout();
+            window.DecorView.Invalidate();
         }
         catch
         {

@@ -17,11 +17,11 @@ public partial class PhotoViewerPage : ContentPage
     private string? _seedThumbnailPath;
     private byte[]? _seedThumbnailBytes;
     private int _index;
-    private bool _currentZoomed;
     private bool _initialized;
     private bool _actionBarVisible;
     private bool _chromeVisible = true;
     private bool _exporting;
+    private bool _isLandscape;
     private bool _windowEventsHooked;
     private CancellationTokenSource? _exportCts;
     private CancellationTokenSource? _chromeHideCts;
@@ -61,9 +61,9 @@ public partial class PhotoViewerPage : ContentPage
             IsVisible = false
         };
         _videoView.OnSwipeNavigateAsync = NavigateAsync;
-        _videoView.FullscreenRequested += OnVideoFullscreenRequested;
         _videoView.SingleTapped += OnVideoSingleTapped;
         _videoView.ZoomChanged += OnZoomChanged;
+        _videoView.RotateRequested += OnRotateClicked;
 
         DismissHost.Children.Add(_imageView);
         DismissHost.Children.Add(_videoView);
@@ -98,6 +98,14 @@ public partial class PhotoViewerPage : ContentPage
             PhotosMediaLibraryScope.Current = PhotosLibrary.PersonalSpace;
         UpdateExportActionsVisibility();
         ShowChrome();
+        // Modal 全屏后强制再测一次，让视频/图片按真实窗口高度居中。
+        Dispatcher.Dispatch(() =>
+        {
+            InvalidateMeasure();
+            DismissHost.InvalidateMeasure();
+            _imageView.InvalidateMeasure();
+            _videoView.InvalidateMeasure();
+        });
         if (_initialized || _photos.Count == 0)
             return;
 
@@ -112,12 +120,9 @@ public partial class PhotoViewerPage : ContentPage
         _chromeHideCts?.Cancel();
         try { _exportCts?.Cancel(); } catch (ObjectDisposedException) { }
         _videoView.Stop();
-        DismissHost.TranslationY = 0;
-        DismissHost.Opacity = 1;
+        _isLandscape = false;
 #if ANDROID
-        // 进入全屏页时保持沉浸式，由全屏页负责退出。
-        if (Navigation.NavigationStack.LastOrDefault() is not FullscreenMediaPage)
-            Platforms.Android.FullscreenOrientationHelper.ExitImmersive();
+        Platforms.Android.FullscreenOrientationHelper.Reset();
 #endif
     }
 
@@ -199,10 +204,9 @@ public partial class PhotoViewerPage : ContentPage
 
         NasVideoThumbnailRepair.ScheduleRepairIfPlaceholder(photo);
 
-        _currentZoomed = false;
         _imageView.IsVisible = !isVideo;
         _videoView.IsVisible = isVideo;
-        FullscreenButton.IsVisible = !isVideo;
+        PhotoRotateButton.IsVisible = !isVideo;
         DetailPanel.Margin = isVideo
             ? new Thickness(16, 0, 16, 72)
             : new Thickness(16, 0, 16, 96);
@@ -290,6 +294,14 @@ public partial class PhotoViewerPage : ContentPage
 
         ThumbnailPlaceholder.Source = ImageSource.FromFile(path);
         ThumbnailPlaceholder.IsVisible = true;
+#if ANDROID
+        // MAUI AspectFit 在部分机型上会顶对齐，强制 FitCenter。
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (ThumbnailPlaceholder.Handler?.PlatformView is Android.Widget.ImageView iv)
+                iv.SetScaleType(Android.Widget.ImageView.ScaleType.FitCenter);
+        });
+#endif
         AppLog.Debug($"页面缩略图占位 path={path}");
     }
 
@@ -318,7 +330,6 @@ public partial class PhotoViewerPage : ContentPage
             return;
 
         _ = NasThumbnailLoader.EnsureCachedAsync(photo);
-        _ = NasOriginalLoader.EnsureCachedAsync(photo);
     }
 
     private void UpdateNavigationBounds()
@@ -347,14 +358,13 @@ public partial class PhotoViewerPage : ContentPage
             _ => false
         };
 
-        _currentZoomed = zoomed;
-        if (_currentZoomed)
+        if (zoomed)
             HideActionBar();
     }
 
     private void OnImageSingleTapped(object? sender, EventArgs e)
     {
-        if (_photos[_index].IsVideo || _currentZoomed || _exporting)
+        if (_photos[_index].IsVideo || _exporting)
             return;
 
         if (_chromeVisible)
@@ -365,11 +375,14 @@ public partial class PhotoViewerPage : ContentPage
 
     private void OnVideoSingleTapped(object? sender, EventArgs e)
     {
-        // 播放/暂停已在控件内处理；此处只同步页面 chrome。
-        if (!_photos[_index].IsVideo || _currentZoomed || _exporting)
+        if (!_photos[_index].IsVideo || _exporting)
             return;
 
-        ShowChrome();
+        // 与视频控件显隐同步：播放条已在控件内切换，这里同步顶部按钮。
+        if (_videoView.AreControlsVisible)
+            ShowChrome();
+        else
+            HideChrome();
     }
 
     private void OnInfoClicked(object? sender, EventArgs e)
@@ -427,7 +440,7 @@ public partial class PhotoViewerPage : ContentPage
     {
         BackButton.InputTransparent = !enabled;
         InfoButton.InputTransparent = !enabled;
-        FullscreenButton.InputTransparent = !enabled;
+        PhotoRotateButton.InputTransparent = !enabled;
     }
 
     private void ScheduleHideChrome()
@@ -453,16 +466,36 @@ public partial class PhotoViewerPage : ContentPage
     }
 
     private async void OnBackClicked(object? sender, EventArgs e) =>
-        await Navigation.PopAsync();
+        await DismissAsync();
 
-    private async void OnFullscreenClicked(object? sender, EventArgs e)
+    private void OnRotateClicked(object? sender, EventArgs e)
     {
         ShowChrome();
-        await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
+        _isLandscape = !_isLandscape;
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.SetLandscape(_isLandscape);
+#endif
     }
 
-    private async void OnVideoFullscreenRequested(object? sender, EventArgs e) =>
-        await FullscreenMediaLauncher.OpenAsync(this, _photos, _index);
+    private Task DismissAsync()
+    {
+        if (Navigation.ModalStack.Count > 0 && ReferenceEquals(Navigation.ModalStack[^1], this))
+            return ShellNavigation.PopModalAsync();
+
+        return Navigation.PopAsync();
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (_actionBarVisible)
+        {
+            HideActionBar();
+            return true;
+        }
+
+        _ = DismissAsync();
+        return true;
+    }
 
     private async void OnDownloadClicked(object? sender, EventArgs e) =>
         await DownloadCurrentAsync();

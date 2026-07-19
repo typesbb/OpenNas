@@ -13,12 +13,8 @@ public partial class NasVideoPlayerView
 
     partial void InitializePlatform()
     {
-        Loaded += OnPlatformLoaded;
         ScheduleAndroidTouchAttach();
     }
-
-    private void OnPlatformLoaded(object? sender, EventArgs e) =>
-        ScheduleAndroidTouchAttach();
 
     private void ScheduleAndroidTouchAttach()
     {
@@ -78,10 +74,10 @@ public partial class NasVideoPlayerView
 
     internal void OnNativeSingleTap()
     {
-        TogglePlayPause();
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            ShowControls();
+            TogglePlayPause();
+            ToggleControls();
             SingleTapped?.Invoke(this, EventArgs.Empty);
         });
     }

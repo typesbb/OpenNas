@@ -271,7 +271,7 @@ public partial class TimelineView : ContentView
         PhotosAlbumMediaScope.Clear();
         var thumbBytes = GridThumbnailCapture.TryCapture(sender, photo);
         NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var thumbPath);
-        await ShellNavigation.PushAsync(new PhotoViewerPage(
+        await ShellNavigation.PushModalAsync(new PhotoViewerPage(
             _flatPhotos, index, _connection,
             _libraryContext?.TimelineLibrary ?? PhotosLibrary.PersonalSpace,
             seedThumbnailPath: thumbPath,

@@ -278,7 +278,7 @@ public partial class CategoryBrowsePage : ContentPage, IRefreshable
         PhotosAlbumMediaScope.Clear();
         var thumbBytes = GridThumbnailCapture.TryCapture(sender, photo);
         NasThumbnailLoader.TryFindCachedThumbnailPath(photo, out var thumbPath);
-        await ShellNavigation.PushAsync(new PhotoViewerPage(
+        await ShellNavigation.PushModalAsync(new PhotoViewerPage(
             _photos, index, _connection, _libraryContext?.ExploreLibrary ?? PhotosLibrary.PersonalSpace,
             seedThumbnailPath: thumbPath,
             seedThumbnailBytes: thumbBytes));

@@ -25,7 +25,7 @@ public partial class ZoomableImageView : ContentView
         true);
 
     private const double MinScale = 1;
-    private const double MaxScale = 5;
+    private const double MaxScale = 40;
     private const double NavigateThreshold = 72;
 
     private double _currentScale = 1;
@@ -116,12 +116,37 @@ public partial class ZoomableImageView : ContentView
             VerticalOptions = LayoutOptions.Center
         };
 
+        DownloadProgressBar = new ProgressBar
+        {
+            Progress = 0,
+            ProgressColor = Colors.White,
+            HeightRequest = 3,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+        DownloadLabel = new Label
+        {
+            Text = "加载中…",
+            TextColor = Colors.White,
+            FontSize = 12,
+            HorizontalOptions = LayoutOptions.Center
+        };
+        DownloadChrome = new VerticalStackLayout
+        {
+            Spacing = 4,
+            Margin = new Thickness(12, 0, 12, 28),
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.End,
+            IsVisible = false,
+            InputTransparent = true,
+            Children = { DownloadProgressBar, DownloadLabel }
+        };
+
         Host = new Grid
         {
             SafeAreaEdges = SafeAreaEdges.None,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            Children = { SlideHost, TouchLayer, LoadingIndicator }
+            Children = { SlideHost, TouchLayer, LoadingIndicator, DownloadChrome }
         };
 
         Content = Host;
@@ -133,6 +158,10 @@ public partial class ZoomableImageView : ContentView
     private ContentView TransformHost = null!;
     private Image PhotoImage = null!;
     private ActivityIndicator LoadingIndicator = null!;
+    private VerticalStackLayout DownloadChrome = null!;
+    private ProgressBar DownloadProgressBar = null!;
+    private Label DownloadLabel = null!;
+    private CancellationTokenSource? _downloadCts;
 
     internal void EnableManagedGestures()
     {
@@ -200,17 +229,49 @@ public partial class ZoomableImageView : ContentView
     {
         base.OnSizeAllocated(width, height);
         var hadSize = _containerWidth > 1 && _containerHeight > 1;
+        var orientationFlipped = hadSize
+            && ((_containerWidth < _containerHeight) != (width < height));
+        var sizeChangedSignificantly = hadSize
+            && (Math.Abs(_containerWidth - width) > 8 || Math.Abs(_containerHeight - height) > 8);
+
         _containerWidth = width;
         _containerHeight = height;
 
         UpdateTransformHostLayout();
 
+        if (orientationFlipped || sizeChangedSignificantly)
+        {
+            // 旋转后清掉滑动残差，并按新窗口尺寸重新居中适配。
+            SlideHost.TranslationX = 0;
+            SlideHost.TranslationY = 0;
+            if (ManagedGesturesEnabled)
+            {
+                _currentScale = 1;
+                _panX = 0;
+                _panY = 0;
+                _previousPinchScale = 1;
+                TransformHost.Scale = 1;
+                TransformHost.TranslationX = 0;
+                TransformHost.TranslationY = 0;
+                UpdateTransformHostLayout();
+                ApplyTransform();
+                ZoomChanged?.Invoke(this, EventArgs.Empty);
+            }
 #if ANDROID
-        if (!ManagedGesturesEnabled && width > 1 && height > 1 && (!hadSize || Photo != null))
+            else if (Photo != null)
+            {
+                ScheduleAndroidRefit();
+            }
+#endif
+        }
+#if ANDROID
+        else if (!ManagedGesturesEnabled && width > 1 && height > 1 && (!hadSize || Photo != null))
+        {
             NotifyDisplayReady();
+        }
 #endif
 
-        if (ManagedGesturesEnabled && !_isPinching)
+        if (ManagedGesturesEnabled && !_isPinching && !orientationFlipped && !sizeChangedSignificantly)
         {
             ClampPan();
             ApplyTransform();
@@ -227,6 +288,8 @@ public partial class ZoomableImageView : ContentView
         view.SlideHost.TranslationY = 0;
         view._loadGeneration++;
         var generation = view._loadGeneration;
+        view._downloadCts?.Cancel();
+        view.HideDownloadProgress();
 
         if (newValue is not Photo photo)
         {
@@ -296,12 +359,113 @@ public partial class ZoomableImageView : ContentView
         }
 
         NasMediaCache.PrepareOriginalCacheForLoad();
-        NasOriginalLoader.TryLoad(
-            PhotoImage,
-            photo,
-            loading => UpdateLoading(generation, loading),
-            () => generation == _loadGeneration,
-            () => RevealOriginal(generation));
+        _ = DownloadOriginalWithProgressAsync(photo, generation);
+    }
+
+    private async Task DownloadOriginalWithProgressAsync(Photo photo, int generation)
+    {
+        _downloadCts?.Cancel();
+        _downloadCts = new CancellationTokenSource();
+        var token = _downloadCts.Token;
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (generation != _loadGeneration)
+                return;
+            ShowDownloadProgress(0, photo.FileSize > 0 ? photo.FileSize : null);
+            UpdateLoading(generation, true);
+        });
+
+        try
+        {
+            var path = await NasOriginalLoader.EnsureCachedWithProgressAsync(
+                photo,
+                new Progress<NasDownloadProgress>(p =>
+                {
+                    if (generation != _loadGeneration)
+                        return;
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        if (generation != _loadGeneration)
+                            return;
+                        if (p.IsComplete)
+                            HideDownloadProgress();
+                        else
+                            ShowDownloadProgress(p.BytesReceived, p.TotalBytes);
+                    });
+                }),
+                token).ConfigureAwait(false);
+
+            if (generation != _loadGeneration)
+                return;
+
+            if (string.IsNullOrEmpty(path))
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    HideDownloadProgress();
+                    UpdateLoading(generation, false);
+                });
+                return;
+            }
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (generation != _loadGeneration)
+                    return;
+#if ANDROID
+                Platforms.Android.NativeImageBitmap.SetBitmapFromFile(PhotoImage, path);
+#else
+                PhotoImage.Source = ImageSource.FromFile(path);
+#endif
+                HideDownloadProgress();
+                UpdateLoading(generation, false);
+                RevealOriginal(generation);
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            if (generation == _loadGeneration)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    HideDownloadProgress();
+                    UpdateLoading(generation, false);
+                });
+            }
+        }
+        catch
+        {
+            if (generation == _loadGeneration)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    HideDownloadProgress();
+                    UpdateLoading(generation, false);
+                });
+            }
+        }
+    }
+
+    private void ShowDownloadProgress(long received, long? total)
+    {
+        DownloadChrome.IsVisible = true;
+        if (total is > 0)
+        {
+            DownloadProgressBar.Progress = Math.Clamp(received / (double)total.Value, 0, 1);
+            DownloadLabel.Text = $"加载 {received * 100 / total.Value}%";
+        }
+        else
+        {
+            DownloadProgressBar.Progress = 0;
+            DownloadLabel.Text = $"加载 {NasMediaCache.FormatBytes(received)}";
+        }
+    }
+
+    private void HideDownloadProgress()
+    {
+        DownloadChrome.IsVisible = false;
+        DownloadProgressBar.Progress = 0;
     }
 
     private async Task SwapToOriginalAsync(string originalPath, int generation)
@@ -537,15 +701,12 @@ public partial class ZoomableImageView : ContentView
 
     internal void OnNativeSingleTap()
     {
-        if (IsZoomed)
-            return;
-
         MainThread.BeginInvokeOnMainThread(() => SingleTapped?.Invoke(this, EventArgs.Empty));
     }
 
     private void OnSingleTappedManaged(object? sender, TappedEventArgs e)
     {
-        if (_isNavigating || _isPinching || IsZoomed)
+        if (_isNavigating || _isPinching)
             return;
 
         SingleTapped?.Invoke(this, EventArgs.Empty);

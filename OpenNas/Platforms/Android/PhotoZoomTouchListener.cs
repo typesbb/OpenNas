@@ -74,7 +74,7 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
     private ImageView? _imageView;
     private AView? _touchTarget;
     private float _minScale = 1f;
-    private readonly float _maxScale = 5f;
+    private readonly float _maxScale = 40f;
     private int _mode = ModeNone;
     private float _navStartX;
     private float _navStartY;
@@ -121,8 +121,13 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
         _mode = ModeNone;
         _minScale = 1f;
 
-        _imageView.SetScaleType(ImageView.ScaleType.FitCenter);
-        _imageView.ImageMatrix = null;
+        // 立刻用 Matrix 居中适配，避免 FitCenter 被 MAUI 布局挤偏。
+        if (!TryInitFitMatrix())
+        {
+            _imageView.SetScaleType(ImageView.ScaleType.FitCenter);
+            _imageView.ImageMatrix = null;
+        }
+
         _view.NotifyNativeZoomChanged(false);
     }
 

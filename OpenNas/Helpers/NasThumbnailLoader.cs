@@ -33,61 +33,6 @@ public static class NasThumbnailLoader
         AppLog.Debug($"登记缩略图占位 id={photoId} path={path}");
     }
 
-    /// <summary>
-    /// 同步取可用缩略图 Source。Android Release 上必须用 FromFile，FromStream 常解码失败成空白。
-    /// </summary>
-    public static bool TryGetImmediateThumbnailSource(Photo photo, out ImageSource? source)
-    {
-        source = null;
-        if (!TryFindCachedThumbnailPath(photo, out var path) || string.IsNullOrEmpty(path))
-        {
-            // 仅有内存字节时先落盘，再 FromFile。
-            if (!TryMaterializeBytesCacheToFile(photo, out path))
-                return false;
-        }
-
-        RememberDisplayedThumbnail(photo.Id, path);
-        source = ImageSource.FromFile(path);
-        return true;
-    }
-
-    private static bool TryMaterializeBytesCacheToFile(Photo photo, out string path)
-    {
-        path = "";
-        var thumb = photo.Additional?.Thumbnail;
-        if (thumb == null || string.IsNullOrEmpty(thumb.CacheKey))
-            return false;
-
-        foreach (var id in CollectThumbnailIds(photo))
-        {
-            foreach (var albumId in new int?[] { PhotosAlbumMediaScope.CurrentAlbumId, null })
-            {
-                foreach (var passphrase in new[] { PhotosAlbumMediaScope.CurrentPassphrase, null })
-                {
-                    var key = BuildMemoryCacheKey(id, thumb.CacheKey, "unit", albumId, passphrase);
-                    if (!ThumbnailBytesCache.TryGetValue(key, out var bytes)
-                        || bytes.Length <= NasThumbnailBytes.MinValidThumbnailBytes)
-                        continue;
-
-                    path = NasMediaCache.GetThumbnailFilePath(id, thumb.CacheKey);
-                    try
-                    {
-                        if (!IsUsableThumbnailFile(path))
-                            File.WriteAllBytes(path, bytes);
-                        if (IsUsableThumbnailFile(path))
-                            return true;
-                    }
-                    catch
-                    {
-                        // try next key
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>查找网格已显示或磁盘上的缩略图路径。</summary>
     public static bool TryFindCachedThumbnailPath(Photo photo, out string path)
     {
@@ -404,15 +349,6 @@ public static class NasThumbnailLoader
         {
             AppLog.Debug("缩略图加载失败", ex);
         }
-    }
-
-    private static void ClearThumbnailMemoryCacheEntry(int id, string cacheKey)
-    {
-        var albumId = PhotosAlbumMediaScope.CurrentAlbumId;
-        var passphrase = PhotosAlbumMediaScope.CurrentPassphrase;
-        var key = BuildMemoryCacheKey(id, cacheKey, "unit", albumId, passphrase);
-        MemoryCache.TryRemove(key, out _);
-        ThumbnailBytesCache.TryRemove(key, out _);
     }
 
     private static async Task<byte[]?> DownloadThumbnailBytesAsync(

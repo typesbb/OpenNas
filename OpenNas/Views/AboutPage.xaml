@@ -53,7 +53,7 @@
                 <Border Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="• 浏览相册、时间线与探索分类" FontSize="14" />
-                        <Label Text="• 查看原图与全屏视频" FontSize="14" />
+                        <Label Text="• 查看原图与视频预览" FontSize="14" />
                         <Label Text="• 管理相册：新建、排序、上传、移动与删除" FontSize="14" />
                         <Label Text="• 将本机相册自动备份到 NAS" FontSize="14" />
                         <Label Text="• 支持内网 / 外网双地址与自动切换" FontSize="14" />

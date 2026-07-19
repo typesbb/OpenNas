@@ -69,9 +69,6 @@
 		<MauiImage Update="Resources\Images\icon_add.svg" BaseSize="24,24" />
 		<MauiImage Update="Resources\Images\icon_more.svg" BaseSize="24,24" />
 		<MauiImage Update="Resources\Images\icon_back.svg" BaseSize="24,24" />
-		<MauiImage Update="Resources\Images\icon_fullscreen.svg" BaseSize="24,24" Resize="False" />
-		<MauiImage Update="Resources\Images\icon_rotate.svg" BaseSize="24,24" Resize="False" />
-		<MauiImage Update="Resources\Images\icon_pip.svg" BaseSize="24,24" Resize="False" />
 		<MauiFont Include="Resources\Fonts\*" />
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>

@@ -455,8 +455,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
             _photos, index, _connection,
             seedThumbnailPath: thumbPath,
             seedThumbnailBytes: thumbBytes);
-        Shell.SetTabBarIsVisible(viewer, false);
-        await Navigation.PushAsync(viewer);
+        await ShellNavigation.PushModalAsync(viewer);
     }
 
     private async void OnBackClicked(object? sender, EventArgs e)
@@ -768,7 +767,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
                 throw new InvalidOperationException("从当前相册移除失败。");
 
             ExitSelectionMode();
-            await ReloadPhotosAsync();
+            RemovePhotosFromLocalLists(selected);
             await DisplayAlertAsync(_album.Name, $"已将 {selected.Count} 张照片移动到 {target.Name}。", "确定");
         }
         catch (Exception ex)
@@ -842,7 +841,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
                 throw new InvalidOperationException("从相册移除失败。");
 
             ExitSelectionMode();
-            await ReloadPhotosAsync();
+            RemovePhotosFromLocalLists(selected);
         }
         catch (Exception ex)
         {
@@ -868,7 +867,7 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
                 throw new InvalidOperationException("从 NAS 删除失败。");
 
             ExitSelectionMode();
-            await ReloadPhotosAsync();
+            RemovePhotosFromLocalLists(selected);
             await UiFeedback.ToastAsync($"已删除 {selected.Count} 项");
         }
         catch (Exception ex)
@@ -881,6 +880,62 @@ public partial class AlbumDetailPage : ContentPage, INotifyPropertyChanged, IDis
             BusyIndicator.IsRunning = false;
             BusyIndicator.IsVisible = false;
         }
+    }
+
+    /// <summary>从本地列表增量移除，避免整页重载导致滚动位置丢失。</summary>
+    private void RemovePhotosFromLocalLists(IReadOnlyList<Photo> photos)
+    {
+        if (photos.Count == 0)
+            return;
+
+        var ids = new HashSet<int>(photos.Select(p => p.Id));
+
+        if (_pendingDisplayPhotos.Count > 0)
+        {
+            var kept = _pendingDisplayPhotos.Where(p => !ids.Contains(p.Id)).ToList();
+            _pendingDisplayPhotos.Clear();
+            foreach (var photo in kept)
+                _pendingDisplayPhotos.Enqueue(photo);
+        }
+
+        _photos.RemoveAll(p => ids.Contains(p.Id));
+
+        if (UsesGroups)
+        {
+            for (var g = _groups.Count - 1; g >= 0; g--)
+            {
+                var group = _groups[g];
+                for (var i = group.Count - 1; i >= 0; i--)
+                {
+                    if (ids.Contains(group[i].Id))
+                        group.RemoveAt(i);
+                }
+
+                if (group.Count == 0)
+                    _groups.RemoveAt(g);
+                else
+                    group.RefreshCheckState();
+            }
+        }
+        else
+        {
+            for (var i = _flatPhotos.Count - 1; i >= 0; i--)
+            {
+                if (ids.Contains(_flatPhotos[i].Id))
+                    _flatPhotos.RemoveAt(i);
+            }
+        }
+
+        foreach (var id in ids)
+        {
+            if (_selectableById.Remove(id, out var item))
+                item.PropertyChanged -= OnSelectablePhotoPropertyChanged;
+        }
+
+        _album.ItemCount = Math.Max(0, _album.ItemCount - photos.Count);
+        _offset = _photos.Count;
+        _hasMore = _offset < _album.ItemCount;
+        UpdateSelectionUi();
     }
 
     private async void OnAddPhotoClicked(object? sender, EventArgs e)
