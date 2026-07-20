@@ -7,7 +7,7 @@ namespace OpenNas.Views;
 
 public partial class PhotoViewerPage : ContentPage
 {
-    private const int ChromeAutoHideMs = 2800;
+    private const int ChromeAutoHideMs = 5000;
 
     private readonly IReadOnlyList<Photo> _photos;
     private readonly ZoomableImageView _imageView;

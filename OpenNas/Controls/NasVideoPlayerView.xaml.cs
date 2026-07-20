@@ -29,7 +29,7 @@ public partial class NasVideoPlayerView : ContentView
     private const double NavigateThreshold = 72;
     private const double MinScale = 1;
     private const double MaxScale = 40;
-    private const int ChromeAutoHideMs = 2800;
+    private const int ChromeAutoHideMs = 5000;
 
     private PanMode _panMode = PanMode.None;
     private double _navPanY;

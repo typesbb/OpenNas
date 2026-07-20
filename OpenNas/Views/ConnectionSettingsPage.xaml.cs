@@ -6,7 +6,10 @@ namespace OpenNas.Views;
 
 public partial class ConnectionSettingsPage : ContentPage
 {
+    private const string QuickConnectSuffix = ".cn5.quickconnect.cn";
+
     private readonly ConnectionService _connection;
+    private bool _suppressWanHostTextChanged;
 
     public ConnectionSettingsPage(ConnectionService connection)
     {
@@ -34,13 +37,11 @@ public partial class ConnectionSettingsPage : ContentPage
     {
         var profiles = await _connection.LoadProfilesAsync();
 
-        // Populate LAN
         var lanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Lan);
         PopulateAddress(lanProfile, LanProtocol, LanHost, LanPort);
 
-        // Populate WAN
         var wanProfile = profiles.FirstOrDefault(p => p.NetworkKind == NetworkKind.Wan);
-        PopulateAddress(wanProfile, WanProtocol, WanHost, WanPort);
+        PopulateWanAddress(wanProfile);
 
         AutoSwitchToggle.IsToggled = _connection.AutoSwitchEnabled;
 
@@ -68,17 +69,47 @@ public partial class ConnectionSettingsPage : ContentPage
         }
     }
 
+    private void PopulateWanAddress(NasProfile? profile)
+    {
+        if (profile == null || string.IsNullOrWhiteSpace(profile.BaseUrl))
+        {
+            UpdateWanHostSuffixVisibility();
+            return;
+        }
+
+        _suppressWanHostTextChanged = true;
+        try
+        {
+            if (Uri.TryCreate(profile.BaseUrl, UriKind.Absolute, out var uri))
+            {
+                WanProtocol.SelectedIndex = uri.Scheme == Uri.UriSchemeHttps ? 0 : 1;
+                WanPort.Text = uri.Port.ToString();
+                WanHost.Text = StripQuickConnectSuffixForDisplay(uri.Host);
+            }
+            else
+            {
+                WanHost.Text = StripQuickConnectSuffixForDisplay(profile.BaseUrl);
+            }
+        }
+        finally
+        {
+            _suppressWanHostTextChanged = false;
+        }
+
+        UpdateWanHostSuffixVisibility();
+    }
+
     private async void OnSaveClicked(object sender, EventArgs e)
     {
         try
         {
             var lanHost = LanHost.Text?.Trim();
-            var wanHost = WanHost.Text?.Trim();
+            var wanHost = ResolveWanHostForSave();
 
             var profiles = await _connection.LoadProfilesAsync();
 
-            UpsertOrRemoveProfile(profiles, NetworkKind.Lan, "内网", lanHost, LanProtocol, LanPort);
-            UpsertOrRemoveProfile(profiles, NetworkKind.Wan, "外网", wanHost, WanProtocol, WanPort);
+            UpsertOrRemoveProfile(profiles, NetworkKind.Lan, "内网", lanHost, LanProtocol, LanPort, defaultPort: "5001");
+            UpsertOrRemoveProfile(profiles, NetworkKind.Wan, "外网", wanHost, WanProtocol, WanPort, defaultPort: "443");
 
             await _connection.SaveProfilesAsync(profiles);
 
@@ -111,13 +142,70 @@ public partial class ConnectionSettingsPage : ContentPage
         }
     }
 
+    private void OnWanHostTextChanged(object? sender, TextChangedEventArgs e) =>
+        UpdateWanHostSuffixVisibility();
+
+    private void UpdateWanHostSuffixVisibility()
+    {
+        if (_suppressWanHostTextChanged)
+            return;
+
+        WanHostSuffix.IsVisible = ShouldShowQuickConnectSuffix(WanHost.Text);
+    }
+
+    /// <summary>保存时：若正显示补全段，则拼上后缀。</summary>
+    private string? ResolveWanHostForSave()
+    {
+        var raw = WanHost.Text?.Trim();
+        if (string.IsNullOrEmpty(raw))
+            return raw;
+
+        if (ShouldShowQuickConnectSuffix(raw))
+            return raw.TrimEnd('.') + QuickConnectSuffix;
+
+        return NormalizeHostInput(raw);
+    }
+
+    private static string StripQuickConnectSuffixForDisplay(string host)
+    {
+        host = NormalizeHostInput(host);
+        if (host.EndsWith(QuickConnectSuffix, StringComparison.OrdinalIgnoreCase))
+            return host[..^QuickConnectSuffix.Length];
+        return host;
+    }
+
+    private static bool ShouldShowQuickConnectSuffix(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            return false;
+
+        host = NormalizeHostInput(host);
+        if (System.Net.IPAddress.TryParse(host, out _))
+            return false;
+        if (host.Contains("quickconnect.", StringComparison.OrdinalIgnoreCase))
+            return false;
+        // 其它完整域名（含点）不补全；纯 ID 才显示后缀段
+        return !host.Contains('.');
+    }
+
+    private static string NormalizeHostInput(string host)
+    {
+        host = host.Trim().TrimEnd('.');
+        if (host.Contains("://", StringComparison.Ordinal)
+            && Uri.TryCreate(host, UriKind.Absolute, out var uri)
+            && !string.IsNullOrEmpty(uri.Host))
+            return uri.Host;
+        return host;
+    }
+
     private static void UpsertOrRemoveProfile(
         List<NasProfile> profiles,
         NetworkKind kind,
         string displayName,
         string? host,
         Picker protocol,
-        Entry port)
+        Entry port,
+        string defaultPort)
     {
         var existing = profiles.FirstOrDefault(p => p.NetworkKind == kind);
         if (string.IsNullOrWhiteSpace(host))
@@ -129,7 +217,7 @@ public partial class ConnectionSettingsPage : ContentPage
 
         var profile = existing ?? new NasProfile { NetworkKind = kind };
         profile.DisplayName = displayName;
-        profile.BaseUrl = BuildUrl(protocol, host, port);
+        profile.BaseUrl = BuildUrl(protocol, host, port, defaultPort);
         profile.NetworkKind = kind;
 
         if (existing == null)
@@ -141,12 +229,12 @@ public partial class ConnectionSettingsPage : ContentPage
         }
     }
 
-    private static string BuildUrl(Picker protocol, string host, Entry port)
+    private static string BuildUrl(Picker protocol, string host, Entry port, string defaultPort)
     {
         var scheme = protocol.SelectedIndex == 0 ? "https" : "http";
         var portText = port.Text?.Trim();
         if (string.IsNullOrEmpty(portText))
-            portText = "5001";
+            portText = defaultPort;
         return $"{scheme}://{host}:{portText}";
     }
 
