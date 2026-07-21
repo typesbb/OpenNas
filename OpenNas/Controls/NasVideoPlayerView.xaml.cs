@@ -127,7 +127,22 @@ public partial class NasVideoPlayerView : ContentView
     public event EventHandler? ZoomChanged;
     public event EventHandler? RotateRequested;
 
-    public bool IsZoomed => _currentScale > 1.05;
+    public bool IsZoomed => _currentScale > 1.05 || _pinchActive;
+
+    private bool _pinchActive;
+
+    /// <summary>捏合开始：先藏状态栏，松手后若未放大再恢复。</summary>
+    internal void NotifyPinchStarted()
+    {
+        _pinchActive = true;
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void NotifyPinchEnded()
+    {
+        _pinchActive = false;
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public bool AreControlsVisible => _controlsVisible;
 
@@ -1227,6 +1242,7 @@ public partial class NasVideoPlayerView : ContentView
         _panY = 0;
         _previousPinchScale = 1;
         _isPinching = false;
+        _pinchActive = false;
         TransformHost.Scale = 1;
         TransformHost.TranslationX = 0;
         TransformHost.TranslationY = 0;

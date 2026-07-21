@@ -20,6 +20,11 @@ namespace OpenNas
             Instance = this!;
             base.OnCreate(savedInstanceState);
             HandleNavigationIntent(Intent);
+
+            // Modal 是独立 DialogFragment.Window，绑定后缩放才能改对系统栏。
+            SupportFragmentManager.RegisterFragmentLifecycleCallbacks(
+                new Platforms.Android.MediaPreviewFragmentCallbacks(),
+                true);
         }
 
         protected override void OnNewIntent(Android.Content.Intent? intent)
@@ -35,7 +40,7 @@ namespace OpenNas
             base.OnResume();
             OpenNas.Platforms.Android.BackupPendingDeleteHelper.TryLaunchDeleteConfirmation(this);
             if (Platforms.Android.FullscreenOrientationHelper.WantImmersive)
-                Platforms.Android.FullscreenOrientationHelper.Apply();
+                Platforms.Android.FullscreenOrientationHelper.ReapplyCurrent();
         }
 
         public override void OnWindowFocusChanged(bool hasFocus)
@@ -43,7 +48,7 @@ namespace OpenNas
             base.OnWindowFocusChanged(hasFocus);
             // 系统在重新获得焦点时会清掉 Immersive 标志，必须在这里重设。
             if (hasFocus && Platforms.Android.FullscreenOrientationHelper.WantImmersive)
-                Platforms.Android.FullscreenOrientationHelper.Apply();
+                Platforms.Android.FullscreenOrientationHelper.ReapplyCurrent();
         }
 
         protected override void OnActivityResult(int requestCode, Result resultCode, Android.Content.Intent? intent)

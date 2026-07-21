@@ -90,7 +90,7 @@ public partial class PhotoViewerPage : ContentPage
     {
         base.OnAppearing();
 #if ANDROID
-        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+        Platforms.Android.FullscreenOrientationHelper.EnterMediaPreview();
 #endif
         HookWindowLifecycle();
         PhotosMediaLibraryScope.Current = _mediaLibrary;
@@ -152,7 +152,7 @@ public partial class PhotoViewerPage : ContentPage
     private void OnWindowResumed(object? sender, EventArgs e)
     {
 #if ANDROID
-        Platforms.Android.FullscreenOrientationHelper.EnterImmersive();
+        Platforms.Android.FullscreenOrientationHelper.ReapplyCurrent();
 #endif
         _videoView.HandleAppResume();
     }
@@ -360,6 +360,9 @@ public partial class PhotoViewerPage : ContentPage
 
         if (zoomed)
             HideActionBar();
+#if ANDROID
+        Platforms.Android.FullscreenOrientationHelper.SetZoomImmersive(zoomed);
+#endif
     }
 
     private void OnImageSingleTapped(object? sender, EventArgs e)

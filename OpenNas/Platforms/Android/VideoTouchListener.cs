@@ -133,6 +133,10 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
             _longPressActive = false;
             _view.OnNativeLongPressReleased();
         }
+
+        // 捏合一开始就藏状态栏（改 Modal Dialog.Window）。
+        FullscreenOrientationHelper.SetZoomImmersive(true);
+        _view.NotifyPinchStarted();
     }
 
     internal void OnScale(ScaleGestureDetector detector)
@@ -153,7 +157,14 @@ public sealed class VideoTouchListener : Java.Lang.Object, AView.IOnTouchListene
     {
         _isPinching = false;
         if (!_view.IsZoomed)
+        {
             _view.ResetZoomFromNative();
+        }
+        else
+        {
+            // 结束捏合但保持放大：同步一次 zoom 状态（清掉仅 pinch 的临时态由控件处理）
+            _view.NotifyPinchEnded();
+        }
     }
 
     /// <summary>手势模式被中断时，清掉可能残留的 seek / 竖滑状态。</summary>

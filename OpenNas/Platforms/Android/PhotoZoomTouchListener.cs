@@ -26,6 +26,8 @@ public sealed class PhotoZoomScaleListener : Java.Lang.Object, ScaleGestureDetec
     {
         _owner.EnsureMatrixMode();
         _owner.SaveMatrixForScaleBegin();
+        // 捏合一开始就藏状态栏（与系统相册一致，不必等放大超过阈值）。
+        _owner.NotifyPinchStarted();
         return true;
     }
 
@@ -232,6 +234,13 @@ public sealed class PhotoZoomTouchListener : Java.Lang.Object, AView.IOnTouchLis
         }
 
         return true;
+    }
+
+    internal void NotifyPinchStarted()
+    {
+        // Modal 的系统栏在 Dialog.Window 上，直接切，不依赖 MAUI 事件链。
+        FullscreenOrientationHelper.SetZoomImmersive(true);
+        _view.NotifyNativeZoomChanged(true);
     }
 
     internal void OnScale(ScaleGestureDetector detector)
