@@ -1,3 +1,4 @@
+using OpenNas.Helpers;
 using OpenNas.Services;
 using OpenNas.Views;
 
@@ -23,6 +24,8 @@ public partial class App : Application
             _ => AppTheme.Unspecified
         };
 
+        RequestedThemeChanged += OnRequestedThemeChanged;
+
         // 全局异常处理
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
@@ -46,15 +49,22 @@ public partial class App : Application
 #endif
     }
 
+    private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e) =>
+        MainThread.BeginInvokeOnMainThread(() => SystemBarsTheme.Apply(e.RequestedTheme));
+
     protected override Window CreateWindow(IActivationState? activationState)
     {
         var window = new Window(Services.GetRequiredService<StartupPage>());
         window.Resumed += OnWindowResumed;
+        // 窗口就绪后再刷一次；冷启动时 StatusBar API 过早调用无效。
+        window.Activated += (_, _) => SystemBarsTheme.Apply();
         return window;
     }
 
     private void OnWindowResumed(object? sender, EventArgs e)
     {
+        // 后台期间系统外观可能已变（跟随系统），回前台强制同步状态栏。
+        SystemBarsTheme.ApplyAfterResume();
         // 后台期间可能漏掉 ConnectivityChanged（尤其 WiFi→另一 WiFi），回前台强制确认地址
         _ = EnsureEndpointOnResumeAsync();
     }

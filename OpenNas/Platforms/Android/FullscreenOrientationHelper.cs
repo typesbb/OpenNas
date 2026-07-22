@@ -101,6 +101,8 @@ internal static class FullscreenOrientationHelper
         catch
         {
         }
+
+        OpenNas.Helpers.SystemBarsTheme.Apply();
     }
 
     private static AWindow? ResolveWindow()

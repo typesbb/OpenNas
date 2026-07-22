@@ -247,7 +247,8 @@ public partial class NasAlbumsView : ContentView
             if (SynologyManager.IsAddressSwitchErrorSuppressed)
                 return;
 
-            await ShowAlertAsync("加载超时，请检查网络后重试；也可到「我的」切换内外网地址。");
+            await ShowAlertAsync(
+                "内外网均无法连接。请检查手机网络是否正常，并到「我的」确认内外网地址是否正确。");
         }
         catch (Exception ex)
         {

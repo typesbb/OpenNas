@@ -141,5 +141,7 @@ public partial class ProfilePage : ContentPage, IRefreshable
         Preferences.Default.Set(ThemeKey, next);
         Application.Current!.UserAppTheme = IndexToTheme(next);
         ThemeLabel.Text = ThemeLabels[next];
+        // RequestedThemeChanged 会刷新；这里再显式刷一次，避免个别机型事件滞后。
+        MainThread.BeginInvokeOnMainThread(() => OpenNas.Helpers.SystemBarsTheme.Apply());
     }
 }

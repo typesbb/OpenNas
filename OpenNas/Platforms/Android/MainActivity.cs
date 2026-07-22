@@ -1,5 +1,7 @@
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
+using Android.Content.Res;
 using Android.OS;
 using AndroidX.DocumentFile.Provider;
 using OpenNas.Services;
@@ -41,14 +43,29 @@ namespace OpenNas
             OpenNas.Platforms.Android.BackupPendingDeleteHelper.TryLaunchDeleteConfirmation(this);
             if (Platforms.Android.FullscreenOrientationHelper.WantImmersive)
                 Platforms.Android.FullscreenOrientationHelper.ReapplyCurrent();
+            else if (!Platforms.Android.FullscreenOrientationHelper.InMediaPreview)
+                Helpers.SystemBarsTheme.ApplyAfterResume();
+        }
+
+        public override void OnConfigurationChanged(Configuration newConfig)
+        {
+            base.OnConfigurationChanged(newConfig);
+            // Activity 声明了 ConfigChanges.UiMode，系统深浅色切换不会重建 Activity，必须在这里刷状态栏。
+            if (!Platforms.Android.FullscreenOrientationHelper.InMediaPreview)
+                Helpers.SystemBarsTheme.ApplyAfterResume();
         }
 
         public override void OnWindowFocusChanged(bool hasFocus)
         {
             base.OnWindowFocusChanged(hasFocus);
             // 系统在重新获得焦点时会清掉 Immersive 标志，必须在这里重设。
-            if (hasFocus && Platforms.Android.FullscreenOrientationHelper.WantImmersive)
+            if (!hasFocus)
+                return;
+
+            if (Platforms.Android.FullscreenOrientationHelper.WantImmersive)
                 Platforms.Android.FullscreenOrientationHelper.ReapplyCurrent();
+            else if (!Platforms.Android.FullscreenOrientationHelper.InMediaPreview)
+                Helpers.SystemBarsTheme.Apply();
         }
 
         protected override void OnActivityResult(int requestCode, Result resultCode, Android.Content.Intent? intent)
